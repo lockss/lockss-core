@@ -245,8 +245,8 @@ public class ContentServletManager
 					  ? null : redTo);
   }
 
-  protected void installUsers() {
-  }
+//   protected void installUsers() {
+//   }
 
   protected void configureContexts(HttpServer server) {
     try {

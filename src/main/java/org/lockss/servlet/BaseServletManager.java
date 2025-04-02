@@ -284,8 +284,8 @@ public abstract class BaseServletManager
    * manager */
   public abstract ServletDescr[] getServletDescrs();
 
-  /** Install appropriate users for these servlets */
-  protected abstract void installUsers();
+//   /** Install appropriate users for these servlets */
+//   protected abstract void installUsers();
 
   /** Create and configure contexts for this server */
   protected abstract void configureContexts(HttpServer server);
@@ -581,7 +581,7 @@ public abstract class BaseServletManager
   void setupAuthRealm() {
     if (mi.doAuth) {
       realm = newUserRealm();
-      installUsers();
+//       installUsers();
       if (acctMgr != null && acctMgr.getUsers().isEmpty()) {
 	log.warning("No users created, " + mi.authRealm +
 		    " is effectively disabled.");
@@ -593,25 +593,25 @@ public abstract class BaseServletManager
     return new LockssUserRealm(mi.authRealm, acctMgr);
   }
 
-  protected void installDebugUser() {
-    acctMgr.installDebugUser(mi.debugUserFile);
-  }
+//   protected void installDebugUser() {
+//     acctMgr.installDebugUser(mi.debugUserFile);
+//   }
 
-  // Manually install password set by platform config.
-  protected void installPlatformUser() {
-    acctMgr.installPlatformUser();
-  }
+//   // Manually install password set by platform config.
+//   protected void installPlatformUser() {
+//     acctMgr.installPlatformUser();
+//   }
 
-  protected void installGlobalUsers() {
-    // Install globally configured users
-    // XXX disallow this on the platform
-    acctMgr.installStaticConfigUsers(ConfigManager.getCurrentConfig().getConfigTree(mi.prefix + SUFFIX_USERS));
-  }
+//   protected void installGlobalUsers() {
+//     // Install globally configured users
+//     // XXX disallow this on the platform
+//     acctMgr.installStaticConfigUsers(ConfigManager.getCurrentConfig().getConfigTree(mi.prefix + SUFFIX_USERS));
+//   }
 
-  protected void installLocalUsers() {
-    // Install locally configured users
-//     installUsers(ConfigManager.getCurrentConfig().getConfigTree(PARAM_USERS));
-  }
+//   protected void installLocalUsers() {
+//     // Install locally configured users
+// //     installUsers(ConfigManager.getCurrentConfig().getConfigTree(PARAM_USERS));
+//   }
 
   protected void addAccessHandler(HttpContext context) {
     IpAccessHandler ah = new IpAccessHandler(serverName);
