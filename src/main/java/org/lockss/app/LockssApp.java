@@ -951,7 +951,7 @@ public class LockssApp {
   protected LockssManager instantiateManager(ManagerDesc desc)
       throws Exception {
     LockssManager mgr;
-    if ((mgr = System.getProperties.get(MANAGER_INSTANCE_PREFIX + desc.key)) == null) {
+    if ((mgr = (LockssManager) System.getProperties().get(MANAGER_INSTANCE_PREFIX + desc.key)) == null) {
       String managerName = getManagerClassName(desc);
       try {
         mgr = (LockssManager)makeInstance(managerName);
@@ -1084,9 +1084,7 @@ public class LockssApp {
 
     // initialize our properties from the urls given
     initProperties();
-  }
 
-  protected void startManagers() throws Exception {
     log.info("Starting managers");
 
     // startup all services
@@ -1494,7 +1492,6 @@ public class LockssApp {
 
     try {
       startApp();
-      startManagers();
       // raise priority after starting other threads, so we won't get
       // locked out and fail to exit when told.
       Thread.currentThread().setPriority(Thread.NORM_PRIORITY + 2);
