@@ -3616,7 +3616,7 @@ public class ConfigManager implements LockssManager {
     this.groupNames = groups;
   }
 
-  // TinyUI comes up on port 8081 if can't complete initial props load
+  // TinyUI comes up on port 24621 if can't complete initial props load
 
   TinyUi tiny = null;
   String[] tinyData = new String[1];
