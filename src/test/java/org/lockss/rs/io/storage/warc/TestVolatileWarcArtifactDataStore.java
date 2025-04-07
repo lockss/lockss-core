@@ -51,7 +51,7 @@ import static org.mockito.Mockito.*;
 /**
  * Test class for {@link VolatileWarcArtifactDataStore}.
  */
-public class TestVolatileWarcArtifactStore extends AbstractWarcArtifactDataStoreTest<VolatileWarcArtifactDataStore> {
+public class TestVolatileWarcArtifactDataStore extends AbstractWarcArtifactDataStoreTest<VolatileWarcArtifactDataStore> {
   private final static L4JLogger log = L4JLogger.getLogger();
 
   // *******************************************************************************************************************
