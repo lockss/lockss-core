@@ -36,8 +36,7 @@ import com.fasterxml.jackson.annotation.JsonAutoDetect;
 import com.fasterxml.jackson.databind.DeserializationFeature;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.apache.commons.codec.digest.DigestUtils;
-import org.apache.commons.collections4.IterableUtils;
-import org.apache.commons.collections4.IteratorUtils;
+import org.apache.commons.collections4.*;
 import org.apache.commons.io.*;
 import org.apache.commons.io.output.UnsynchronizedByteArrayOutputStream;
 import org.archive.format.warc.WARCConstants;
@@ -89,6 +88,8 @@ import java.time.ZoneOffset;
 import java.time.ZonedDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.*;
+import java.util.function.*;
+import java.util.stream.Stream;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
@@ -2442,7 +2443,8 @@ public abstract class AbstractWarcArtifactDataStoreTest<WADS extends WarcArtifac
       ArtifactData ad1 = generateTestArtifactData(NS1, AUID1, "uri1", 1, 1024);
       Artifact a1 = store.addArtifactData(ad1);
       assertNotNull(a1);
-    });
+    },
+    (expIndex, actualIndex) -> {assertArtifactIndexEquals(expIndex, actualIndex);});
 
     runTestReindexArtifacts(true, index -> {
       // Add first artifact to the repository - don't commit
@@ -2498,24 +2500,103 @@ public abstract class AbstractWarcArtifactDataStoreTest<WADS extends WarcArtifac
       // Delete fourth artifact
       store.deleteArtifactData(a4);
       index.deleteArtifact(a4.getUuid());
+      },
+      (expIndex, actualIndex) -> {assertArtifactIndexEquals(expIndex, actualIndex);});
 
-//      // Remove all journal files
-//      for (Path basePath : store.getBasePaths()) {
-//        Path journalFile = Paths.get("lockss-repo.warc");
-//
-//        Stream<Path> journalFiles = store.findWarcs(basePath)
-//            .stream()
-//            .filter(warc -> warc.getFileName().equals(journalFile));
-//
-//        journalFiles.forEach(warc -> {
-//          try {
-//            store.removeWarc(warc);
-//          } catch (IOException e) {
-//            log.error("Could not remove journal file [journalFile: {}]", journalFile, e);
-//          }
-//        });
-//      }
-    });
+    // Ensure artifacts in parm WARCs but w/out journal entry get indexed & committed
+    runTestReindexArtifacts(true, index -> {
+      // Add first artifact to the repository - don't commit
+      ArtifactData ad1 = generateTestArtifactData(NS1, AUID1, "uri1", 1, 1024);
+      Artifact a1 = store.addArtifactData(ad1);
+      assertNotNull(a1);
+
+      // Add second artifact to the repository - commit
+      ArtifactData ad2 = generateTestArtifactData(NS1, AUID1, "uri2", 1, 1024);
+      Artifact a2 = store.addArtifactData(ad2);
+      assertNotNull(a2);
+      Future<Artifact> future = store.commitArtifactData(a2);
+      assertNotNull(future);
+      Artifact committed_a2 = future.get(10, TimeUnit.SECONDS);
+      assertTrue(committed_a2.getCommitted());
+
+      // Add another committed artifact
+      ArtifactData ad6 = generateTestArtifactData(NS1, AUID1, "uriXXX2", 1, 1024);
+      Artifact a6 = store.addArtifactData(ad6);
+      assertNotNull(a6);
+      future = store.commitArtifactData(a6);
+      assertNotNull(future);
+      Artifact committed_a6 = future.get(10, TimeUnit.SECONDS);
+      assertTrue(committed_a6.getCommitted());
+
+      // Add another artifact to the repository - commit
+      ArtifactData ad5 = generateTestArtifactData(NS1, AUID1, "uri2", 2, 1024);
+      Artifact a5 = store.addArtifactData(ad5);
+      assertNotNull(a5);
+      future = store.commitArtifactData(a5);
+      assertNotNull(future);
+      Artifact committed_a5 = future.get(10, TimeUnit.SECONDS);
+      assertTrue(committed_a5.getCommitted());
+
+      // Add third artifact to the repository - don't commit and immediately delete
+      ArtifactData ad3 = generateTestArtifactData(NS1, AUID1, "uri3", 1, 1024);
+      Artifact a3 = store.addArtifactData(ad3);
+      assertNotNull(a3);
+      store.deleteArtifactData(a3);
+      index.deleteArtifact(a3.getUuid());
+
+      // Add fourth artifact to the repository - commit and immediately delete
+      ArtifactData ad4 = generateTestArtifactData(NS1, AUID1, "uri4", 1, 1024);
+      Artifact a4 = store.addArtifactData(ad4);
+      assertNotNull(a4);
+
+      // Commit fourth artifact
+      future = store.commitArtifactData(a4);
+      assertNotNull(future);
+      Artifact committed_a4 = future.get(10, TimeUnit.SECONDS);
+      assertTrue(committed_a4.getCommitted());
+
+      // Delete fourth artifact
+      store.deleteArtifactData(a4);
+      index.deleteArtifact(a4.getUuid());
+
+      // The state of the artifacts & journals is deterministic at
+      // this point because we wait for the copies to complete,
+
+      // Remove all perm journal files
+
+      for (Path basePath : store.getBasePaths()) {
+        Path journalFile = Paths.get("lockss-repo.warc");
+
+        Stream<Path> journalFiles = store.findWarcs(basePath)
+          .stream()
+          .filter(path -> store.isWarcJournalPath(path))
+          .filter(path -> path.toString().matches(".*/ns/.*"));
+
+        journalFiles.forEach(warc -> {
+            try {
+              log.debug("Deleting journal: {}", warc);
+              store.removeWarc(warc);
+            } catch (IOException e) {
+              log.error("Could not remove journal file [journalFile: {}]", journalFile, e);
+            }
+          });
+      }},
+      (index1, index2) -> {assertNoJournalIndex(index1, index2);
+      });
+  }
+
+  private void assertNoJournalIndex(ArtifactIndex index1, ArtifactIndex index2) {
+    try {
+      List<Artifact> expArts = IterableUtils.toList(index1.getArtifacts(NS1, AUID1));
+      List<Artifact> actArts = IterableUtils.toList(index2.getArtifacts(NS1, AUID1));
+      assertEquals(2, expArts.size());
+      assertEquals(3, actArts.size());
+      List<Artifact> diff = ListUtils.removeAll(actArts, expArts);
+      assertEquals(1, diff.size());
+      assertEquals("uri4", diff.get(0).getUri());
+    } catch (Exception e) {
+      fail("assertNoJournalIndex failed due to", e);
+    }
   }
 
   interface Scenario {
@@ -2523,7 +2604,9 @@ public abstract class AbstractWarcArtifactDataStoreTest<WADS extends WarcArtifac
         throws IOException, InterruptedException, ExecutionException, TimeoutException;
   }
 
-  public void runTestReindexArtifacts(boolean useCompression, Scenario scenario) throws Exception {
+  public void runTestReindexArtifacts(boolean useCompression, Scenario scenario,
+                                      BiConsumer<ArtifactIndex,ArtifactIndex> assertions)
+      throws Exception {
     // Don't use provided data store, which provides an volatile index set
     teardownDataStore();
 
@@ -2566,29 +2649,34 @@ public abstract class AbstractWarcArtifactDataStoreTest<WADS extends WarcArtifac
     // Reindex artifacts
     store.reindexArtifacts(index2);
 
-    //// Compare and assert contents of indexes
-    assertArtifactIndexEquals(index1, index2);
+    assertions.accept(index1, index2);
   }
 
-  private void assertArtifactIndexEquals(ArtifactIndex expected, ArtifactIndex actual) throws IOException {
-    // Assert both indexes have the same namespaces
-    List<String> nss1 = IterableUtils.toList(expected.getNamespaces());
-    List<String> nss2 = IterableUtils.toList(actual.getNamespaces());
-    assertIterableEquals(nss1, nss2);
+  private void assertArtifactIndexEquals(ArtifactIndex expected, ArtifactIndex actual) {
+    try {
+      // Assert both indexes have the same namespaces
+      List<String> nss1 = IterableUtils.toList(expected.getNamespaces());
+      List<String> nss2 = IterableUtils.toList(actual.getNamespaces());
+      assertIterableEquals(nss1, nss2);
 
-    // Assert AUs in each namespace have the same artifacts
-    for (String ns : nss1) {
-      // Assert that this namespace has the same set of AUIDs
-      List<String> auids1 = IteratorUtils.toList(expected.getAuIds(ns).iterator());
-      List<String> auids2 = IteratorUtils.toList(actual.getAuIds(ns).iterator());
-      assertIterableEquals(auids1, auids2);
+      // Assert AUs in each namespace have the same artifacts
+      for (String ns : nss1) {
+        // Assert that this namespace has the same set of AUIDs
+        List<String> auids1 = IteratorUtils.toList(expected.getAuIds(ns).iterator());
+        List<String> auids2 = IteratorUtils.toList(actual.getAuIds(ns).iterator());
+        assertIterableEquals(auids1, auids2);
 
-      // Assert set of artifacts is the same in all AUs
-      for (String auid : auids1) {
-        Iterable<Artifact> artifacts1 = expected.getArtifacts(ns, auid, true);
-        Iterable<Artifact> artifacts2 = actual.getArtifacts(ns, auid, true);
-        assertIterableEquals(artifacts1, artifacts2);
+        // Assert set of artifacts is the same in all AUs
+        for (String auid : auids1) {
+//           assertEquals(IterableUtils.size(expected.getArtifacts(ns, auid, true)),
+//                        IterableUtils.size(actual.getArtifacts(ns, auid, true)));
+          Iterable<Artifact> artifacts1 = expected.getArtifacts(ns, auid, true);
+          Iterable<Artifact> artifacts2 = actual.getArtifacts(ns, auid, true);
+          assertIterableEquals(artifacts1, artifacts2);
+        }
       }
+    } catch (IOException e) {
+      fail("assertIterableEquals failed due to", e);
     }
   }
 
