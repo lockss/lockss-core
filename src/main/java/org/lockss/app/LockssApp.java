@@ -951,7 +951,9 @@ public class LockssApp {
   protected LockssManager instantiateManager(ManagerDesc desc)
       throws Exception {
     LockssManager mgr;
-    if ((mgr = (LockssManager) System.getProperties().get(MANAGER_INSTANCE_PREFIX + desc.key)) == null) {
+    if ((mgr = (LockssManager) System.getProperties().get(MANAGER_INSTANCE_PREFIX + desc.key)) != null) {
+      log.debug("Using already instantioted " + desc.key + ": " + mgr);
+    } else {
       String managerName = getManagerClassName(desc);
       try {
         mgr = (LockssManager)makeInstance(managerName);
