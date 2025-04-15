@@ -40,6 +40,7 @@ import java.io.BufferedOutputStream;
 import java.io.File;
 import java.io.FileOutputStream;
 import java.io.IOException;
+import java.nio.file.FileAlreadyExistsException;
 import java.nio.file.Path;
 
 public abstract class AbstractArtifactIndex implements ArtifactIndex {
@@ -82,9 +83,10 @@ public abstract class AbstractArtifactIndex implements ArtifactIndex {
   }
 
   public static void recordArtifactIndexVersion(File versionFile, ArtifactIndexVersion version) throws IOException {
-    FileUtils.touch(versionFile);
-    try (BufferedOutputStream fos = new BufferedOutputStream(new FileOutputStream(versionFile))) {
-      mapper.writeValue(fos, version);
+    try (FileOutputStream fos = FileUtils.openOutputStream(versionFile)) {
+      try (BufferedOutputStream bos = new BufferedOutputStream(fos)) {
+        mapper.writeValue(bos, version);
+      }
     }
   }
 

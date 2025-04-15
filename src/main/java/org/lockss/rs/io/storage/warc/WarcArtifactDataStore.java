@@ -95,10 +95,7 @@ import java.io.*;
 import java.net.URI;
 import java.net.URISyntaxException;
 import java.nio.charset.StandardCharsets;
-import java.nio.file.Files;
-import java.nio.file.Path;
-import java.nio.file.Paths;
-import java.nio.file.StandardOpenOption;
+import java.nio.file.*;
 import java.time.Instant;
 import java.time.ZoneId;
 import java.time.ZoneOffset;
@@ -222,9 +219,10 @@ public abstract class WarcArtifactDataStore implements ArtifactDataStore, WARCCo
   }
 
   private static void recordArtifactDataStoreVersion(File versionFile, ArtifactDataStoreVersion version) throws IOException {
-    FileUtils.touch(versionFile);
-    try (BufferedOutputStream fos = new BufferedOutputStream(new FileOutputStream(versionFile))) {
-      mapper.writeValue(fos, version);
+    try (FileOutputStream fos = FileUtils.openOutputStream(versionFile)) {
+      try (BufferedOutputStream bos = new BufferedOutputStream(fos)) {
+        mapper.writeValue(bos, version);
+      }
     }
   }
 
