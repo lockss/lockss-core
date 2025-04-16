@@ -2304,7 +2304,7 @@ public abstract class WarcArtifactDataStore implements ArtifactDataStore, WARCCo
         }
       });
     } catch (FileNotFoundException e) {
-      log.debug("Reindexed WARC files not found; starting new file");
+      log.debug("List of previously reindexed WARCs file not found; starting a new one");
       FileUtils.touch(reindexedWarcsFile);
     }
 
