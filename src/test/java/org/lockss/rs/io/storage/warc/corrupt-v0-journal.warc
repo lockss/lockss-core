@@ -1,0 +1,108 @@
+WARC/1.0
+WARC-Record-ID: <urn:uuid:52aa0b61-c5f7-40ba-a7f9-19c7852341dd>
+Content-Length: 106
+WARC-Date: 2023-12-21T23:19:11.248618Z
+WARC-Type: metadata
+Content-Type: application/json
+X-LockssRepo-Version: 2.9.0-SNAPSHOT
+WARC-Refers-To: 014f025c-3a3f-40d4-856f-911390590a31
+
+{"artifactUuid":"014f025c-3a3f-40d4-856f-911390590a31","entryDate":1703200751226,"artifactState":"COPIED"}
+
+WARC/1.0
+WARC-Record-ID: <urn:uuid:917662d7-38ce-45a8-adb0-11ff1663e203>
+Content-Length: 111
+WARC-Date: 2023-12-21T23:19:30.792483Z
+WARC-Type: metadata
+Content-Type: application/json
+X-LockssRepo-Version: 2.9.0-SNAPSHOT
+WARC-Refers-To: 3a24e0db-02fa-4ec5-9e68-a084ea4a4e5e
+
+{"artifactUuid":"3a24e0db-02fa-4ec5-9e68-a084ea4a4e5e","entryDate":1703200770784,"artifactState":"UNCOMMITTED"}
+
+WARC/1.0
+WARC-Record-ID: <urn:uuid:c48a2298-af55-4d7f-bd8a-2293c9906318>
+Content-Length: 112
+WARC-Date: 2023-12-21T23:19:31.337788Z
+WARC-Type: metadata
+Content-Type: application/json
+X-LockssRepo-Version: 2.9.0-SNAPSHOT
+WARC-Refers-To: 3a24e0db-02fa-4ec5-9e68-a084ea4a4e5e
+
+WARC/1.0
+WARC-Record-ID: <urn:uuid:1b22868b-eba4-48a9-abfd-a39923e77496>
+Content-Length: 111
+WARC-Date: 2023-12-21T23:25:33.171488Z
+WARC-Type: metadata
+Content-Type: application/json
+X-LockssRepo-Version: 2.9.0-SNAPSHOT
+WARC-Refers-To: 44f1fbc5-779f-440d-b7f7-963931369f84
+
+{"artifactUuid":"44f1fbc5-779f-440d-b7f7-963931369f84","entryDate":1703201133166,"artifactState":"UNCOMMITTED"}
+
+WARC/1.0
+WARC-Record-ID: <urn:uuid:17af1364-373e-4c17-b525-443229294a72>
+Content-Length: 107
+WARC-Date: 2023-12-21T23:25:33.201018Z
+WARC-Type: metadata
+Content-Type: application/json
+X-LockssRepo-Version: 2.9.0-SNAPSHOT
+WARC-Refers-To: 44f1fbc5-779f-440d-b7f7-963931369f84
+
+{"artifactUuid":"44f1fbc5-779f-440d-b7f7-963931369f84","entryDate":1703201133195,"artifactState":"DELETED"}
+
+WARC/1.0
+WARC-Record-ID: <urn:uuid:9028a485-dd4d-44bb-ab40-fe049e9e172c>
+Content-Length: 111
+WARC-Date: 2023-12-21T23:25:41.973143Z
+WARC-Type: metadata
+Content-Type: application/json
+X-LockssRepo-Version: 2.9.0-SNAPSHOT
+WARC-Refers-To: a6069496-a6ee-4d5d-8552-92e2612d092a
+
+{"artifactUuid":"a6069496-a6ee-4d5d-8552-92e2612d092a","entryDate":1703201141968,"artifactState":"UNCOMMITTED"}
+
+WARC/1.0
+WARC-Record-ID: <urn:uuid:5174bb62-408c-4753-ba08-a009ea242045>
+Content-Length: 107
+WARC-Date: 2023-12-21T23:25:42.082253Z
+WARC-Type: metadata
+Content-Type: application/json
+X-LockssRepo-Version: 2.9.0-SNAPSHOT
+WARC-Refers-To: a6069496-a6ee-4d5d-8552-92e2612d092a
+
+{"artifactUuid":"a6069496-a6ee-4d5d-8552-92e2612d092a","entryDate":1703201142078,"artifactState":"DELETED"}
+
+WARC/1.0
+WARC-Record-ID: <urn:uuid:c21d4e1a-407e-4531-9c11-9aef38a23a96>
+Content-Length: 111
+WARC-Date: 2023-12-21T23:27:31.720132Z
+WARC-Type: metadata
+Content-Type: application/json
+X-LockssRepo-Version: 2.9.0-SNAPSHOT
+WARC-Refers-To: 742178bf-8532-47cc-80c3-2c7571772587
+
+{"artifactUuid":"742178bf-8532-47cc-80c3-2c7571772587","entryDate":1703201251715,"artifactState":"UNCOMMITTED"}
+
+WARC/1.0
+WARC-Record-ID: <urn:uuid:b070a4ad-e65b-420a-8d67-d65adedcda95>
+Content-Length: 112
+WARC-Date: 2023-12-21T23:27:32.005993Z
+WARC-Type: metadata
+Content-Type: application/json
+X-LockssRepo-Version: 2.9.0-SNAPSHOT
+WARC-Refers-To: 742178bf-8532-47cc-80c3-2c7571772587
+
+{"artifactUuid":"742178bf-8532-47cc-80c3-2c7571772587","entryDate":1703201252001,"artifactState":"PENDING_COPY"}
+
+WARC/1.0
+WARC-Record-ID: <urn:uuid:dfbd1504-0cd8-465d-b11a-d145ce69144f>
+Content-Length: 106
+WARC-Date: 2023-12-21T23:27:32.239924Z
+WARC-Type: metadata
+Content-Type: application/json
+X-LockssRepo-Version: 2.9.0-SNAPSHOT
+WARC-Refers-To: 742178bf-8532-47cc-80c3-2c7571772587
+
+{"artifactUuid":"742178bf-8532-47cc-80c3-2c7571772587","entryDate":1703201252235,"artifactState":"COPIED"}
+
