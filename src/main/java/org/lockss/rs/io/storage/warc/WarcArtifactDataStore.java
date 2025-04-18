@@ -2399,10 +2399,15 @@ public abstract class WarcArtifactDataStore implements ArtifactDataStore, WARCCo
     try (InputStream warcStream =
          new BufferedInputStream(getInputStreamAndSeek(warcFile, 0), WARC_READ_BUFFER_SIZE)) {
 
+      Map<String, WarcArtifactStateEntry> journal = new HashMap<>();
+      try {
       // Read WARC's metadata file
-      Map<String, WarcArtifactStateEntry> journal =
-        getJournalForWarc(warcFile, WarcArtifactStateEntry.class, (record) -> synthesizeStateEntry(record));
-
+        journal =
+          getJournalForWarc(warcFile, WarcArtifactStateEntry.class, (record) -> synthesizeStateEntry(record));
+      } catch (Exception e) {
+        log.warn("Couldn't read journal for {}, proceeding without", e);
+        journal = new HashMap<>();
+      }
       WarcReader reader = isCompressed ?
         WarcReaderFactory.getReaderCompressed(warcStream) :
         WarcReaderFactory.getReaderUncompressed(warcStream);
