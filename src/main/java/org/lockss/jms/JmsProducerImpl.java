@@ -96,10 +96,10 @@ public class JmsProducerImpl implements JmsProducer {
     // send the message to the topic destination
     synchronized (messageProducer) {
       messageProducer.send(textMessage);
-      if (log.isDebug()) {
-	log.debug(clientId + ": sent to topic " +
-		  messageProducer.getDestination() +
-		  " message with text='" + text + "'");
+      if (log.isDebug2()) {
+	log.debug2(clientId + ": sent to topic " +
+                   messageProducer.getDestination() +
+                   " message with text='" + text + "'");
       }
     }
   }
@@ -123,8 +123,8 @@ public class JmsProducerImpl implements JmsProducer {
     synchronized (messageProducer) {
       messageProducer.send(msg);
     }
-    if (log.isDebug()) {
-      log.debug(clientId + ": sent message with map='" + map + "'");
+    if (log.isDebug2()) {
+      log.debug2(clientId + ": sent message with map='" + map + "'");
     }
   }
 
@@ -140,8 +140,8 @@ public class JmsProducerImpl implements JmsProducer {
     synchronized (messageProducer) {
       messageProducer.send(msg);
     }
-    if (log.isDebug()) {
-      log.debug(clientId + ": sent message of bytes ='" + bytes + "'");
+    if (log.isDebug2()) {
+      log.debug2(clientId + ": sent message of bytes ='" + bytes + "'");
     }
   }
 
@@ -156,8 +156,8 @@ public class JmsProducerImpl implements JmsProducer {
     synchronized (messageProducer) {
       messageProducer.send(msg);
     }
-    if (log.isDebug()) {
-      log.debug(clientId + ": sent serialiable object ='" + msg + "'");
+    if (log.isDebug2()) {
+      log.debug2(clientId + ": sent serialiable object ='" + msg + "'");
     }
   }
 
