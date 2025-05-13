@@ -110,9 +110,12 @@ public class SolrCommitJournal {
 
       boolean skipHeaderRecord = journalPath.toFile().length() > 0;
 
-      journalPrinter = new CSVPrinter(journalFileWriter, CSVFormat.DEFAULT
-          .withHeader(SOLR_JOURNAL_HEADERS)
-          .withSkipHeaderRecord(skipHeaderRecord));
+      CSVFormat csvFormat = CSVFormat.DEFAULT.builder()
+          .setHeader(SOLR_JOURNAL_HEADERS)
+          .setSkipHeaderRecord(skipHeaderRecord)
+          .get();
+
+      journalPrinter = new CSVPrinter(journalFileWriter, csvFormat);
     }
 
     @Override
