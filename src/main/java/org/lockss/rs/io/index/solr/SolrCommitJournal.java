@@ -108,9 +108,11 @@ public class SolrCommitJournal {
           StandardOpenOption.APPEND,
           StandardOpenOption.CREATE);
 
+      boolean skipHeaderRecord = journalPath.toFile().length() > 0;
+
       journalPrinter = new CSVPrinter(journalFileWriter, CSVFormat.DEFAULT
           .withHeader(SOLR_JOURNAL_HEADERS)
-          .withSkipHeaderRecord(false));
+          .withSkipHeaderRecord(skipHeaderRecord));
     }
 
     @Override
