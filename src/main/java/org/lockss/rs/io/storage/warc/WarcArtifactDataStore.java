@@ -2579,11 +2579,9 @@ public abstract class WarcArtifactDataStore implements ArtifactDataStore, WARCCo
 
   protected <T> void writeJournalEntryForArtifact(Artifact artifact, T journalEntry) throws IOException {
     Path journalFile = getJournalPath(getPathFromStorageUrl(URI.create(artifact.getStorageUrl())));
-    ArchivalUnitStem auStem = new ArchivalUnitStem(artifact.getNamespace(), artifact.getAuid());
 
     try {
-      // FIXME: We have an opportunity to make this more granular (at the WARC file level)
-      auLocks.getLock(auStem);
+      journalFileLocks.getLock(journalFile);
 
       // Create and append a WARC metadata record to the journal
       try (OutputStream output = initWarcAndGetAppendableOutputStream(journalFile)) {
@@ -2593,7 +2591,7 @@ public abstract class WarcArtifactDataStore implements ArtifactDataStore, WARCCo
     } catch (InterruptedException e) {
       throw new InterruptedIOException("Interrupted while waiting to acquire AU lock");
     } finally {
-      auLocks.releaseLock(auStem);
+      journalFileLocks.releaseLock(journalFile);
     }
   }
 
@@ -2683,8 +2681,8 @@ public abstract class WarcArtifactDataStore implements ArtifactDataStore, WARCCo
     return warcFile.resolveSibling(journalFileName);
   }
 
-  // FIXME: This is used only to protect journal writes - make more granular?
-  private final SemaphoreMap<ArchivalUnitStem> auLocks = new SemaphoreMap<>();
+  // This is used to protect journal writes
+  private final SemaphoreMap<Path> journalFileLocks = new SemaphoreMap<>();
 
   // TODO: What is the difference between this and NamespacedAuid?
   private static class ArchivalUnitStem {
