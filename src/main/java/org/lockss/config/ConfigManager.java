@@ -42,6 +42,7 @@ import org.apache.commons.io.*;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.commons.lang3.StringEscapeUtils;
 import org.apache.oro.text.regex.*;
+import org.lockss.metadata.MetadataDbManager;
 import org.springframework.context.ApplicationEvent;
 import org.springframework.context.ApplicationContext;
 import org.lockss.app.*;
@@ -2277,6 +2278,9 @@ public class ConfigManager implements LockssManager {
     setIfNotSet(config, fromParam, ProxyManager.PARAM_BIND_ADDRS);
     setIfNotSet(config, fromParam, AuditProxyManager.PARAM_BIND_ADDRS);
 //     setIfNotSet(config, fromParam, IcpManager.PARAM_ICP_BIND_ADDRS);
+
+    config.put(MetadataDbManager.PARAM_DATASOURCE_TARGET_VERSION,
+        String.valueOf(MetadataDbManager.DEFAULT_DATASOURCE_TARGET_VERSION));
 
     org.lockss.poller.PollManager.processConfigMacros(config);
   }

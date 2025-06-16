@@ -31,6 +31,7 @@ import java.sql.Connection;
 import java.sql.SQLException;
 import java.util.Map;
 import org.lockss.app.ConfigurableManager;
+import org.lockss.config.ConfigManager;
 import org.lockss.config.Configuration;
 import org.lockss.db.DbException;
 import org.lockss.db.DbManager;
@@ -104,6 +105,14 @@ public class MetadataDbManager extends DbManager
    */
   public static final String PARAM_DATASOURCE_DATABASENAME = DATASOURCE_ROOT
       + ".databaseName";
+
+  /**
+   * Database target version (read-only)
+   */
+  public static final String PARAM_DATASOURCE_TARGET_VERSION = DATASOURCE_ROOT
+      + ".targetDbVersion";
+
+  public static final int DEFAULT_DATASOURCE_TARGET_VERSION = 28;
 
   /**
    * Port number of the database. Changes require daemon restart.
@@ -189,7 +198,7 @@ public class MetadataDbManager extends DbManager
    * Sets up update versions.
    */
   private void setUpVersions() {
-    targetDatabaseVersion = 28;
+    targetDatabaseVersion = DEFAULT_DATASOURCE_TARGET_VERSION;
     asynchronousUpdates = new int[] {10, 15, 17, 20, 22};
   }
 
@@ -480,6 +489,8 @@ public class MetadataDbManager extends DbManager
    */
   void setTargetDatabaseVersion(int version) {
     targetDatabaseVersion = version;
+    Configuration cfg = ConfigManager.getCurrentConfig();
+    cfg.put(PARAM_DATASOURCE_TARGET_VERSION, String.valueOf(version));
   }
 
   /**
