@@ -1007,9 +1007,9 @@ public abstract class DbManager extends BaseLockssManager
       dbcpProps.put("username", dataSourceConfig.get("user"));
       dbcpProps.put("password", dataSourceConfig.get("password"));
 
-      // Set pool size, max pool size, etc from global DBCP settings (i.e., org.lockss.db.dbcp.*), or
-      // enforce defaults specified in DBCP documentation, if the DBCP settings for this implementation
-      // of DbManager has not been explicitly configured:
+      // Configure a set of DBCP settings from global DBCP settings (i.e., org.lockss.db.dbcp.*),
+      // or enforce defaults (as specified in the DBCP documentation), if those DBCP settings for
+      // this implementation of DbManager have not been explicitly configured:
       Configuration curCfg = ConfigManager.getCurrentConfig();
       putCfgIfAbsent(dbcpProps, "initialSize", curCfg.get(PARAM_DBCP_INITIAL_SIZE ,DEFAULT_DBCP_INITIAL_SIZE));
       putCfgIfAbsent(dbcpProps, "maxTotal", curCfg.get(PARAM_DBCP_MAX_TOTAL, DEFAULT_DBCP_MAX_TOTAL));
