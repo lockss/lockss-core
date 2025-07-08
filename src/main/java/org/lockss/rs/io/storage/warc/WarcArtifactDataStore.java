@@ -1627,7 +1627,6 @@ public abstract class WarcArtifactDataStore implements ArtifactDataStore, WARCCo
     }
 
     String artifactUuid = artifact.getUuid();
-    Artifact indexedArtifact;
     URI storageUrl;
 
     Path warcFilePath = null;
@@ -1639,20 +1638,17 @@ public abstract class WarcArtifactDataStore implements ArtifactDataStore, WARCCo
       // 1. The GC process could remove the temporary WARC file from under this method
       // 2. The copy process could change the storage URL to point to permanent storage
 
-      // Retrieve artifact reference from index
-      indexedArtifact = getArtifactIndex().getArtifact(artifactUuid);
-
-      if (indexedArtifact == null) {
+      if (artifact == null) {
         // Yes: Artifact reference not found in index
         log.debug("Artifact not found in index [uuid: {}]", artifactUuid);
         throw new LockssNoSuchArtifactIdException("Artifact not found");
       }
 
-      ArtifactIdentifier artifactId = indexedArtifact.getIdentifier();
+      ArtifactIdentifier artifactId = artifact.getIdentifier();
 
       try (SemaphoreLock lock = lockArtifact(artifactId)) {
         // Get storage URL and WARC path of artifact's WARC record
-        storageUrl = new URI(indexedArtifact.getStorageUrl());
+        storageUrl = new URI(artifact.getStorageUrl());
         warcFilePath = getPathFromStorageUrl(storageUrl);
         isTmpStorage = isTmpStorage(warcFilePath);
 
@@ -1680,7 +1676,7 @@ public abstract class WarcArtifactDataStore implements ArtifactDataStore, WARCCo
         }
       } catch (URISyntaxException e) {
         // This should never happen since storage URLs are internal
-        log.error("Malformed storage URL [storageUrl: {}]", indexedArtifact.getStorageUrl());
+        log.error("Malformed storage URL [storageUrl: {}]", artifact.getStorageUrl());
         throw new IllegalArgumentException("Malformed storage URL");
       }
 
@@ -1718,15 +1714,10 @@ public abstract class WarcArtifactDataStore implements ArtifactDataStore, WARCCo
       artifactData.setClosableInputStream(warcStream);
 
       // Set ArtifactData properties
-      ArtifactIdentifier indexedArtifactId = indexedArtifact.getIdentifier();
-      artifactData.setIdentifier(indexedArtifactId);
-      artifactData.setStorageUrl(URI.create(indexedArtifact.getStorageUrl()));
-      artifactData.setContentLength(indexedArtifact.getContentLength());
-      artifactData.setContentDigest(indexedArtifact.getContentDigest());
-
-//      // Set artifact's state
-//      artifactData.setArtifactState(
-//          getArtifactState(artifact, isArtifactExpired(warcRecord.getHeader())));
+      artifactData.setIdentifier(artifactId);
+      artifactData.setStorageUrl(URI.create(artifact.getStorageUrl()));
+      artifactData.setContentLength(artifact.getContentLength());
+      artifactData.setContentDigest(artifact.getContentDigest());
 
       // Return an ArtifactData from the WARC record
       return artifactData;
