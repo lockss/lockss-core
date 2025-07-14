@@ -1589,8 +1589,40 @@ public class TestPluginManager extends LockssTestCase4 {
   }
 
   @Test
-  public void testNormalizeUrls() throws Exception {
-    // TODO: Use inspiration from unit test below
+  public void testNormalizeUtil() throws Exception {
+    ConfigurationUtil.addFromArgs(PluginManager.PARAM_AU_SEARCH_USE_V2_REPO,
+        "true");
+
+    ConfigurationUtil.addFromArgs(
+        "org.lockss.log.PluginManager.level", "debug3",
+        "org.lockss.log.AuSearchSet.level", "debug3",
+        "org.lockss.log.BaseCachedUrl.level", "debug3");
+
+    mgr.startService();
+    repo = repoMgr.getV2Repository().getRepository();
+
+    mgr.ensurePluginLoaded(simplePlugKey);
+    Plugin sp = mgr.getPlugin(simplePlugKey);
+
+    ArchivalUnit au1 =
+        mgr.createAu(sp,
+            ConfigurationUtil.fromArgs("base_url", "http://foo.bar/",
+                "volume_name", "42"),
+            AuEvent.model(AuEvent.Type.Create));
+
+    ArchivalUnit au2 =
+        mgr.createAu(sp,
+            ConfigurationUtil.fromArgs("base_url", "http://foo.bar/",
+                "volume_name", "43"),
+            AuEvent.model(AuEvent.Type.Create));
+
+    // Test default URL normalization
+    assertContainsAll(mgr.normalizeUrl("http://www.LOCKSS.org/"), "http://www.lockss.org/");
+
+    // Test URL normalization by plugin
+    String url1 = "http://foo.bar/42/baz";
+    String url1un = url1 + Integer.toHexString(au1.hashCode());
+    assertSameElements(List.of(url1, url1un), mgr.normalizeUrl(url1un));
   }
 
   @Test
