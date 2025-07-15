@@ -1617,7 +1617,8 @@ public class TestPluginManager extends LockssTestCase4 {
             AuEvent.model(AuEvent.Type.Create));
 
     // Test default URL normalization
-    assertContainsAll(mgr.normalizeUrl("http://www.LOCKSS.org/"), "http://www.lockss.org/");
+    assertSameElements(List.of("http://www.lockss.org/"),
+        mgr.normalizeUrl("http://www.LOCKSS.org"));
 
     // Test URL normalization by plugin
     String url1 = "http://foo.bar/42/baz";
