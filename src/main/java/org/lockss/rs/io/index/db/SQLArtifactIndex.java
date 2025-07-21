@@ -135,22 +135,14 @@ public class SQLArtifactIndex extends AbstractArtifactIndex {
   @Override
   public void indexArtifacts(Iterable<Artifact> artifacts) throws IOException {
     try {
-      // TODO: Implement idxdb.addArtifacts(artifacts)
+      Artifact firstArtifact = artifacts.iterator().next();
 
-      Artifact firstArtifact = null;
+      idxdb.addArtifacts(artifacts);
 
-      for (Artifact artifact : artifacts) {
-        if (firstArtifact == null) {
-          firstArtifact = artifact;
-        }
-
-        idxdb.addArtifact(artifact);
-      }
-
-      // FIXME: The assumption that all the artifacts are in the same namespace and AUID
-      //  (as determined by the first artifact) is only true in "bulk-mode":
       if (firstArtifact != null) {
         try {
+          // FIXME: The assumption that all the artifacts are in the same namespace and AUID
+          //  (as determined by the first artifact) is only true in "bulk-mode":
           invalidateAuSize(firstArtifact.getNamespace(), firstArtifact.getAuid());
         } catch (DbException e) {
           log.warn("Could not invalidate AU size", e);
