@@ -337,7 +337,7 @@ public class ConfigManager implements LockssManager {
   public static final String PARAM_PLATFORM_SECOND_IP_ADDRESS =
     PLATFORM + "secondIP";
 
-  /** Subnet mask of subnet(s) tatht should be treated similarly to the
+  /** Subnet mask of subnet(s) that should be treated similarly to the
    * loopback address, to allow local access to the UI and REST services.
    * In a container environment the source IP of these connections is often
    * not the loopback address, but a container-specfic address.
