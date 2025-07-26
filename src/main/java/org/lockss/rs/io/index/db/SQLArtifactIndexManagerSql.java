@@ -2577,8 +2577,7 @@ public class SQLArtifactIndexManagerSql {
         idxDbManager.executeUpdate(ps);
 
         // Could be more selective and only delete the cache entries
-        // for the rows that were deleted, but this only happens in
-        // tests, it's exceedingly unlikely in practice,
+        // for the items that were deleted, but deletion is fairly rare.
         flushDbCaches();
       }
 
