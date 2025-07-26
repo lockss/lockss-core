@@ -33,6 +33,7 @@ package org.lockss.rs.io.index.db;
 
 import org.apache.commons.collections4.map.LRUMap;
 import org.apache.commons.lang3.StringUtils;
+import org.apache.commons.lang3.tuple.Pair;
 import org.lockss.app.LockssApp;
 import org.lockss.db.DbException;
 import org.lockss.log.L4JLogger;
@@ -45,9 +46,7 @@ import org.lockss.util.storage.StorageInfo;
 
 import java.io.IOException;
 import java.io.InterruptedIOException;
-import java.util.Collections;
-import java.util.Map;
-import java.util.UUID;
+import java.util.*;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutionException;
@@ -135,22 +134,17 @@ public class SQLArtifactIndex extends AbstractArtifactIndex {
   @Override
   public void indexArtifacts(Iterable<Artifact> artifacts) throws IOException {
     try {
-      Artifact firstArtifact = artifacts.iterator().next();
-
-      idxdb.addArtifacts(artifacts);
-
-      if (firstArtifact != null) {
+      Set<Pair<String,String>> nsAuids = idxdb.addArtifacts(artifacts);
+      for (Pair<String,String> nsAuid : nsAuids) {
         try {
-          // FIXME: The assumption that all the artifacts are in the same namespace and AUID
-          //  (as determined by the first artifact) is only true in "bulk-mode":
-          invalidateAuSize(firstArtifact.getNamespace(), firstArtifact.getAuid());
+          invalidateAuSize(nsAuid.getLeft(), nsAuid.getRight());
         } catch (DbException e) {
-          log.warn("Could not invalidate AU size", e);
-          throw e;
+          log.warn("Could not invalidate AU size for: {}",
+                   nsAuid.getRight(), e);
         }
       }
     } catch (DbException e) {
-      throw new IOException("Could not add artifact to database", e);
+      throw new IOException("Could not add artifacts to database", e);
     }
   }
 

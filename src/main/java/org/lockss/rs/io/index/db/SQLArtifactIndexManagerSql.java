@@ -33,6 +33,7 @@ package org.lockss.rs.io.index.db;
 
 import org.apache.commons.collections4.IteratorUtils;
 import org.apache.commons.collections4.map.LRUMap;
+import org.apache.commons.lang3.tuple.Pair;
 import org.lockss.db.DbException;
 import org.lockss.db.DbManager;
 import org.lockss.log.L4JLogger;
@@ -2349,13 +2350,17 @@ public class SQLArtifactIndexManagerSql {
     }
   }
 
-  public void addArtifacts(Iterable<Artifact> artifacts) throws DbException {
+  /** Add all the Artifacts to the DB, return a Set containing all
+   * unique (Namespace, AUID) pairs */
+  public Set<Pair<String,String>> addArtifacts(Iterable<Artifact> artifacts)
+      throws DbException {
     Connection conn = null;
-
+    Set<Pair<String,String>> nsAuids = new HashSet<>();
     try {
       conn = getConnection();
 
       for (Artifact artifact : artifacts) {
+        nsAuids.add(Pair.of(artifact.getNamespace(), artifact.getAuid()));
         addArtifact(conn, artifact);
       }
 
@@ -2364,6 +2369,7 @@ public class SQLArtifactIndexManagerSql {
     } finally {
       DbManager.safeRollbackAndClose(conn);
     }
+    return nsAuids;
   }
 
   private void addArtifact(Connection conn, Artifact artifact) throws DbException {
