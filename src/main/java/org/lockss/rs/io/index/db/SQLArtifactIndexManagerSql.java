@@ -1165,9 +1165,19 @@ public class SQLArtifactIndexManagerSql {
     }
   }
 
-  private Map<String, Long> lru_namespace_seqs = new HashMap<String, Long>();
-  private LRUMap<String, Long> lru_auids_seqs = new LRUMap<String, Long>(100);
-  private LRUMap<String, Long> lru_urls_seqs = new LRUMap<String, Long>(1000);
+  /** Caches SEQ number for namespaces, AUIDs, and URLs.  Avoids 2-3
+   * DB accesses per artifact store.  (Updates are locked per
+   * (namespace, AUID), so synchronizing these maps just for
+   * individual accesses is sufficient.) */
+  private Map<String, Long> lru_namespace_seqs = Collections.synchronizedMap(new HashMap<>());
+  private Map<String, Long> lru_auids_seqs = Collections.synchronizedMap(new LRUMap<>(100));
+  private Map<String, Long> lru_urls_seqs = Collections.synchronizedMap(new LRUMap<>(1000));
+
+  void flushDbCaches() {
+    lru_namespace_seqs.clear();
+    lru_auids_seqs.clear();
+    lru_urls_seqs.clear();
+  }
 
   protected Long findOrCreateNamespaceSeq(Connection conn, String namespace)
       throws DbException {
@@ -2565,6 +2575,11 @@ public class SQLArtifactIndexManagerSql {
         idxDbManager.executeUpdate(ps);
         ps = idxDbManager.prepareStatement(conn, DELETE_ORPHANED_URL_QUERY);
         idxDbManager.executeUpdate(ps);
+
+        // Could be more selective and only delete the cache entries
+        // for the rows that were deleted, but this only happens in
+        // tests, it's exceedingly unlikely in practice,
+        flushDbCaches();
       }
 
       return rows;
