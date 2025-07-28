@@ -1173,12 +1173,6 @@ public class SQLArtifactIndexManagerSql {
   private Map<String, Long> lru_auids_seqs = Collections.synchronizedMap(new LRUMap<>(100));
   private Map<String, Long> lru_urls_seqs = Collections.synchronizedMap(new LRUMap<>(1000));
 
-  void flushDbCaches() {
-    lru_namespace_seqs.clear();
-    lru_auids_seqs.clear();
-    lru_urls_seqs.clear();
-  }
-
   protected Long findOrCreateNamespaceSeq(Connection conn, String namespace)
       throws DbException {
 
@@ -2568,17 +2562,25 @@ public class SQLArtifactIndexManagerSql {
 
       // Execute the query
       int rows = idxDbManager.executeUpdate(ps);
+      // If a row was deleted, delete any orphaned itmes from the
+      // Namespace, AUID and URL tables, flushing the respective
+      // caches for any deleted orphans.  (Could be more selective and
+      // only delete the cache entries for the items that were
+      // deleted, but deletion is fairly rare and the queries would
+      // have to be changes to return the SEQ numbers
       if (rows > 0) {
         ps = idxDbManager.prepareStatement(conn, DELETE_ORPHANED_NAMESPACE_QUERY);
-        idxDbManager.executeUpdate(ps);
+        if (idxDbManager.executeUpdate(ps) > 0) {
+          lru_namespace_seqs.clear();
+        }
         ps = idxDbManager.prepareStatement(conn, DELETE_ORPHANED_AUID_QUERY);
-        idxDbManager.executeUpdate(ps);
+        if (idxDbManager.executeUpdate(ps) > 0) {
+          lru_auids_seqs.clear();
+        }
         ps = idxDbManager.prepareStatement(conn, DELETE_ORPHANED_URL_QUERY);
-        idxDbManager.executeUpdate(ps);
-
-        // Could be more selective and only delete the cache entries
-        // for the items that were deleted, but deletion is fairly rare.
-        flushDbCaches();
+        if (idxDbManager.executeUpdate(ps) > 0) {
+          lru_urls_seqs.clear();
+        }
       }
 
       return rows;
