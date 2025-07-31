@@ -140,8 +140,10 @@ public class RestServicesManager
     log.debug2("descrs: {}", getAllServiceDescrs());
     for (ServiceDescr descr : getAllServiceDescrs()) {
       ServiceBinding binding = getServiceBinding(descr);
-      if (binding != null) {
+      if (binding != null && binding.isLockssRestService()) {
 	startProbe(descr, binding);
+      } else {
+        log.debug2("Did not start status probe for {}", descr);
       }
     }
   }

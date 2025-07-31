@@ -1276,8 +1276,8 @@ public class LockssApp {
   //  svc_abbrev=rest_host:port,ui_host:port
   //  Either host may be elided (= localhost), ",ui_host:port is" optional
   protected static final Pattern SERVICE_BINDING_PAT =
-    Pattern.compile("(.*)=([^:,]*):(\\d+)(?:,([^:]*):(\\d+))?");
-  //                  1     2         3        4        5
+    Pattern.compile("(.*)=(?:([^:,]*):(\\d+))?(?:,([^:]*):(\\d+))?");
+  //                  1        2         3          4        5
 
   // Old syntax, still supported
   //  svc_abbrev=host:rest_port[:ui_port]

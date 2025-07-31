@@ -32,10 +32,8 @@ POSSIBILITY OF SUCH DAMAGE.
 
 package org.lockss.state;
 
-import java.io.*;
 import java.util.*;
 import java.text.*;
-import java.net.MalformedURLException;
 
 import org.lockss.config.*;
 import org.lockss.daemon.*;
@@ -1231,9 +1229,40 @@ public class ArchivalUnitStatus
               AdminServletManager.SERVLET_SERVE_CONTENT,
               PropUtil.fromArgs("auid", au.getAuId(),
                   "use_openurl", "true"));
-
       serveLinks.add(", ");
       serveLinks.add(sclink);
+
+      String replayUrl = au.getStartUrls().stream().findFirst()
+          .orElse(null);
+      ServiceBinding owbBinding =
+          theDaemon.getServiceBinding(ServiceDescr.SVC_OPENWAYBACK);
+      ServiceBinding pywbBinding =
+          theDaemon.getServiceBinding(ServiceDescr.SVC_PYWB);
+
+      if (owbBinding != null) {
+        Object owbLink = new StatusTable.SvcLink("OpenWayback",
+            ServiceDescr.SVC_OPENWAYBACK.getServiceUrl(
+                owbBinding, PropUtil.fromArgs(
+                    "url", replayUrl)));
+
+        serveLinks.add(", ");
+        serveLinks.add(owbLink);
+      }
+
+      if (pywbBinding != null) {
+        RepositoryManager repoMgr = theDaemon.getRepositoryManager();
+        String namespace = repoMgr.getV2Repository().getNamespace();
+
+        Object pywbLink = new StatusTable.SvcLink("PyWb",
+            ServiceDescr.SVC_PYWB.getServiceUrl(
+                pywbBinding, PropUtil.fromArgs(
+                    "url", replayUrl,
+                    "namespace", namespace)));
+
+        serveLinks.add(", ");
+        serveLinks.add(pywbLink);
+      }
+
       StatusTable.SummaryInfo serveSum =
           new StatusTable.SummaryInfo(null, ColumnDescriptor.TYPE_STRING,
               serveLinks);

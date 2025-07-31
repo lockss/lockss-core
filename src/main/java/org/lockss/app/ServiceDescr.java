@@ -43,6 +43,7 @@ import org.apache.commons.lang3.builder.HashCodeBuilder;
  */
 public class ServiceDescr implements Comparable<ServiceDescr> {
 
+  private static final String DEFAULT_SERVICE_PROTOCOL = "http";
   // Static mapping of abbreviation -> ServiceDescr
   static Map<String,ServiceDescr> abbrevMap = new HashMap<>();
 
@@ -62,6 +63,27 @@ public class ServiceDescr implements Comparable<ServiceDescr> {
   public static final ServiceDescr SVC_SOAP =
     register(new ServiceDescr("SOAP Service", "soap"));
 
+  public static final ServiceDescr SVC_OPENWAYBACK =
+      register(new ServiceDescr("OpenWayback Service", "owb") {
+        @Override
+        public String getServiceUrl(ServiceBinding svcBinding, Properties params) {
+          return String.format("%s/wayback/*/%s",
+              svcBinding.getUiStem(getServiceProtocol()),
+              params.getProperty("url"));
+        }
+      });
+
+  public static final ServiceDescr SVC_PYWB =
+      register(new ServiceDescr("PyWb Service", "pywb") {
+        @Override
+        public String getServiceUrl(ServiceBinding svcBinding, Properties params) {
+          return String.format("%s/%s/*/%s",
+              svcBinding.getUiStem(getServiceProtocol()),
+              params.getProperty("namespace"),
+              params.getProperty("url"));
+        }
+      });
+
   public ServiceDescr(String name, String abbrev) {
     if (name == null) {
       throw new IllegalArgumentException("ServiceDescr name must not be null");
@@ -79,6 +101,14 @@ public class ServiceDescr implements Comparable<ServiceDescr> {
 
   public String getAbbrev() {
     return abbrev;
+  }
+
+  public String getServiceUrl(ServiceBinding svcBinding, Properties props) {
+    return svcBinding.getUiStem(getServiceProtocol());
+  }
+
+  public String getServiceProtocol() {
+    return DEFAULT_SERVICE_PROTOCOL;
   }
 
   @Override

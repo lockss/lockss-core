@@ -151,4 +151,10 @@ public class ServiceBinding {
     return sb.toString();
   }
 
+  public boolean isLockssRestService() {
+    // FIXME: A null restHost implies localhost elsewhere so the only
+    //  thing we can really check here is that the restPort is non-zero,
+    //  unless we introduce some other flag
+    return restPort != 0;
+  }
 }
