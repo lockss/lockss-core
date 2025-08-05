@@ -1232,12 +1232,33 @@ public class ArchivalUnitStatus
       serveLinks.add(", ");
       serveLinks.add(sclink);
 
-      String replayUrl = au.getStartUrls().stream().findFirst()
-          .orElse(null);
       ServiceBinding owbBinding =
           theDaemon.getServiceBinding(ServiceDescr.SVC_OPENWAYBACK);
       ServiceBinding pywbBinding =
           theDaemon.getServiceBinding(ServiceDescr.SVC_PYWB);
+
+      String replayUrl = null;
+
+      // Find first start URL with content to use as the default replay URL
+      for (String startUrl : au.getStartUrls()) {
+        // Use first start URL if we cannot find one with content
+        // Q: Do we really want this behavior? If not what should we do
+        //  if no start URLs have content (yet)?
+        if (StringUtil.isNullString(replayUrl)) {
+          replayUrl = startUrl;
+        }
+
+        CachedUrl cu = null;
+        try {
+          cu = au.makeCachedUrl(startUrl);
+          if (cu.hasContent()) {
+            replayUrl = startUrl;
+            break;
+          }
+        } finally {
+          AuUtil.safeRelease(cu);
+        }
+      }
 
       if (owbBinding != null) {
         Object owbLink = new StatusTable.SvcLink("OpenWayback",
