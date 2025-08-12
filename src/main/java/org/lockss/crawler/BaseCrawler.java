@@ -555,6 +555,11 @@ public abstract class BaseCrawler implements Crawler {
       permissionMap.setFailOnPermissionError(paramFailOnPermissionError);
       return permissionMap.populate();
     } finally {
+      // Plugins with alternate permission URLs on the same host may
+      // get permission fetch errors and continue.  Ensure that a
+      // fetch is attempted for all such URLs during the normal crawl,
+      // in order for proper error handling.  (E.g., start URL failure
+      // usually causes the crawl to abort.)
       failedUrls.clear();
     }
   }
