@@ -274,8 +274,7 @@ public class AccountManager
     stateMgr = daemon.getManagerByType(StateManager.class);
     stateMgr.registerUserAccountChangedCallback(userChangedCallback);
     resetConfig();
-    installDebugUser(DEBUG_USER_PROPERTY_FILE);
-    installPlatformUser();
+    installUsers();
     if (isEnabled) {
       loadUsers();
       try {
@@ -460,6 +459,14 @@ public class AccountManager
     }
     return true;
   }
+
+  private void installUsers() {
+    installDebugUser(DEBUG_USER_PROPERTY_FILE);
+    installPlatformUser();
+    installStaticConfigUsers(ConfigManager.getCurrentConfig().getConfigTree(AdminServletManager.PREFIX +
+                                                                            BaseServletManager.SUFFIX_USERS));
+  }
+
 
   public void installDebugUser(String propResource) {
     if (isEnableDebugUser) {
