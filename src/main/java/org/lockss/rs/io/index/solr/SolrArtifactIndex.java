@@ -38,6 +38,7 @@ import org.apache.commons.collections4.IteratorUtils;
 import org.apache.commons.collections4.map.LRUMap;
 import org.apache.commons.io.filefilter.*;
 import org.apache.commons.lang3.StringUtils;
+import org.apache.commons.lang3.tuple.Pair;
 import org.apache.solr.client.solrj.*;
 import org.apache.solr.client.solrj.beans.DocumentObjectBinder;
 import org.apache.solr.client.solrj.impl.BaseHttpSolrClient;
@@ -819,21 +820,11 @@ public class SolrArtifactIndex extends AbstractArtifactIndex {
       return;
     }
 
-    boolean isFirstArtifact = true;
+    Set<Pair<String,String>> nsAuids = new HashSet<>();
 
     while (ai.hasNext()) {
       Artifact artifact = ai.next();
-
-      // This is ugly but we need the namespace and AUID of this batch of artifacts
-      if (isFirstArtifact) {
-        try {
-          invalidateAuSize(artifact.getNamespace(), artifact.getAuid());
-        } catch (DbException e) {
-          // TODO
-          log.warn("Could not invalidate AU size", e);
-        }
-        isFirstArtifact = false;
-      }
+      nsAuids.add(Pair.of(artifact.getNamespace(), artifact.getAuid()));
 
       req.add(objBinder.toSolrInputDocument(ArtifactSolrDocument.fromArtifact(artifact)));
       docsAdded++;
@@ -865,6 +856,15 @@ public class SolrArtifactIndex extends AbstractArtifactIndex {
     } catch (Exception e) {
       // TODO
       log.error("Failed to perform hard commit", e);
+    }
+
+    for (Pair<String,String> nsAuid : nsAuids) {
+      try {
+        invalidateAuSize(nsAuid.getLeft(), nsAuid.getRight());
+      } catch (DbException e) {
+        log.warn("Could not invalidate AU size for: {}",
+                 nsAuid.getRight(), e);
+      }
     }
 
     log.debug("Total documents added = {}", docsAdded);

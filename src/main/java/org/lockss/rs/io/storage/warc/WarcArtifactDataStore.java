@@ -57,11 +57,7 @@ import org.archive.io.warc.WARCRecordInfo;
 import org.archive.util.anvl.Element;
 import org.archive.util.zip.GZIPMembersInputStream;
 import org.jwat.common.HeaderLine;
-import org.jwat.warc.WarcConstants;
-import org.jwat.warc.WarcDate;
-import org.jwat.warc.WarcReader;
-import org.jwat.warc.WarcReaderFactory;
-import org.jwat.warc.WarcRecord;
+import org.jwat.warc.*;
 import org.lockss.log.L4JLogger;
 import org.lockss.rs.BaseLockssRepository;
 import org.lockss.rs.io.ArtifactContainerStats;
@@ -86,7 +82,6 @@ import org.lockss.util.storage.StorageInfo;
 import org.lockss.util.time.TimeBase;
 import org.lockss.util.time.TimeUtil;
 import org.springframework.http.HttpHeaders;
-import org.springframework.http.MediaType;
 import org.springframework.util.LinkedMultiValueMap;
 import org.springframework.util.MultiValueMap;
 import org.springframework.util.StreamUtils;
@@ -106,8 +101,8 @@ import java.time.temporal.ChronoField;
 import java.time.temporal.ChronoUnit;
 import java.util.*;
 import java.util.concurrent.*;
-import java.util.function.Predicate;
 import java.util.function.Function;
+import java.util.function.Predicate;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import java.util.zip.GZIPInputStream;
@@ -2288,12 +2283,14 @@ public abstract class WarcArtifactDataStore implements ArtifactDataStore, WARCCo
 
     File reindexedWarcsFile = reindexedWarcsPath.toFile();
 
+    CSVFormat csvFormat = CSVFormat.DEFAULT.builder()
+        .setHeader(REINDEXED_WARCS_CSV_HEADER)
+        .setSkipHeaderRecord(true)
+        .get();
+
     // Read set of WARCs have already been reindexed
     try (FileReader reader = new FileReader(reindexedWarcsFile)) {
-      Iterable<CSVRecord> csvRecords = CSVFormat.DEFAULT
-          .withHeader(REINDEXED_WARCS_CSV_HEADER)
-          .withSkipHeaderRecord()
-          .parse(reader);
+      Iterable<CSVRecord> csvRecords = csvFormat.parse(reader);
 
       // Add indexed WARC path to list
       csvRecords.forEach(record -> {
@@ -2312,9 +2309,13 @@ public abstract class WarcArtifactDataStore implements ArtifactDataStore, WARCCo
     // we have successfully reindexed:
     try (BufferedWriter reindexedWarcsOutputStream =
              Files.newBufferedWriter(reindexedWarcsPath, StandardOpenOption.APPEND, StandardOpenOption.CREATE)) {
-      try (CSVPrinter printer = new CSVPrinter(reindexedWarcsOutputStream, CSVFormat.DEFAULT
-          .withHeader(REINDEXED_WARCS_CSV_HEADER)
-          .withSkipHeaderRecord(!indexedWarcs.isEmpty()))) {
+
+      csvFormat = CSVFormat.DEFAULT.builder()
+          .setHeader(REINDEXED_WARCS_CSV_HEADER)
+          .setSkipHeaderRecord(!indexedWarcs.isEmpty())
+          .get();
+
+      try (CSVPrinter printer = new CSVPrinter(reindexedWarcsOutputStream, csvFormat)) {
 
         for (Path basePath : getBasePaths()) {
           log.debug("Reindexing WARCs from {}", basePath);
@@ -2577,11 +2578,9 @@ public abstract class WarcArtifactDataStore implements ArtifactDataStore, WARCCo
 
   protected <T> void writeJournalEntryForArtifact(Artifact artifact, T journalEntry) throws IOException {
     Path journalFile = getJournalPath(getPathFromStorageUrl(URI.create(artifact.getStorageUrl())));
-    ArchivalUnitStem auStem = new ArchivalUnitStem(artifact.getNamespace(), artifact.getAuid());
 
     try {
-      // FIXME: We have an opportunity to make this more granular (at the WARC file level)
-      auLocks.getLock(auStem);
+      journalFileLocks.getLock(journalFile);
 
       // Create and append a WARC metadata record to the journal
       try (OutputStream output = initWarcAndGetAppendableOutputStream(journalFile)) {
@@ -2591,7 +2590,7 @@ public abstract class WarcArtifactDataStore implements ArtifactDataStore, WARCCo
     } catch (InterruptedException e) {
       throw new InterruptedIOException("Interrupted while waiting to acquire AU lock");
     } finally {
-      auLocks.releaseLock(auStem);
+      journalFileLocks.releaseLock(journalFile);
     }
   }
 
@@ -2681,8 +2680,8 @@ public abstract class WarcArtifactDataStore implements ArtifactDataStore, WARCCo
     return warcFile.resolveSibling(journalFileName);
   }
 
-  // FIXME: This is used only to protect journal writes - make more granular?
-  private final SemaphoreMap<ArchivalUnitStem> auLocks = new SemaphoreMap<>();
+  // This is used to protect journal writes
+  private final SemaphoreMap<Path> journalFileLocks = new SemaphoreMap<>();
 
   // TODO: What is the difference between this and NamespacedAuid?
   private static class ArchivalUnitStem {

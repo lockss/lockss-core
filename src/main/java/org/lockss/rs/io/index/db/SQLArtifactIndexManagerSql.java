@@ -32,6 +32,8 @@ POSSIBILITY OF SUCH DAMAGE.
 package org.lockss.rs.io.index.db;
 
 import org.apache.commons.collections4.IteratorUtils;
+import org.apache.commons.collections4.map.LRUMap;
+import org.apache.commons.lang3.tuple.Pair;
 import org.lockss.db.DbException;
 import org.lockss.db.DbManager;
 import org.lockss.log.L4JLogger;
@@ -44,10 +46,7 @@ import org.lockss.util.time.TimeBase;
 
 import java.lang.ref.Cleaner;
 import java.sql.*;
-import java.util.ArrayList;
-import java.util.Iterator;
-import java.util.List;
-import java.util.NoSuchElementException;
+import java.util.*;
 
 import static org.lockss.config.db.SqlConstants.*;
 
@@ -1031,6 +1030,10 @@ public class SQLArtifactIndexManagerSql {
 
     log.debug2("url = {}", url);
 
+    if (lru_urls_seqs.containsKey(url)) {
+      return lru_urls_seqs.get(url);
+    }
+
     // Find the URL in the database
     Long urlSeq = findUrlSeq(conn, url);
     log.trace("urlSeq = {}", urlSeq);
@@ -1042,6 +1045,7 @@ public class SQLArtifactIndexManagerSql {
     }
 
     log.debug2("urlSeq = {}", urlSeq);
+    lru_urls_seqs.put(url, urlSeq);
     return urlSeq;
   }
 
@@ -1161,10 +1165,22 @@ public class SQLArtifactIndexManagerSql {
     }
   }
 
+  /** Caches SEQ number for namespaces, AUIDs, and URLs.  Avoids 2-3
+   * DB accesses per artifact store.  (Updates are locked per
+   * (namespace, AUID), so synchronizing these maps just for
+   * individual accesses is sufficient.) */
+  private Map<String, Long> lru_namespace_seqs = Collections.synchronizedMap(new HashMap<>());
+  private Map<String, Long> lru_auids_seqs = Collections.synchronizedMap(new LRUMap<>(100));
+  private Map<String, Long> lru_urls_seqs = Collections.synchronizedMap(new LRUMap<>(1000));
+
   protected Long findOrCreateNamespaceSeq(Connection conn, String namespace)
       throws DbException {
 
     log.debug2("namespace = {}", namespace);
+
+    if (lru_namespace_seqs.containsKey(namespace)) {
+      return lru_namespace_seqs.get(namespace);
+    }
 
     // Find the namespace in the database
     Long namespaceSeq = findNamespaceSeq(conn, namespace);
@@ -1177,6 +1193,7 @@ public class SQLArtifactIndexManagerSql {
     }
 
     log.debug2("namespaceSeq = {}", namespaceSeq);
+    lru_namespace_seqs.put(namespace, namespaceSeq);
     return namespaceSeq;
   }
 
@@ -1356,6 +1373,10 @@ public class SQLArtifactIndexManagerSql {
 
     log.debug2("auid = {}", auid);
 
+    if (lru_auids_seqs.containsKey(auid)) {
+      return lru_auids_seqs.get(auid);
+    }
+
     // Find the AUID in the database
     Long auidSeq = findAuidSeq(conn, auid);
     log.trace("auidSeq = {}", auidSeq);
@@ -1367,6 +1388,7 @@ public class SQLArtifactIndexManagerSql {
     }
 
     log.debug2("auidSeq = {}", auidSeq);
+    lru_auids_seqs.put(auid, auidSeq);
     return auidSeq;
   }
 
@@ -2332,13 +2354,17 @@ public class SQLArtifactIndexManagerSql {
     }
   }
 
-  public void addArtifacts(Iterable<Artifact> artifacts) throws DbException {
+  /** Add all the Artifacts to the DB, return a Set containing all
+   * unique (Namespace, AUID) pairs */
+  public Set<Pair<String,String>> addArtifacts(Iterable<Artifact> artifacts)
+      throws DbException {
     Connection conn = null;
-
+    Set<Pair<String,String>> nsAuids = new HashSet<>();
     try {
       conn = getConnection();
 
       for (Artifact artifact : artifacts) {
+        nsAuids.add(Pair.of(artifact.getNamespace(), artifact.getAuid()));
         addArtifact(conn, artifact);
       }
 
@@ -2347,6 +2373,7 @@ public class SQLArtifactIndexManagerSql {
     } finally {
       DbManager.safeRollbackAndClose(conn);
     }
+    return nsAuids;
   }
 
   private void addArtifact(Connection conn, Artifact artifact) throws DbException {
@@ -2535,13 +2562,25 @@ public class SQLArtifactIndexManagerSql {
 
       // Execute the query
       int rows = idxDbManager.executeUpdate(ps);
+      // If a row was deleted, delete any orphaned itmes from the
+      // Namespace, AUID and URL tables, flushing the respective
+      // caches for any deleted orphans.  (Could be more selective and
+      // only delete the cache entries for the items that were
+      // deleted, but deletion is fairly rare and the queries would
+      // have to be changes to return the SEQ numbers
       if (rows > 0) {
         ps = idxDbManager.prepareStatement(conn, DELETE_ORPHANED_NAMESPACE_QUERY);
-        idxDbManager.executeUpdate(ps);
+        if (idxDbManager.executeUpdate(ps) > 0) {
+          lru_namespace_seqs.clear();
+        }
         ps = idxDbManager.prepareStatement(conn, DELETE_ORPHANED_AUID_QUERY);
-        idxDbManager.executeUpdate(ps);
+        if (idxDbManager.executeUpdate(ps) > 0) {
+          lru_auids_seqs.clear();
+        }
         ps = idxDbManager.prepareStatement(conn, DELETE_ORPHANED_URL_QUERY);
-        idxDbManager.executeUpdate(ps);
+        if (idxDbManager.executeUpdate(ps) > 0) {
+          lru_urls_seqs.clear();
+        }
       }
 
       return rows;

@@ -53,7 +53,7 @@ import org.lockss.plugin.wrapper.*;
 
 /**
  * <p>DefinablePlugin: a plugin which uses the data stored in an
-*  ExternalizableMap to configure itself.</p>
+ * ExternalizableMap to configure itself.</p>
  * @author Claire Griffin
  * @version 1.0
  */
@@ -460,8 +460,8 @@ public class DefinablePlugin extends BasePlugin {
   }
 
   void initPlugin(LockssDaemon daemon,
-			 ExternalizableMap defMap,
-			 ClassLoader loader) {
+                  ExternalizableMap defMap,
+                  ClassLoader loader) {
     initPlugin(daemon, "Internal", defMap, loader);
   }
 
@@ -638,9 +638,9 @@ public class DefinablePlugin extends BasePlugin {
       return (List)val;
     } else if (val instanceof Map) {
       return new ArrayList<String>() {{
-	  for (Map.Entry ent: ((Map<?,?>)val).entrySet()) {
-	    addAll(flatten(ent.getValue()));
-	  }
+        for (Map.Entry ent: ((Map<?,?>)val).entrySet()) {
+          addAll(flatten(ent.getValue()));
+        }
       }};
     } else if (val instanceof String) {
       return Collections.singletonList((String)val);
@@ -1172,11 +1172,11 @@ public class DefinablePlugin extends BasePlugin {
   protected CrawlSeedFactory getCrawlSeedFactory() {
     if (crawlSeedFactory == null) {
       String factClass =
-    definitionMap.getString(DefinablePlugin.KEY_PLUGIN_CRAWL_SEED_FACTORY,
+        definitionMap.getString(DefinablePlugin.KEY_PLUGIN_CRAWL_SEED_FACTORY,
 				null);
       if (factClass != null) {
     	crawlSeedFactory =
-    	(CrawlSeedFactory)newAuxClass(factClass, CrawlSeedFactory.class);
+          (CrawlSeedFactory)newAuxClass(factClass, CrawlSeedFactory.class);
       }
     }
     
@@ -1192,7 +1192,7 @@ public class DefinablePlugin extends BasePlugin {
 				null);
       if (factClass != null) {
 	featHelperFact =
-    	(FeatureUrlHelperFactory)newAuxClass(factClass, FeatureUrlHelperFactory.class);
+          (FeatureUrlHelperFactory)newAuxClass(factClass, FeatureUrlHelperFactory.class);
       }
     }
 
@@ -1200,11 +1200,11 @@ public class DefinablePlugin extends BasePlugin {
   }
 
   protected UrlFetcher makeUrlFetcher(CrawlerFacade facade, String url) {
-	UrlFetcherFactory fact = getUrlFetcherFactory();
-	  if (fact == null) {
-	    return null;
-	  }
-	  return fact.createUrlFetcher(facade, url);
+    UrlFetcherFactory fact = getUrlFetcherFactory();
+    if (fact == null) {
+      return null;
+    }
+    return fact.createUrlFetcher(facade, url);
   }
   
   protected UrlFetcherFactory urlFetcherFactory = null;
@@ -1212,11 +1212,11 @@ public class DefinablePlugin extends BasePlugin {
   protected UrlFetcherFactory getUrlFetcherFactory() {
     if (urlFetcherFactory == null) {
       String factClass =
-    definitionMap.getString(DefinablePlugin.KEY_PLUGIN_URL_FETCHER_FACTORY,
-        null);
+        definitionMap.getString(DefinablePlugin.KEY_PLUGIN_URL_FETCHER_FACTORY,
+                                null);
       if (factClass != null) {
-      urlFetcherFactory =
-      (UrlFetcherFactory)newAuxClass(factClass, UrlFetcherFactory.class);
+        urlFetcherFactory =
+          (UrlFetcherFactory)newAuxClass(factClass, UrlFetcherFactory.class);
       } else {
         return new SimpleUrlFetcherFactory();
       }
@@ -1246,11 +1246,11 @@ public class DefinablePlugin extends BasePlugin {
   protected UrlConsumerFactory getUrlConsumerFactory() {
     if (urlConsumerFactory == null) {
       String factClass =
-    definitionMap.getString(DefinablePlugin.KEY_PLUGIN_URL_CONSUMER_FACTORY,
-        null);
+        definitionMap.getString(DefinablePlugin.KEY_PLUGIN_URL_CONSUMER_FACTORY,
+                                null);
       if (factClass != null) {
-      urlConsumerFactory =
-      (UrlConsumerFactory)newAuxClass(factClass, UrlConsumerFactory.class);
+        urlConsumerFactory =
+          (UrlConsumerFactory)newAuxClass(factClass, UrlConsumerFactory.class);
       } else {
         return new SimpleUrlConsumerFactory();
       }
