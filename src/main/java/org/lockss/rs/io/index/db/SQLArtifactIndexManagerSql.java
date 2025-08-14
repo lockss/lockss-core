@@ -2412,9 +2412,21 @@ public class SQLArtifactIndexManagerSql {
       for (Artifact artifact : artifacts) {
         nsAuids.add(Pair.of(artifact.getNamespace(), artifact.getAuid()));
 
-        long namespaceSeq = findOrCreateNamespaceSeq(conn, artifact.getNamespace());
-        long auidSeq = findOrCreateAuidSeq(conn, artifact.getAuid());
-        long urlSeq = findOrCreateUrlSeq(conn, artifact.getUri());
+        Long namespaceSeq = new_ns_seqs.get(artifact.getNamespace());
+        if (namespaceSeq == null) {
+          namespaceSeq = findOrCreateNamespaceSeq(conn, artifact.getNamespace());
+        }
+
+        Long auidSeq = new_auid_seqs.get(artifact.getAuid());
+        if (auidSeq == null) {
+          auidSeq = findOrCreateAuidSeq(conn, artifact.getAuid());
+        }
+
+        Long urlSeq = new_url_seqs.get(artifact.getUri());
+        if (urlSeq == null) {
+          urlSeq = findOrCreateUrlSeq(conn, artifact.getUri());
+        }
+
         addArtifact(conn, auidSeq, namespaceSeq, urlSeq, artifact);
 
         new_ns_seqs.put(artifact.getNamespace(), namespaceSeq);
