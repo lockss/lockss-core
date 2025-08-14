@@ -1030,23 +1030,33 @@ public class SQLArtifactIndexManagerSql {
 
     log.debug2("url = {}", url);
 
-    if (lru_urls_seqs.containsKey(url)) {
-      return lru_urls_seqs.get(url);
+    while (true) {
+      if (lru_urls_seqs.containsKey(url)) {
+        return lru_urls_seqs.get(url);
+      }
+
+      // Find the URL in the database
+      Long urlSeq = findUrlSeq(conn, url);
+      log.trace("urlSeq = {}", urlSeq);
+
+      if (urlSeq == null) {
+        try {
+          // Add the URL to the database
+          urlSeq = addUrl(conn, url);
+          log.trace("new urlSeq = {}", urlSeq);
+        } catch (DbException e) {
+          Throwable cause = e.getCause();
+          if (cause != null && cause.getMessage().startsWith(DUPLICATE_KEY_ERROR_MESSAGE)) {
+            log.warn("Race caused duplicate key violation on URL: {}; retrying...", url);
+            continue;
+          }
+          throw e;
+        }
+      }
+
+      log.debug2("urlSeq = {}", urlSeq);
+      return urlSeq;
     }
-
-    // Find the URL in the database
-    Long urlSeq = findUrlSeq(conn, url);
-    log.trace("urlSeq = {}", urlSeq);
-
-    if (urlSeq == null) {
-      // Add the URL to the database
-      urlSeq = addUrl(conn, url);
-      log.trace("new urlSeq = {}", urlSeq);
-    }
-
-    log.debug2("urlSeq = {}", urlSeq);
-    lru_urls_seqs.put(url, urlSeq);
-    return urlSeq;
   }
 
   protected Long findUrlSeq(Connection conn, String url)
@@ -1178,24 +1188,37 @@ public class SQLArtifactIndexManagerSql {
 
     log.debug2("namespace = {}", namespace);
 
-    if (lru_namespace_seqs.containsKey(namespace)) {
-      return lru_namespace_seqs.get(namespace);
+    while (true) {
+      if (lru_namespace_seqs.containsKey(namespace)) {
+        return lru_namespace_seqs.get(namespace);
+      }
+
+      // Find the namespace in the database
+      Long namespaceSeq = findNamespaceSeq(conn, namespace);
+      log.trace("namespaceSeq = {}", namespaceSeq);
+
+      if (namespaceSeq == null) {
+        try {
+          // Add the namespace to the database
+          namespaceSeq = addNamespace(conn, namespace);
+          log.trace("new namespaceSeq = {}", namespaceSeq);
+        } catch (DbException e) {
+          Throwable cause = e.getCause();
+          if (cause != null && cause.getMessage().startsWith(DUPLICATE_KEY_ERROR_MESSAGE)) {
+            log.warn("Race caused duplicate key violation on namespace: {}; retrying...", namespace);
+            continue;
+          }
+          throw e;
+        }
+      }
+
+      log.debug2("namespaceSeq = {}", namespaceSeq);
+      return namespaceSeq;
     }
-
-    // Find the namespace in the database
-    Long namespaceSeq = findNamespaceSeq(conn, namespace);
-    log.trace("namespaceSeq = {}", namespaceSeq);
-
-    if (namespaceSeq == null) {
-      // Add the namespace to the database
-      namespaceSeq = addNamespace(conn, namespace);
-      log.trace("new namespaceSeq = {}", namespaceSeq);
-    }
-
-    log.debug2("namespaceSeq = {}", namespaceSeq);
-    lru_namespace_seqs.put(namespace, namespaceSeq);
-    return namespaceSeq;
   }
+
+  private static final String DUPLICATE_KEY_ERROR_MESSAGE =
+      "ERROR: duplicate key value violates unique constraint";
 
   protected Long findNamespaceSeq(Connection conn, String namespace)
       throws DbException {
@@ -1373,23 +1396,33 @@ public class SQLArtifactIndexManagerSql {
 
     log.debug2("auid = {}", auid);
 
-    if (lru_auids_seqs.containsKey(auid)) {
-      return lru_auids_seqs.get(auid);
+    while (true) {
+      if (lru_auids_seqs.containsKey(auid)) {
+        return lru_auids_seqs.get(auid);
+      }
+
+      // Find the AUID in the database
+      Long auidSeq = findAuidSeq(conn, auid);
+      log.trace("auidSeq = {}", auidSeq);
+
+      if (auidSeq == null) {
+        try {
+          // Add the AUID to the database
+          auidSeq = addAuid(conn, auid);
+          log.trace("new auidSeq = {}", auidSeq);
+        } catch (DbException e) {
+          Throwable cause = e.getCause();
+          if (cause != null && cause.getMessage().startsWith(DUPLICATE_KEY_ERROR_MESSAGE)) {
+            log.warn("Race caused duplicate key violation on AUID: {}; retrying...", auid);
+            continue;
+          }
+          throw e;
+        }
+      }
+
+      log.debug2("auidSeq = {}", auidSeq);
+      return auidSeq;
     }
-
-    // Find the AUID in the database
-    Long auidSeq = findAuidSeq(conn, auid);
-    log.trace("auidSeq = {}", auidSeq);
-
-    if (auidSeq == null) {
-      // Add the AUID to the database
-      auidSeq = addAuid(conn, auid);
-      log.trace("new auidSeq = {}", auidSeq);
-    }
-
-    log.debug2("auidSeq = {}", auidSeq);
-    lru_auids_seqs.put(auid, auidSeq);
-    return auidSeq;
   }
 
   protected Long findAuidSeq(Connection conn, String auid)
@@ -2345,10 +2378,19 @@ public class SQLArtifactIndexManagerSql {
 
     try {
       conn = getConnection();
-      addArtifact(conn, artifact);
+
+      long namespaceSeq = findOrCreateNamespaceSeq(conn, artifact.getNamespace());
+      long auidSeq = findOrCreateAuidSeq(conn, artifact.getAuid());
+      long urlSeq = findOrCreateUrlSeq(conn, artifact.getUri());
+      addArtifact(conn, auidSeq, namespaceSeq, urlSeq, artifact);
 
       // Commit the transaction.
       DbManager.commitOrRollback(conn, log);
+
+      // Update LRU caches
+      lru_namespace_seqs.putIfAbsent(artifact.getNamespace(), namespaceSeq);
+      lru_auids_seqs.putIfAbsent(artifact.getAuid(), auidSeq);
+      lru_urls_seqs.putIfAbsent(artifact.getUri(), urlSeq);
     } finally {
       DbManager.safeRollbackAndClose(conn);
     }
@@ -2363,13 +2405,30 @@ public class SQLArtifactIndexManagerSql {
     try {
       conn = getConnection();
 
+      Map<String, Long> new_ns_seqs = new HashMap<>();
+      Map<String, Long> new_auid_seqs = new HashMap<>();
+      Map<String, Long> new_url_seqs = new HashMap<>();
+
       for (Artifact artifact : artifacts) {
         nsAuids.add(Pair.of(artifact.getNamespace(), artifact.getAuid()));
-        addArtifact(conn, artifact);
+
+        long namespaceSeq = findOrCreateNamespaceSeq(conn, artifact.getNamespace());
+        long auidSeq = findOrCreateAuidSeq(conn, artifact.getAuid());
+        long urlSeq = findOrCreateUrlSeq(conn, artifact.getUri());
+        addArtifact(conn, auidSeq, namespaceSeq, urlSeq, artifact);
+
+        new_ns_seqs.put(artifact.getNamespace(), namespaceSeq);
+        new_auid_seqs.put(artifact.getAuid(), auidSeq);
+        new_url_seqs.put(artifact.getUri(), urlSeq);
       }
 
       // Commit the transaction.
       DbManager.commitOrRollback(conn, log);
+
+      // Update the LRU caches
+      lru_namespace_seqs.putAll(new_ns_seqs);
+      lru_auids_seqs.putAll(new_auid_seqs);
+      lru_urls_seqs.putAll(new_url_seqs);
     } finally {
       DbManager.safeRollbackAndClose(conn);
     }
