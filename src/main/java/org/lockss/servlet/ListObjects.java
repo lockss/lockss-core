@@ -265,6 +265,11 @@ public class ListObjects extends LockssServlet {
     /** Subs must print a header */
     abstract void printHeader();
 
+    protected void printAuHeader(String title, ArchivalUnit au) {
+      wrtr.println(String.format("# %s in %s", title, au.getName()));
+      wrtr.println(String.format("# AUID: %s", au.getAuId()));
+    }
+
     /** Subs must execute a body between begin() and end() */
     abstract void doBody() throws IOException;
 
@@ -363,7 +368,7 @@ public class ListObjects extends LockssServlet {
     
 
     void printHeader() {
-      wrtr.println("# URLs in " + au.getName());
+      printAuHeader("URLs", au);
       if (fields != null) {
 	if (fields.contains(FIELD_POLL_WEIGHT)) {
 	  try {
@@ -433,7 +438,7 @@ public class ListObjects extends LockssServlet {
   class UrlMemberList extends UrlList {
     
     void printHeader() {
-      wrtr.println("# URLs* in " + au.getName());
+      printAuHeader("URLs*", au);
     }
 
     CuIterator getIterator() {
@@ -457,6 +462,17 @@ public class ListObjects extends LockssServlet {
       subChecker = new SubstanceChecker(au);
     }
 
+    @Override
+    protected void doBody() {
+      if (AuUtil.hasSubstancePatterns(au)) {
+        super.doBody();
+      } else {
+        Plugin plug = au.getPlugin();
+        wrtr.println(String.format("# !!!!!!!!!! Plugin: %s (%s) does not define substance patterns\n",
+                                   plug.getPluginName(), plug.getPluginId()));
+      }
+    }
+
     CuIterator getIterator() {
       return au.getAuCachedUrlSet().getCuIterator();
     }
@@ -474,7 +490,7 @@ public class ListObjects extends LockssServlet {
     }
 
     void printHeader() {
-      wrtr.println("# Substance URLs* in " + au.getName());
+      printAuHeader("Substance URLs", au);
     }
 
     protected void processCu(CachedUrl cu) {
@@ -504,8 +520,7 @@ public class ListObjects extends LockssServlet {
     }
 
     void printHeader() {
-      wrtr.println("# Substance URLs (with redirect detail) in " +
-		   au.getName());
+      printAuHeader("Substance URLs (with redirect detail)", au);
       wrtr.println("# Substance checker mode is " + subChecker.getMode());
     }
 
@@ -549,7 +564,7 @@ public class ListObjects extends LockssServlet {
   class FileList extends BaseNodeList {
     
     void printHeader() {
-      wrtr.println("# Files in " + au.getName());
+      printAuHeader("Files", au);
       wrtr.println("# URL\tContentType\tsize");
     }
     
@@ -573,7 +588,7 @@ public class ListObjects extends LockssServlet {
   class FileMemberList extends FileList {
     
     void printHeader() {
-      wrtr.println("# Files* in " + au.getName());
+      printAuHeader("Files*", au);
       wrtr.println("# URL\tContentType\tsize");
     }
 
@@ -596,7 +611,7 @@ public class ListObjects extends LockssServlet {
     }
 
     void printHeader() {
-      wrtr.println("# Substance files* in " + au.getName());
+      printAuHeader("Substance files", au);
     }
 
     String unitName() {
@@ -745,7 +760,7 @@ public class ListObjects extends LockssServlet {
     }
 
     void printHeader() {
-      wrtr.println("# DOIs in " + au.getName());
+      printAuHeader("DOIs", au);
     }
 
     String unitName() {
@@ -802,7 +817,7 @@ public class ListObjects extends LockssServlet {
     }
 
     void printHeader() {
-      wrtr.println("# Articles in " + au.getName());
+      printAuHeader("Articles", au);
     }
 
     String unitName() {
@@ -833,7 +848,7 @@ public class ListObjects extends LockssServlet {
     }
     
     void printHeader() {
-      wrtr.println("# All metadata in " + au.getName());
+      printAuHeader("All metadata", au);
     }
 
     String unitName() {
@@ -978,7 +993,7 @@ public class ListObjects extends LockssServlet {
     }
 
     void printHeader() {
-      wrtr.println("# URLs extracted from " + url + " in " + au.getName());
+      printAuHeader("URLs extracted from " + url, au);
     }
 
     String unitName() {
@@ -991,7 +1006,7 @@ public class ListObjects extends LockssServlet {
   class ValidationList extends BaseList {
 
     void printHeader() {
-      wrtr.println("# Content Validation in " + au.getName());
+      printAuHeader("Content Validation", au);
       if (!AuUtil.hasContentValidator(au)) {
 	wrtr.println("# Plugin (" + au.getPlugin().getPluginName() +
 		     ") does not supply a content validator  ");

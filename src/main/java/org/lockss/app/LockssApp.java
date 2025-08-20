@@ -151,6 +151,9 @@ public class LockssApp {
   public static final String MANAGER_PREFIX =
     Configuration.PREFIX + "manager.";
 
+  public static final String MANAGER_INSTANCE_PREFIX =
+    Configuration.PREFIX + "managerInstance.";
+
   // Parameter keys for standard managers
   public static final String MISC_PARAMS =
     managerKey(MiscParams.class);
@@ -948,17 +951,21 @@ public class LockssApp {
    * manager class name */
   protected LockssManager instantiateManager(ManagerDesc desc)
       throws Exception {
-    String managerName = getManagerClassName(desc);
     LockssManager mgr;
-    try {
-      mgr = (LockssManager)makeInstance(managerName);
-    } catch (ClassNotFoundException e) {
-      log.warning("Couldn't load manager class " + managerName);
-      if (!managerName.equals(desc.getDefaultClass(this))) {
-	log.warning("Trying default manager class " + desc.getDefaultClass(this));
-	mgr = (LockssManager)makeInstance(desc.getDefaultClass(this));
-      } else {
-	throw e;
+    if ((mgr = (LockssManager) System.getProperties().get(MANAGER_INSTANCE_PREFIX + desc.key)) != null) {
+      log.debug("Using already instantioted " + desc.key + ": " + mgr);
+    } else {
+      String managerName = getManagerClassName(desc);
+      try {
+        mgr = (LockssManager)makeInstance(managerName);
+      } catch (ClassNotFoundException e) {
+        log.warning("Couldn't load manager class " + managerName);
+        if (!managerName.equals(desc.getDefaultClass(this))) {
+          log.warning("Trying default manager class " + desc.getDefaultClass(this));
+          mgr = (LockssManager)makeInstance(desc.getDefaultClass(this));
+        } else {
+          throw e;
+        }
       }
     }
     return mgr;
@@ -1404,6 +1411,15 @@ public class LockssApp {
     LockssApp app;
     try {
       app = appClass.newInstance();
+    } catch (Exception e) {
+      throw new RuntimeException("Couldn't instantiate " + appClass, e);
+    }
+    return startStatic(app, spec);
+  }
+
+  /** Start the system using an already-created instance of (a subclass of) LockssApp
+   */
+  public static <T extends LockssApp> LockssApp startStatic(T app, AppSpec spec) {
 
 //       LockssApp oldApp = theApp.getValue();
 //       if (oldApp == null) {
@@ -1417,9 +1433,6 @@ public class LockssApp {
 //                   " (" + oldApp + "), aborting");
 //         throw new IllegalStateException("Can't create incompatible LockssApps");
 //       }
-    } catch (Exception e) {
-      throw new RuntimeException("Couldn't instantiate " + appClass, e);
-    }
     app.setAppSpec(spec);
     app.newStart();
     return app;

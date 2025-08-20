@@ -948,10 +948,10 @@ public class AdminServletManager extends BaseServletManager {
   }
 
   protected void installUsers() {
-    installDebugUser();
-    installPlatformUser();
-    installGlobalUsers();
-    installLocalUsers();
+//     installDebugUser();
+//     installPlatformUser();
+//     installGlobalUsers();
+//     installLocalUsers();
   }
 
   protected void configureContexts(HttpServer server) {

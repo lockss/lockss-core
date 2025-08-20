@@ -119,8 +119,8 @@ public class JmsConsumerImpl implements JmsConsumer {
     if (received != null && received instanceof String) {
       // cast the message to the correct type
       String text = (String) received;
-      if (log.isDebug()) {
-	log.debug(clientId + ": received text ='" + text + "'");
+      if (log.isDebug2()) {
+	log.debug2(clientId + ": received text ='" + text + "'");
       }
       return text;
     }
@@ -147,10 +147,10 @@ public class JmsConsumerImpl implements JmsConsumer {
     }
     // check if a message was received
     if (received instanceof Map) {
-      if (log.isDebug2()) {
-	log.debug2(clientId + ": received map: " + received);
+      if (log.isDebug3()) {
+	log.debug3(clientId + ": received map: " + received);
       } else {
-	log.debug(clientId + ": received map.");
+	log.debug2(clientId + ": received map.");
       }
       return (Map<String, Object>) received;
     } else {
@@ -171,13 +171,13 @@ public class JmsConsumerImpl implements JmsConsumer {
     Object received = receive(timeout);
     if (received != null && received instanceof byte[]) {
       byte[] bytes = (byte[]) received;
-      if (log.isDebug()) {
-	log.debug(clientId + ": received bytes ='" + bytes + "'");
+      if (log.isDebug2()) {
+	log.debug2(clientId + ": received bytes ='" + bytes + "'");
       }
       return bytes;
     }
     else {
-      log.debug(clientId + ": no bytes received");
+      log.debug2(clientId + ": no bytes received");
     }
     return null;
   }
@@ -194,14 +194,14 @@ public class JmsConsumerImpl implements JmsConsumer {
     Object received = receive(timeout);
     if (received != null && received instanceof Serializable) {
       Serializable obj = (Serializable) received;
-      if (log.isDebug()) {
-	log.debug(clientId + ": received serializable object ='" +
+      if (log.isDebug2()) {
+	log.debug2(clientId + ": received serializable object ='" +
 		  obj.toString() + "'");
       }
       return obj;
     }
     else {
-      log.debug(clientId + ": no message received");
+      log.debug2(clientId + ": no message received");
     }
     return null;
   }

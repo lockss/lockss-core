@@ -417,8 +417,9 @@ public class RepositoryManager
 	  }
 	}
 
-        log.debug2("Making RestLockssRepository, connectTimeout: {}, readTimeout: {}",
-                   connectTimeout, readTimeout);
+        log.debug("Making RestLockssRepository, connectTimeout: {}, readTimeout: {}, sizeThreshold: {}",
+                  StringUtil.timeIntervalToString(connectTimeout), StringUtil.timeIntervalToString(readTimeout),
+                  StringUtil.sizeToString(sizeThreshold));
         RestLockssRepository repo = new RestLockssRepository(url,
             RestUtil.getRestTemplate(connectTimeout, readTimeout, (int) sizeThreshold, tmpDir),
             serviceUser,
@@ -458,8 +459,9 @@ public class RepositoryManager
         if (changedKeys.contains(PARAM_READ_TIMEOUT) ||
             changedKeys.contains(PARAM_CONNECT_TIMEOUT) ||
             changedKeys.contains(PARAM_RESPONSE_SIZE_THRESHOLD)) {
-          log.debug2("Resetting RestTemplate params. connectTimeout: {}, readTimeout: {}, sizeThreshold: {}",
-                     connectTimeout, readTimeout, sizeThreshold);
+          log.debug("Resetting RestTemplate params. connectTimeout: {}, readTimeout: {}, sizeThreshold: {}",
+                    StringUtil.timeIntervalToString(connectTimeout), StringUtil.timeIntervalToString(readTimeout),
+                    StringUtil.sizeToString(sizeThreshold));
           repoClient.setRestTemplate(RestUtil.getRestTemplate(connectTimeout, readTimeout, (int) sizeThreshold, tmpDir));
         }
       }
