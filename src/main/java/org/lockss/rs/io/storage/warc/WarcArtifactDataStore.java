@@ -1625,7 +1625,8 @@ public abstract class WarcArtifactDataStore implements ArtifactDataStore, WARCCo
     }
 
     String artifactUuid = artifact.getUuid();
-    URI storageUrl;
+    URI storageUrl = URI.create(artifact.getStorageUrl());
+    ArtifactIdentifier artifactId = artifact.getIdentifier();
 
     Path warcFilePath = null;
     boolean isTmpStorage = false;
@@ -1635,18 +1636,8 @@ public abstract class WarcArtifactDataStore implements ArtifactDataStore, WARCCo
       // This could interact with two other processes:
       // 1. The GC process could remove the temporary WARC file from under this method
       // 2. The copy process could change the storage URL to point to permanent storage
-
-      if (artifact == null) {
-        // Yes: Artifact reference not found in index
-        log.debug("Artifact not found in index [uuid: {}]", artifactUuid);
-        throw new LockssNoSuchArtifactIdException("Artifact not found");
-      }
-
-      ArtifactIdentifier artifactId = artifact.getIdentifier();
-
       try (SemaphoreLock lock = lockArtifact(artifactId)) {
         // Get storage URL and WARC path of artifact's WARC record
-        storageUrl = new URI(artifact.getStorageUrl());
         warcFilePath = getPathFromStorageUrl(storageUrl);
         isTmpStorage = isTmpStorage(warcFilePath);
 
@@ -1655,8 +1646,8 @@ public abstract class WarcArtifactDataStore implements ArtifactDataStore, WARCCo
 
           WarcFile warcFile = tmpWarcPool.getWarcFile(warcFilePath);
 
-          // If the WARC file is now gone, it means that the temp WARC GC decided it could be delete
-          // in which case this artifact must be expired:
+          // If the WarcFile is gone from the pool, it means that the temp WARC GC decided
+          // it could be deleted, in which case this artifact must be expired:
           if (warcFile == null) {
             log.error(expiredErrorMsg);
             throw new LockssNoSuchArtifactIdException(expiredErrorMsg);
@@ -1672,10 +1663,6 @@ public abstract class WarcArtifactDataStore implements ArtifactDataStore, WARCCo
             }
           }
         }
-      } catch (URISyntaxException e) {
-        // This should never happen since storage URLs are internal
-        log.error("Malformed storage URL [storageUrl: {}]", artifact.getStorageUrl());
-        throw new IllegalArgumentException("Malformed storage URL");
       }
 
       log.debug2("uuid: {}, storageUrl: {}", artifactUuid, storageUrl);
@@ -1721,8 +1708,8 @@ public abstract class WarcArtifactDataStore implements ArtifactDataStore, WARCCo
       return artifactData;
 
     } catch (Exception e) {
-      log.error("Could not get artifact data [uuid: {}, storageUrl: {}]", artifact.getUuid(),
-          artifact.getStorageUrl(), e);
+      log.error("Could not get artifact data [uuid: {}, storageUrl: {}]", artifactUuid,
+          storageUrl, e);
 
       if (warcStream != null) {
         IOUtils.closeQuietly(warcStream);
