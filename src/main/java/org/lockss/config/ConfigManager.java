@@ -1050,15 +1050,18 @@ public class ConfigManager implements LockssManager {
 						String groupNames,
 						ApplicationContext springAppCtx) {
 
-    Environment env = springAppCtx.getEnvironment();
-    ConfigManager cfgMgr = env.getProperty("LockssConfigManager", ConfigManager.class);
+    // If the ConfigManager was instantiated elsewhere and was made available
+    // through the Spring ApplicationContext, use it.
+    if (springAppCtx != null) {
+      Environment env = springAppCtx.getEnvironment();
+      ConfigManager cfgMgr =
+          env.getProperty("LockssConfigManager", ConfigManager.class);
 
-    // If a ConfigManager was instantiated elsewhere and was made available through
-    // the Spring ApplicationContext, use it. Otherwise, create a new one.
-    if (cfgMgr != null) {
-      cfgMgr.initializeConfigurationSources(
-          bootstrapPropsUrls, restConfigServiceUrl, urls, groupNames);
-      return setConfigManager(cfgMgr);
+      if (cfgMgr != null) {
+        cfgMgr.initializeConfigurationSources(
+            bootstrapPropsUrls, restConfigServiceUrl, urls, groupNames);
+        return setConfigManager(cfgMgr, springAppCtx);
+      }
     }
 
     return setConfigManager(new ConfigManager(bootstrapPropsUrls,
