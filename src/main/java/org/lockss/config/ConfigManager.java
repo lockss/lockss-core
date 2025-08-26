@@ -896,6 +896,8 @@ public class ConfigManager implements LockssManager {
                                               List<String> urls,
                                               String groupNames) {
 
+    haveConfig = new OneShotSemaphore();
+
     this.bootstrapPropsUrls = bootstrapPropsUrls;
     this.restConfigServiceUrl = restConfigServiceUrl;
     this.groupNames = groupNames;
