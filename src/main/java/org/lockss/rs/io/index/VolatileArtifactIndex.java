@@ -33,6 +33,7 @@ POSSIBILITY OF SUCH DAMAGE.
 package org.lockss.rs.io.index;
 
 import org.apache.commons.collections4.IteratorUtils;
+import org.apache.commons.collections4.MapIterator;
 import org.apache.commons.collections4.MultiValuedMap;
 import org.apache.commons.collections4.multimap.ArrayListValuedHashMap;
 import org.apache.commons.lang3.StringUtils;
@@ -49,6 +50,7 @@ import java.io.IOException;
 import java.io.InterruptedIOException;
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ConcurrentLinkedDeque;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
@@ -57,6 +59,28 @@ import java.util.stream.Stream;
  */
 public class VolatileArtifactIndex extends AbstractArtifactIndex {
     private final static L4JLogger log = L4JLogger.getLogger();
+
+    public static class ConcurrentMultiValuedMap<K, V> {
+      private final ConcurrentHashMap<K, Deque<V>> map = new ConcurrentHashMap<>();
+
+      public void put(K key, V value) {
+        map.putIfAbsent(key, new ConcurrentLinkedDeque<>());
+        Deque<V> values = map.get(key);
+        values.add(value);
+      }
+
+      public void removeMapping(K key, V value) {
+        Deque<V> values = map.get(key);
+        if (values != null) {
+          values.remove(value);
+        }
+      }
+
+      public Deque<V> get(K key) {
+        if (key == null) return null;
+        return map.get(key);
+      }
+    }
 
     @Override
     public ArtifactIndexVersion getArtifactIndexTargetVersion() {
@@ -71,8 +95,8 @@ public class VolatileArtifactIndex extends AbstractArtifactIndex {
     // Internal map from artifact ID to Artifact
     protected Map<String, Artifact> indexedByUuid = new ConcurrentHashMap<>();
 
-    protected MultiValuedMap<String, Artifact> indexedByUrlMap =
-        new ArrayListValuedHashMap<>(1);
+    protected ConcurrentMultiValuedMap<String, Artifact> indexedByUrlMap =
+        new ConcurrentMultiValuedMap<>();
 
     /**
      * Map from artifact stem to semaphore. Used for artifact version locking.

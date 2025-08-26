@@ -1,32 +1,32 @@
 /*
 
-Copyright (c) 2000-2021, Board of Trustees of Leland Stanford Jr. University.
-All rights reserved.
+Copyright (c) 2000-2025, Board of Trustees of Leland Stanford Jr. University
 
-Redistribution and use in source and binary forms, with or without modification,
-are permitted provided that the following conditions are met:
+Redistribution and use in source and binary forms, with or without
+modification, are permitted provided that the following conditions are met:
 
-1. Redistributions of source code must retain the above copyright notice, this
-list of conditions and the following disclaimer.
+1. Redistributions of source code must retain the above copyright notice,
+this list of conditions and the following disclaimer.
 
 2. Redistributions in binary form must reproduce the above copyright notice,
-this list of conditions and the following disclaimer in the documentation and/or
-other materials provided with the distribution.
+this list of conditions and the following disclaimer in the documentation
+and/or other materials provided with the distribution.
 
 3. Neither the name of the copyright holder nor the names of its contributors
 may be used to endorse or promote products derived from this software without
 specific prior written permission.
 
-THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND
-ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED
-WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
-DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE FOR
-ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES
-(INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES;
-LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON
-ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
-(INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
-SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
+AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
+ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE
+LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
+CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
+SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
+INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN
+CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
+ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
+POSSIBILITY OF SUCH DAMAGE.
 
 */
 
@@ -1586,6 +1586,44 @@ public class TestPluginManager extends LockssTestCase4 {
   void assertEqualCu(CachedUrl cu1, CachedUrl cu2) {
     assertEquals(cu1.getUrl(), cu2.getUrl());
     assertEquals(cu1.getArchivalUnit(), cu2.getArchivalUnit());
+  }
+
+  @Test
+  public void testNormalizeUtil() throws Exception {
+    ConfigurationUtil.addFromArgs(PluginManager.PARAM_AU_SEARCH_USE_V2_REPO,
+        "true");
+
+    ConfigurationUtil.addFromArgs(
+        "org.lockss.log.PluginManager.level", "debug3",
+        "org.lockss.log.AuSearchSet.level", "debug3",
+        "org.lockss.log.BaseCachedUrl.level", "debug3");
+
+    mgr.startService();
+    repo = repoMgr.getV2Repository().getRepository();
+
+    mgr.ensurePluginLoaded(simplePlugKey);
+    Plugin sp = mgr.getPlugin(simplePlugKey);
+
+    ArchivalUnit au1 =
+        mgr.createAu(sp,
+            ConfigurationUtil.fromArgs("base_url", "http://foo.bar/",
+                "volume_name", "42"),
+            AuEvent.model(AuEvent.Type.Create));
+
+    ArchivalUnit au2 =
+        mgr.createAu(sp,
+            ConfigurationUtil.fromArgs("base_url", "http://foo.bar/",
+                "volume_name", "43"),
+            AuEvent.model(AuEvent.Type.Create));
+
+    // Test default URL normalization
+    assertSameElements(List.of("http://www.lockss.org/"),
+        mgr.normalizeUrl("http://www.LOCKSS.org"));
+
+    // Test URL normalization by plugin
+    String url1 = "http://foo.bar/42/baz";
+    String url1un = url1 + Integer.toHexString(au1.hashCode());
+    assertSameElements(List.of(url1, url1un), mgr.normalizeUrl(url1un));
   }
 
   @Test

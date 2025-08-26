@@ -73,7 +73,7 @@ public abstract class DbManager extends BaseLockssManager
   protected static final String PARAM_DBCP_MAX_TOTAL = PREFIX + "dbcp.maxTotal";
   protected static final String PARAM_DBCP_MAX_IDLE = PREFIX + "dbcp.maxIdle";
   protected static final String PARAM_DBCP_MIN_IDLE = PREFIX + "dbcp.minIdle";
-  protected static final String PARAM_DBCP_MAX_WAIT_TIME = PREFIX + "dbcp.maxWaitMs";
+  protected static final String PARAM_DBCP_MAX_WAIT_TIME = PREFIX + "dbcp.maxWaitMillis";
 
   protected static final String DEFAULT_DBCP_INITIAL_SIZE = "0";
   protected static final String DEFAULT_DBCP_MAX_TOTAL = "100";
@@ -1007,14 +1007,15 @@ public abstract class DbManager extends BaseLockssManager
       dbcpProps.put("username", dataSourceConfig.get("user"));
       dbcpProps.put("password", dataSourceConfig.get("password"));
 
-      // Set initial pool size, max pool size, etc.
+      // Configure a set of DBCP settings from global DBCP settings (i.e., org.lockss.db.dbcp.*),
+      // or enforce defaults (as specified in the DBCP documentation), if those DBCP settings for
+      // this implementation of DbManager have not been explicitly configured:
       Configuration curCfg = ConfigManager.getCurrentConfig();
-
-      dbcpProps.put("initialSize", curCfg.get(PARAM_DBCP_INITIAL_SIZE ,DEFAULT_DBCP_INITIAL_SIZE));
-      dbcpProps.put("maxTotal", curCfg.get(PARAM_DBCP_MAX_TOTAL, DEFAULT_DBCP_MAX_TOTAL));
-      dbcpProps.put("maxIdle", curCfg.get(PARAM_DBCP_MAX_IDLE, DEFAULT_DBCP_MAX_IDLE));
-      dbcpProps.put("minIdle", curCfg.get(PARAM_DBCP_MIN_IDLE, DEFAULT_DBCP_MIN_IDLE));
-      dbcpProps.put("maxWaitMillis",
+      putCfgIfAbsent(dbcpProps, "initialSize", curCfg.get(PARAM_DBCP_INITIAL_SIZE ,DEFAULT_DBCP_INITIAL_SIZE));
+      putCfgIfAbsent(dbcpProps, "maxTotal", curCfg.get(PARAM_DBCP_MAX_TOTAL, DEFAULT_DBCP_MAX_TOTAL));
+      putCfgIfAbsent(dbcpProps, "maxIdle", curCfg.get(PARAM_DBCP_MAX_IDLE, DEFAULT_DBCP_MAX_IDLE));
+      putCfgIfAbsent(dbcpProps, "minIdle", curCfg.get(PARAM_DBCP_MIN_IDLE, DEFAULT_DBCP_MIN_IDLE));
+      putCfgIfAbsent(dbcpProps, "maxWaitMillis",
           String.valueOf(curCfg.getTimeInterval(PARAM_DBCP_MAX_WAIT_TIME, DEFAULT_DBCP_MAX_WAIT_TIME)));
 
       // Determine JDBC URL from existing DataSource if not explicitly set
@@ -1065,6 +1066,12 @@ public abstract class DbManager extends BaseLockssManager
     }
 
     if (log.isDebug2()) log.debug2(DEBUG_HEADER + "Done.");
+  }
+
+  private static void putCfgIfAbsent(Configuration cfg, String k, String v) {
+    if (!cfg.containsKey(k)) {
+      cfg.put(k, v);
+    }
   }
 
   private String formatConnectionProperties(Configuration connProps) {

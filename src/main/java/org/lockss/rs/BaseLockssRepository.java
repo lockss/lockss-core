@@ -412,7 +412,7 @@ public class BaseLockssRepository implements LockssRepository, JmsFactorySource 
             true);
 
         if (result != null) {
-          throw new LockssArtifactAlreadyExistsException();
+          throw new LockssArtifactAlreadyExistsException(artifactId);
         }
 
         nextVersion = artifactId.getVersion();
@@ -638,7 +638,6 @@ public class BaseLockssRepository implements LockssRepository, JmsFactorySource 
       throw new IllegalArgumentException("Null artifact ID");
     }
 
-    // FIXME: We end up performing multiple index lookups here, which is slow.
     Artifact artifactRef = index.getArtifact(artifactUuid);
 
     if (artifactRef == null) {
@@ -646,9 +645,6 @@ public class BaseLockssRepository implements LockssRepository, JmsFactorySource 
     }
 
     // Fetch and return artifact from data store
-    // Q: Should ArtifactData properties be populated from Artifact here instead
-    //  of within the data store? That would make it more consistent with the
-    //  RestLockssRepository implementation.
     return store.getArtifactData(artifactRef);
   }
 

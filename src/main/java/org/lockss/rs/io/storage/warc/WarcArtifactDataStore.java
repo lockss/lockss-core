@@ -90,10 +90,7 @@ import java.io.*;
 import java.net.URI;
 import java.net.URISyntaxException;
 import java.nio.charset.StandardCharsets;
-import java.nio.file.Files;
-import java.nio.file.Path;
-import java.nio.file.Paths;
-import java.nio.file.StandardOpenOption;
+import java.nio.file.*;
 import java.time.Instant;
 import java.time.ZoneId;
 import java.time.ZoneOffset;
@@ -217,9 +214,10 @@ public abstract class WarcArtifactDataStore implements ArtifactDataStore, WARCCo
   }
 
   private static void recordArtifactDataStoreVersion(File versionFile, ArtifactDataStoreVersion version) throws IOException {
-    FileUtils.touch(versionFile);
-    try (BufferedOutputStream fos = new BufferedOutputStream(new FileOutputStream(versionFile))) {
-      mapper.writeValue(fos, version);
+    try (FileOutputStream fos = FileUtils.openOutputStream(versionFile)) {
+      try (BufferedOutputStream bos = new BufferedOutputStream(fos)) {
+        mapper.writeValue(bos, version);
+      }
     }
   }
 
@@ -1627,8 +1625,8 @@ public abstract class WarcArtifactDataStore implements ArtifactDataStore, WARCCo
     }
 
     String artifactUuid = artifact.getUuid();
-    Artifact indexedArtifact;
-    URI storageUrl;
+    URI storageUrl = URI.create(artifact.getStorageUrl());
+    ArtifactIdentifier artifactId = artifact.getIdentifier();
 
     Path warcFilePath = null;
     boolean isTmpStorage = false;
@@ -1638,21 +1636,8 @@ public abstract class WarcArtifactDataStore implements ArtifactDataStore, WARCCo
       // This could interact with two other processes:
       // 1. The GC process could remove the temporary WARC file from under this method
       // 2. The copy process could change the storage URL to point to permanent storage
-
-      // Retrieve artifact reference from index
-      indexedArtifact = getArtifactIndex().getArtifact(artifactUuid);
-
-      if (indexedArtifact == null) {
-        // Yes: Artifact reference not found in index
-        log.debug("Artifact not found in index [uuid: {}]", artifactUuid);
-        throw new LockssNoSuchArtifactIdException("Artifact not found");
-      }
-
-      ArtifactIdentifier artifactId = indexedArtifact.getIdentifier();
-
       try (SemaphoreLock lock = lockArtifact(artifactId)) {
         // Get storage URL and WARC path of artifact's WARC record
-        storageUrl = new URI(indexedArtifact.getStorageUrl());
         warcFilePath = getPathFromStorageUrl(storageUrl);
         isTmpStorage = isTmpStorage(warcFilePath);
 
@@ -1661,8 +1646,8 @@ public abstract class WarcArtifactDataStore implements ArtifactDataStore, WARCCo
 
           WarcFile warcFile = tmpWarcPool.getWarcFile(warcFilePath);
 
-          // If the WARC file is now gone, it means that the temp WARC GC decided it could be delete
-          // in which case this artifact must be expired:
+          // If the WarcFile is gone from the pool, it means that the temp WARC GC decided
+          // it could be deleted, in which case this artifact must be expired:
           if (warcFile == null) {
             log.error(expiredErrorMsg);
             throw new LockssNoSuchArtifactIdException(expiredErrorMsg);
@@ -1678,10 +1663,6 @@ public abstract class WarcArtifactDataStore implements ArtifactDataStore, WARCCo
             }
           }
         }
-      } catch (URISyntaxException e) {
-        // This should never happen since storage URLs are internal
-        log.error("Malformed storage URL [storageUrl: {}]", indexedArtifact.getStorageUrl());
-        throw new IllegalArgumentException("Malformed storage URL");
       }
 
       log.debug2("uuid: {}, storageUrl: {}", artifactUuid, storageUrl);
@@ -1718,22 +1699,17 @@ public abstract class WarcArtifactDataStore implements ArtifactDataStore, WARCCo
       artifactData.setClosableInputStream(warcStream);
 
       // Set ArtifactData properties
-      ArtifactIdentifier indexedArtifactId = indexedArtifact.getIdentifier();
-      artifactData.setIdentifier(indexedArtifactId);
-      artifactData.setStorageUrl(URI.create(indexedArtifact.getStorageUrl()));
-      artifactData.setContentLength(indexedArtifact.getContentLength());
-      artifactData.setContentDigest(indexedArtifact.getContentDigest());
-
-//      // Set artifact's state
-//      artifactData.setArtifactState(
-//          getArtifactState(artifact, isArtifactExpired(warcRecord.getHeader())));
+      artifactData.setIdentifier(artifactId);
+      artifactData.setStorageUrl(URI.create(artifact.getStorageUrl()));
+      artifactData.setContentLength(artifact.getContentLength());
+      artifactData.setContentDigest(artifact.getContentDigest());
 
       // Return an ArtifactData from the WARC record
       return artifactData;
 
     } catch (Exception e) {
-      log.error("Could not get artifact data [uuid: {}, storageUrl: {}]", artifact.getUuid(),
-          artifact.getStorageUrl(), e);
+      log.error("Could not get artifact data [uuid: {}, storageUrl: {}]", artifactUuid,
+          storageUrl, e);
 
       if (warcStream != null) {
         IOUtils.closeQuietly(warcStream);
@@ -2303,7 +2279,7 @@ public abstract class WarcArtifactDataStore implements ArtifactDataStore, WARCCo
         }
       });
     } catch (FileNotFoundException e) {
-      log.debug("Reindexed WARC files not found; starting new file");
+      log.debug("List of previously reindexed WARCs file not found; starting a new one");
       FileUtils.touch(reindexedWarcsFile);
     }
 

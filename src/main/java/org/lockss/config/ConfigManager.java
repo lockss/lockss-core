@@ -58,7 +58,6 @@ import org.lockss.plugin.*;
 import org.lockss.protocol.*;
 import org.lockss.proxy.*;
 import org.lockss.remote.*;
-import org.lockss.repository.*;
 import org.lockss.subscription.SubscriptionManager;
 import org.lockss.util.rest.exception.LockssRestException;
 import org.lockss.util.rest.exception.LockssRestHttpException;
@@ -77,6 +76,7 @@ import org.lockss.util.urlconn.*;
 import javax.jms.Message;
 import javax.jms.JMSException;
 import org.lockss.jms.*;
+import org.springframework.core.env.Environment;
 
 /** ConfigManager loads and periodically reloads the LOCKSS configuration
  * parameters, and provides services for updating locally changeable
@@ -872,8 +872,7 @@ public class ConfigManager implements LockssManager {
     URL_PARAMS.get(PARAM_TITLE_DB_URLS).put("predicate", titleDbOnlyPred);
 //     URL_PARAMS.get(PARAM_TITLE_DB_URLS).put("required", true);
 
-    this.bootstrapPropsUrls = bootstrapPropsUrls;
-    this.restConfigServiceUrl = restConfigServiceUrl;
+    initializeConfigurationSources(bootstrapPropsUrls, restConfigServiceUrl, urls, groupNames);
 
     // User credentials for rest client aren't available yet because the
     // app instance ins't known until initService() is called, but the
@@ -888,12 +887,24 @@ public class ConfigManager implements LockssManager {
       // Yes: Try the initial config load much more often.
       reloadInterval = 15 * Constants.SECOND;
     }
-    if (urls != null) {
-      configUrlList = new ArrayList(urls);
-    }
-    this.groupNames = groupNames;
     configCache = new ConfigCache(this);
     registerConfigurationCallback(MiscConfig.getConfigCallback());
+  }
+
+  private void initializeConfigurationSources(List<String> bootstrapPropsUrls,
+                                              String restConfigServiceUrl,
+                                              List<String> urls,
+                                              String groupNames) {
+
+    haveConfig = new OneShotSemaphore();
+
+    this.bootstrapPropsUrls = bootstrapPropsUrls;
+    this.restConfigServiceUrl = restConfigServiceUrl;
+    this.groupNames = groupNames;
+
+    if (urls != null) {
+      configUrlList = new ArrayList<>(urls);
+    }
   }
 
   public void setClusterUrls(List<String> urls) {
@@ -1040,6 +1051,21 @@ public class ConfigManager implements LockssManager {
 						List<String> urls,
 						String groupNames,
 						ApplicationContext springAppCtx) {
+
+    // If the ConfigManager was instantiated elsewhere and was made available
+    // through the Spring ApplicationContext, use it.
+    if (springAppCtx != null) {
+      Environment env = springAppCtx.getEnvironment();
+      ConfigManager cfgMgr =
+          env.getProperty("LockssConfigManager", ConfigManager.class);
+
+      if (cfgMgr != null) {
+        cfgMgr.initializeConfigurationSources(
+            bootstrapPropsUrls, restConfigServiceUrl, urls, groupNames);
+        return setConfigManager(cfgMgr, springAppCtx);
+      }
+    }
+
     return setConfigManager(new ConfigManager(bootstrapPropsUrls,
 					      restConfigServiceUrl,
 					      urls,

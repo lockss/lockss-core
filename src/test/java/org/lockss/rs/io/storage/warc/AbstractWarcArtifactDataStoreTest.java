@@ -306,9 +306,9 @@ public abstract class AbstractWarcArtifactDataStoreTest<WADS extends WarcArtifac
         // Assert retrieving this artifact from the data store and index returns null
         assertNull(index.getArtifact(spec.getArtifactUuid()));
 
-        assertThrows(
-            LockssNoSuchArtifactIdException.class,
-            () -> store.getArtifactData(spec.getArtifact()));
+        // Assert attempt to retrieve the data of a deleted artifact still works
+        // (as long as we have a handle to the artifact):
+        spec.assertArtifactData(store.getArtifactData(spec.getArtifact()));
 
         // Data store should have recorded into the repository metadata journal that this artifact is removed
         assertTrue(store.isArtifactDeleted(spec.getArtifactIdentifier()));
@@ -2233,24 +2233,6 @@ public abstract class AbstractWarcArtifactDataStoreTest<WADS extends WarcArtifac
     // Attempt retrieving an artifact with a null argument
     assertThrows(IllegalArgumentException.class, () -> store.getArtifactData(null));
 
-    // Attempt retrieving artifacts that do not exist
-    for (ArtifactSpec spec : neverFoundArtifactSpecs) {
-      // Update spec
-      if (spec.getArtifactUuid() == null) {
-        spec.setArtifactUuid(UUID.randomUUID().toString());
-      }
-
-      spec.generateContent();
-      spec.setStorageUrl(URI.create("bad"));
-
-      log.debug("Generated content for bogus artifact [uuid: {}]", spec.getArtifactUuid());
-
-      // Assert that getArtifactData() returns null if it
-      assertThrows(
-          LockssNoSuchArtifactIdException.class,
-          () -> store.getArtifactData(spec.getArtifact()));
-    }
-
     // Get a handle to the data store's artifact index
     ArtifactIndex index = store.getArtifactIndex();
     assertNotNull(index);
@@ -2386,10 +2368,9 @@ public abstract class AbstractWarcArtifactDataStoreTest<WADS extends WarcArtifac
     // Delete the artifact from the artifact store
     store.deleteArtifactData(artifact);
 
-    // Assert attempt to retrieve the deleted artifact data results in a null
-    assertThrows(
-        LockssNoSuchArtifactIdException.class,
-        () -> store.getArtifactData(artifact));
+    // Assert attempt to retrieve the data of a deleted artifact still works
+    // (as long as we have a handle to the artifact):
+    spec.assertArtifactData(store.getArtifactData(artifact));
 
     // Verify that the repository metadata journal and index reflect the artifact is deleted
     assertTrue(store.isArtifactDeleted(spec.getArtifactIdentifier()));

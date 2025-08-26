@@ -29,6 +29,7 @@ package org.lockss.config;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.core.type.TypeReference;
+import com.fasterxml.jackson.databind.DeserializationFeature;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.ObjectReader;
 import org.lockss.account.UserAccount;
@@ -57,6 +58,7 @@ import java.io.InputStream;
 import java.net.MalformedURLException;
 import java.net.URI;
 import java.net.URL;
+import java.time.OffsetDateTime;
 import java.util.*;
 
 /**
@@ -1367,6 +1369,38 @@ public class RestConfigClient {
     return result;
   }
 
+  public OffsetDateTime getLastUpdateTime() throws LockssRestException {
+    // Get the URL template.
+    String template = getLastUpdateTimeUrl();
+
+    // Create the URI of the request to the REST service.
+    UriComponents uriComponents = UriComponentsBuilder.fromUriString(template).build();
+
+    URI uri = UriComponentsBuilder.newInstance().uriComponents(uriComponents)
+        .build().encode().toUri();
+    if (log.isDebug3()) log.debug3("uri = " + uri);
+
+    // Initialize the request headers.
+    HttpHeaders requestHeaders = new HttpHeaders();
+
+    // Set the authentication credentials.
+    setAuthenticationCredentials(requestHeaders);
+
+    // Create the request entity.
+    HttpEntity<String> requestEntity =
+        new HttpEntity<String>(null, requestHeaders);
+
+    // Make the request and get the response.
+    ResponseEntity<OffsetDateTime> response =
+        RestUtil.callRestService(restTemplate, uri, HttpMethod.GET,
+            requestEntity, OffsetDateTime.class, "Cannot get lastupdatetime object");
+
+    OffsetDateTime result = response.getBody();
+
+    if (log.isDebug2()) log.debug2("result = " + result);
+    return result;
+  }
+
   public UserAccount getUserAccount(String username) throws IOException {
     if (log.isDebug2()) log.debug2("username = " + username);
 
@@ -1600,6 +1634,10 @@ public class RestConfigClient {
     return serviceLocation + "/users/{username}";
   }
 
+  private String getLastUpdateTimeUrl() {
+    return serviceLocation + "/config/lastupdatetime";
+  }
+
   /**
    * Sets the authentication credentials in a request.
    * 
@@ -1612,4 +1650,5 @@ public class RestConfigClient {
     requestHeaders.set("Authorization", authHeaderValue);
     if (log.isDebug3()) log.debug3("requestHeaders = " + requestHeaders);
   }
+
 }
