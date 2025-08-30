@@ -163,7 +163,7 @@
     <if platformName="Linux rpm">
       <property name="test.platformName.linux" value="linux"/>
     </if>
-    <if platformName="OpenBSD CD">
+    <if platformName="OpenBSD_CD">
       <property name="test.platformName.openbsd" value="openbsd"/>
     </if>
 
