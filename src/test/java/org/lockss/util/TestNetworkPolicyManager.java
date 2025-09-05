@@ -365,16 +365,7 @@ public class TestNetworkPolicyManager extends LockssCoreTestCase5 {
         org.lockss.util.PlatformVersion pv =
             (testPv != null) ? testPv : org.lockss.config.ConfigManager.getPlatformVersion();
         if (pv != null && pv.isKubernetes()) {
-          if (diffs.contains(PREFIX) ||
-              diffs.contains("org.lockss.ui.ip.include") ||
-              diffs.contains("org.lockss.ui.ip.exclude")) {
-            if (diffs.contains(PREFIX)) {
-              managedPorts = config.get(PARAM_LOCKSS_PROTECTED_PORTS, DEFAULT_LOCKSS_PROTECTED_PORTS);
-            }
-            final List<String> includes = config.getList("org.lockss.ui.ip.include");
-            final List<String> excludes = config.getList("org.lockss.ui.ip.exclude");
-            updateNetworkPolicyIngress(includes, excludes);
-          }
+          queueConfigChanges(config, diffs);
         }
       } catch (Exception ex) {
         // swallow in test override

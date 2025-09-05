@@ -10,6 +10,7 @@ import java.util.concurrent.*;
 import org.lockss.app.*;
 import org.lockss.config.*;
 import org.lockss.config.Configuration;
+import org.lockss.config.Configuration.*;
 import org.lockss.util.IpFilter.*;
 
 public class NetworkPolicyManager extends BaseLockssManager implements ConfigurableManager {
@@ -61,28 +62,32 @@ public class NetworkPolicyManager extends BaseLockssManager implements Configura
       org.lockss.config.Configuration.Differences diffs) {
     try {
       if (ConfigManager.getPlatformVersion().isKubernetes()) {
-        if (diffs.contains(PREFIX) ||
-            diffs.contains(PARAM_IP_ACCESS_INCLUDE) ||
-            diffs.contains(PARAM_IP_ACCESS_EXCLUDE)) {
-          if(diffs.contains(PREFIX)) {
-            // we changed a protected port
-            managedPorts = config.get(PARAM_LOCKSS_PROTECTED_PORTS,
-                DEFAULT_LOCKSS_PROTECTED_PORTS);
-          }
-          // enqueue the update to be processed by a single background thread
-          final List<String> includes = config.getList(PARAM_IP_ACCESS_INCLUDE);
-          final List<String> excludes = config.getList(PARAM_IP_ACCESS_EXCLUDE);
-          ingressUpdateExecutor.submit(() -> {
-            try {
-              updateNetworkPolicyIngress(includes, excludes);
-            } catch (Throwable t) {
-              log.warning("Error running queued updateNetworkPolicyIngress task", t);
-            }
-          });
-        }
+        queueConfigChanges(config, diffs);
       }
     } catch (Exception ex) {
       log.error("Error processing configuration update", ex);
+    }
+  }
+
+  void queueConfigChanges(Configuration config, Differences diffs) {
+    if (diffs.contains(PREFIX) ||
+        diffs.contains(PARAM_IP_ACCESS_INCLUDE) ||
+        diffs.contains(PARAM_IP_ACCESS_EXCLUDE)) {
+      if(diffs.contains(PREFIX)) {
+        // we changed a protected port
+        managedPorts = config.get(PARAM_LOCKSS_PROTECTED_PORTS,
+            DEFAULT_LOCKSS_PROTECTED_PORTS);
+      }
+      // enqueue the update to be processed by a single background thread
+      final List<String> includes = config.getList(PARAM_IP_ACCESS_INCLUDE);
+      final List<String> excludes = config.getList(PARAM_IP_ACCESS_EXCLUDE);
+      ingressUpdateExecutor.submit(() -> {
+        try {
+          updateNetworkPolicyIngress(includes, excludes);
+        } catch (Throwable t) {
+          log.warning("Error running queued updateNetworkPolicyIngress task", t);
+        }
+      });
     }
   }
 
