@@ -6,9 +6,7 @@ import io.kubernetes.client.openapi.models.V1NetworkPolicyPort;
 import io.kubernetes.client.openapi.models.V1ObjectMeta;
 import java.io.File;
 import java.io.FileInputStream;
-import java.util.Arrays;
-import java.util.Collections;
-import java.util.List;
+import java.util.*;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -208,6 +206,59 @@ public class TestNetworkPolicyManager extends LockssCoreTestCase5 {
   }
 
   @Test
+  public void testSetConfig_updatesManagedPortsOnPrefixDiff() throws Exception {
+    // Ensure a clean start and force Kubernetes platform
+    npMgr.setTestPlatformVersion(mockPlatformVersion(true));
+    Properties props = new Properties();
+    props.put("org.lockss.networkPolicy.protected.ports", "80;443");
+    props.put("org.lockss.ui.ip.include", "10.*.*.*");
+    props.put("org.lockss.ui.ip.exclude", "192.168.0.0/16");
+    // Change the protected ports under the PREFIX to trigger diffs.contains(PREFIX)
+    org.lockss.test.ConfigurationUtil.setCurrentConfigFromProps(props);
+
+    // Wait for the config callback to run
+    Boolean signal = npMgr.calls.poll(5, java.util.concurrent.TimeUnit.SECONDS);
+    assertNotNull(signal, "Expected updateNetworkPolicyIngress to be invoked");
+
+    // Verify that managedPorts was updated by setConfig based on the new value
+    assertEquals("80;443", npMgr.managedPorts, "managedPorts should be updated from config");
+
+    // And that it is usable by buildPorts (sanity check)
+    List<V1NetworkPolicyPort> ports = npMgr.buildPorts(npMgr.managedPorts);
+    assertEquals(2, ports.size());
+    assertPortIntValue(ports.get(0), 80);
+    assertPortIntValue(ports.get(1), 443);
+  }
+
+  @Test
+  public void testSetConfig_doesNotChangeManagedPortsWhenPrefixNotInDiff() throws Exception {
+    // Start with a known ports setting
+    org.lockss.test.ConfigurationUtil.resetConfig();
+    npMgr.setTestPlatformVersion(mockPlatformVersion(true));
+    Properties props = new Properties();
+    props.put("org.lockss.networkPolicy.protected.ports", "8080;24682");
+    props.put("org.lockss.ui.ip.include", "10.*.*.*");
+    props.put("org.lockss.ui.ip.exclude", "192.168.0.0/16");
+    org.lockss.test.ConfigurationUtil.setCurrentConfigFromProps(props);
+    // Wait for initial config to apply
+    Boolean firstSignal = npMgr.calls.poll(5, java.util.concurrent.TimeUnit.SECONDS);
+    assertNotNull(firstSignal, "Expected initial update to be invoked");
+    assertEquals("8080;24682", npMgr.managedPorts);
+
+    // Now change only the include/exclude (no PREFIX change)
+    props = new Properties();
+    props.put("org.lockss.networkPolicy.protected.ports", "8080;24682");
+    props.put("org.lockss.ui.ip.include","172.16.0.0/12");
+    props.put("org.lockss.ui.ip.exclude", "192.168.1.0/24");
+    org.lockss.test.ConfigurationUtil.setCurrentConfigFromProps(props);
+    Boolean secondSignal = npMgr.calls.poll(5, java.util.concurrent.TimeUnit.SECONDS);
+    assertNotNull(secondSignal, "Expected update to be invoked due to include/exclude change");
+
+    // managedPorts should remain unchanged since PREFIX wasn't in the diff
+    assertEquals("8080;24682", npMgr.managedPorts, "managedPorts should not change without PREFIX diff");
+  }
+
+  @Test
   void buildPorts_throwsOnNullOrBlank() {
     IllegalArgumentException ex1 =
         assertThrows(IllegalArgumentException.class, () -> npMgr.buildPorts(null));
@@ -238,7 +289,7 @@ public class TestNetworkPolicyManager extends LockssCoreTestCase5 {
 
   @Test
   void buildPorts_parsesValidPorts() {
-    List<V1NetworkPolicyPort> ports = npMgr.buildPorts("80:443:8080");
+    List<V1NetworkPolicyPort> ports = npMgr.buildPorts("80;443;8080");
     assertEquals(3, ports.size());
 
     assertPortIntValue(ports.get(0), 80);
@@ -248,7 +299,7 @@ public class TestNetworkPolicyManager extends LockssCoreTestCase5 {
 
   @Test
   void buildPorts_trimsAndSkipsEmpty() {
-    List<V1NetworkPolicyPort> ports = npMgr.buildPorts(" 80 : : 443 :8080 ");
+    List<V1NetworkPolicyPort> ports = npMgr.buildPorts(" 80 ; ; 443 ;8080 ");
     assertEquals(3, ports.size());
 
     assertPortIntValue(ports.get(0), 80);
@@ -258,7 +309,7 @@ public class TestNetworkPolicyManager extends LockssCoreTestCase5 {
 
   @Test
   void buildPorts_removesDuplicatesPreservesFirstOrder() {
-    List<V1NetworkPolicyPort> ports = npMgr.buildPorts("80:80:443:80:443");
+    List<V1NetworkPolicyPort> ports = npMgr.buildPorts("80;80;443;80;443");
     assertEquals(2, ports.size(), "Duplicates should be removed");
     assertPortIntValue(ports.get(0), 80);
     assertPortIntValue(ports.get(1), 443);
@@ -267,7 +318,7 @@ public class TestNetworkPolicyManager extends LockssCoreTestCase5 {
   @Test
   void buildPorts_throwsWhenNoValidPortsRemain() {
     IllegalArgumentException ex =
-        assertThrows(IllegalArgumentException.class, () -> npMgr.buildPorts(" :  : "));
+        assertThrows(IllegalArgumentException.class, () -> npMgr.buildPorts(" ;  ; "));
     assertTrue(ex.getMessage().toLowerCase().contains("no valid ports"));
   }
 

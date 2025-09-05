@@ -19,7 +19,7 @@ public class NetworkPolicyManager extends BaseLockssManager implements Configura
   static final String PREFIX = Configuration.PREFIX + "networkPolicy";
   // our network policy parameters
   final static String PARAM_LOCKSS_PROTECTED_PORTS = PREFIX +".protected.ports";
-  static final String DEFAULT_LOCKSS_PROTECTED_PORTS = "24681:24682:24602";
+  static final String DEFAULT_LOCKSS_PROTECTED_PORTS = "24681;24682;24602";
   // acceess includes/exclue params
   private static final String PARAM_IP_ACCESS_INCLUDE = "org.lockss.ui.ip.include";
   private static final String PARAM_IP_ACCESS_EXCLUDE = "org.lockss.ui.ip.exclude";
@@ -305,7 +305,7 @@ public class NetworkPolicyManager extends BaseLockssManager implements Configura
     }
 
     java.util.LinkedHashSet<Integer> uniquePorts =
-        Arrays.stream(managedPorts.split(":", -1)) // keep empties if any
+        Arrays.stream(managedPorts.split(";", -1)) // keep empties if any
             .map(String::trim)
             .filter(s -> !s.isEmpty())
             .map(s -> {
