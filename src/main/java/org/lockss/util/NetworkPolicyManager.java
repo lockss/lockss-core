@@ -9,20 +9,29 @@ import java.util.*;
 import java.util.concurrent.*;
 import org.lockss.app.*;
 import org.lockss.config.*;
+import org.lockss.config.Configuration;
 import org.lockss.util.IpFilter.*;
 
 public class NetworkPolicyManager extends BaseLockssManager implements ConfigurableManager {
 
   protected static final String NETWORK_POLICY_TEMPLATE_FILENAME = "lockss-network-policy.yaml";
   private final Logger log = Logger.getLogger();
+  static final String PREFIX = Configuration.PREFIX + "networkPolicy";
+  // our network policy parameters
+  final static String PARAM_LOCKSS_PROTECTED_PORTS = PREFIX +".protected.ports";
+  static final String DEFAULT_LOCKSS_PROTECTED_PORTS = "24681:24682:24602";
+  // acceess includes/exclue params
+  private static final String PARAM_IP_ACCESS_INCLUDE = "org.lockss.ui.ip.include";
+  private static final String PARAM_IP_ACCESS_EXCLUDE = "org.lockss.ui.ip.exclude";
 
-  private final String PARAM_IP_ACCESS_INCLUDE = "org.lockss.ui.ip.include";
-  private final String PARAM_IP_ACCESS_EXCLUDE = "org.lockss.ui.ip.exclude";
-  private final String EXISTING_POLICY_NAME = "lockss";
-  private final String K8S_NAMESPACE_LOCKSS = "lockss";
-  private final String K8S_OUTPUT_FILENAME = "lockss-network-policy-update.yaml";
-  protected final String LOCKSS_NETWORK_POLICY_NAME = "lockss-network-policy";
-  protected final String K8S_API_VERSION = "networking.k8s.io/v1";
+  private static final String EXISTING_POLICY_NAME = "lockss";
+  private static final String K8S_NAMESPACE_LOCKSS = "lockss";
+  private static final String K8S_OUTPUT_FILENAME = "lockss-network-policy.yaml";
+  protected static final String LOCKSS_NETWORK_POLICY_NAME = "lockss-network-policy";
+  protected static final String K8S_API_VERSION = "networking.k8s.io/v1";
+
+  protected String managedPorts = DEFAULT_LOCKSS_PROTECTED_PORTS;
+
   private final ExecutorService ingressUpdateExecutor =
       new ThreadPoolExecutor(
           1, 1,
@@ -30,12 +39,7 @@ public class NetworkPolicyManager extends BaseLockssManager implements Configura
           new LinkedBlockingQueue<Runnable>());
 
 
-  public NetworkPolicyManager() {}
-
-  @Override
-  public void startService() {
-    //String versionName = ConfigManager.getPlatformVersion().getName();
-    // todo: merge in tal's changes.
+  public NetworkPolicyManager() {
   }
 
   @Override
@@ -55,17 +59,30 @@ public class NetworkPolicyManager extends BaseLockssManager implements Configura
   public void setConfig(org.lockss.config.Configuration config,
       org.lockss.config.Configuration oldConfig,
       org.lockss.config.Configuration.Differences diffs) {
-    if (diffs.contains(PARAM_IP_ACCESS_INCLUDE) || diffs.contains(PARAM_IP_ACCESS_EXCLUDE)) {
-      // enqueue the update to be processed by a single background thread
-      final List<String> includes = config.getList(PARAM_IP_ACCESS_INCLUDE);
-      final List<String> excludes = config.getList(PARAM_IP_ACCESS_EXCLUDE);
-      ingressUpdateExecutor.submit(() -> {
-        try {
-          updateNetworkPolicyIngress(includes, excludes);
-        } catch (Throwable t) {
-          log.warning("Error running queued updateNetworkPolicyIngress task", t);
+    try {
+      if (ConfigManager.getPlatformVersion().isKubernetes()) {
+        if (diffs.contains(PREFIX) ||
+            diffs.contains(PARAM_IP_ACCESS_INCLUDE) ||
+            diffs.contains(PARAM_IP_ACCESS_EXCLUDE)) {
+          if(diffs.contains(PREFIX)) {
+            // we changed a protected port
+            managedPorts = config.get(PARAM_LOCKSS_PROTECTED_PORTS,
+                DEFAULT_LOCKSS_PROTECTED_PORTS);
+          }
+          // enqueue the update to be processed by a single background thread
+          final List<String> includes = config.getList(PARAM_IP_ACCESS_INCLUDE);
+          final List<String> excludes = config.getList(PARAM_IP_ACCESS_EXCLUDE);
+          ingressUpdateExecutor.submit(() -> {
+            try {
+              updateNetworkPolicyIngress(includes, excludes);
+            } catch (Throwable t) {
+              log.warning("Error running queued updateNetworkPolicyIngress task", t);
+            }
+          });
         }
-      });
+      }
+    } catch (Exception ex) {
+      log.error("Error processing configuration update", ex);
     }
   }
 
@@ -112,11 +129,7 @@ public class NetworkPolicyManager extends BaseLockssManager implements Configura
 
       List<V1NetworkPolicyPeer> fromPeers = new ArrayList<>();
       for (String cidr : allowedCidrs) {
-        V1IPBlock block = new V1IPBlock().cidr(cidr);
-        if (!deniedCidrs.isEmpty()) {
-          // use the existing array list rather than creating a new one each time
-          block.setExcept(new ArrayList<>(deniedCidrs));
-        }
+        V1IPBlock block = buildIpBlock(cidr, deniedCidrs);
         fromPeers.add(new V1NetworkPolicyPeer().ipBlock(block));
       }
       V1NetworkPolicyIngressRule ingressRule = new V1NetworkPolicyIngressRule().from(fromPeers);
@@ -136,7 +149,7 @@ public class NetworkPolicyManager extends BaseLockssManager implements Configura
    * Convert a list of IP expressions (single IP, wildcard like 10.*.*.*, or CIDR) into CIDR
    * strings.
    */
- List<String> toCidrList(List<String> ips) {
+  List<String> toCidrList(List<String> ips) {
     List<String> result = new ArrayList<>();
     if (ips == null) {
       return result;
@@ -185,10 +198,7 @@ public class NetworkPolicyManager extends BaseLockssManager implements Configura
     V1LabelSelector podSelector = new V1LabelSelector().matchLabels(matchLabels);
 
     // Ports to expose on each CIDR rule
-    List<V1NetworkPolicyPort> ports = new java.util.ArrayList<>();
-    ports.add(new V1NetworkPolicyPort().port(new IntOrString(24681)));
-    ports.add(new V1NetworkPolicyPort().port(new IntOrString(24682)));
-    ports.add(new V1NetworkPolicyPort().port(new IntOrString(8080)));
+    List<V1NetworkPolicyPort> ports = buildPorts(managedPorts);
 
     // Ingress rules
     List<V1NetworkPolicyIngressRule> ingressRules = new ArrayList<>();
@@ -197,15 +207,12 @@ public class NetworkPolicyManager extends BaseLockssManager implements Configura
     ingressRules.add(
         new V1NetworkPolicyIngressRule()
             .from(Collections.singletonList(
-                new V1NetworkPolicyPeer().podSelector(new V1LabelSelector())))
+                new V1NetworkPolicyPeer().podSelector(anyPodSelector())))
     );
 
     // One rule per allowed CIDR, with (optional) except list and the fixed ports
     for (String cidr : allowedCidrs) {
-      V1IPBlock block = new V1IPBlock().cidr(cidr);
-      if (!deniedCidrs.isEmpty()) {
-        block.setExcept(new ArrayList<>(deniedCidrs));
-      }
+      V1IPBlock block = buildIpBlock(cidr, deniedCidrs);
       V1NetworkPolicyPeer peer = new V1NetworkPolicyPeer().ipBlock(block);
 
       V1NetworkPolicyIngressRule cidrRule = new V1NetworkPolicyIngressRule()
@@ -227,14 +234,14 @@ public class NetworkPolicyManager extends BaseLockssManager implements Configura
         .metadata(metadata)
         .spec(spec);
 
-    String out = (outputFilename == null || outputFilename.isBlank())
+    String outputPath = (outputFilename == null || outputFilename.isBlank())
         ? NETWORK_POLICY_TEMPLATE_FILENAME
         : outputFilename;
     try {
-      writePolicyToFile(policy, out);
-      log.info("Wrote NetworkPolicy to " + out);
+      writePolicyToFile(policy, outputPath);
+      log.info("Wrote NetworkPolicy to " + outputPath);
     } catch (IOException ioe) {
-      log.warning("Failed to write NetworkPolicy to " + out, ioe);
+      log.warning("Failed to write NetworkPolicy to " + outputPath, ioe);
     }
     // Apply to running cluster
     applyNetworkPolicyToCluster(policy);
@@ -277,5 +284,50 @@ public class NetworkPolicyManager extends BaseLockssManager implements Configura
    */
   void writePolicyToFile(V1NetworkPolicy policy, String filename) throws IOException {
     K8sClientUtils.writeNetworkPolicyToFile(policy, filename);
+  }
+  
+  private V1IPBlock buildIpBlock(String cidr, List<String> deniedCidrs) {
+    V1IPBlock block = new V1IPBlock().cidr(cidr);
+    if (deniedCidrs != null && !deniedCidrs.isEmpty()) {
+      block.setExcept(new ArrayList<>(deniedCidrs));
+    }
+    return block;
+  }
+
+  private V1LabelSelector anyPodSelector() {
+    // Empty selector means "any pod"
+    return new V1LabelSelector();
+  }
+
+  List<V1NetworkPolicyPort> buildPorts(String managedPorts) {
+    if (managedPorts == null || managedPorts.isBlank()) {
+      throw new IllegalArgumentException("Null or blank managedPorts");
+    }
+
+    java.util.LinkedHashSet<Integer> uniquePorts =
+        Arrays.stream(managedPorts.split(":", -1)) // keep empties if any
+            .map(String::trim)
+            .filter(s -> !s.isEmpty())
+            .map(s -> {
+              int port;
+              try {
+                port = Integer.parseInt(s);
+              } catch (NumberFormatException e) {
+                throw new IllegalArgumentException("Invalid port: '" + s + "'");
+              }
+              if (port < 1 || port > 65535) {
+                throw new IllegalArgumentException("Port out of range (1-65535): " + port);
+              }
+              return Integer.valueOf(port);
+            })
+            .collect(java.util.stream.Collectors.toCollection(java.util.LinkedHashSet::new));
+
+    if (uniquePorts.isEmpty()) {
+      throw new IllegalArgumentException("No valid ports in managedPorts");
+    }
+
+    return uniquePorts.stream()
+        .map(p -> new V1NetworkPolicyPort().port(new IntOrString(p)))
+        .collect(java.util.stream.Collectors.toList());
   }
 }

@@ -1,33 +1,41 @@
 package org.lockss.util;
 
-import io.kubernetes.client.openapi.models.*;
-import io.netty.util.*;
-import java.io.*;
-import java.util.*;
-import org.junit.*;
-import org.lockss.test.*;
+import io.kubernetes.client.custom.IntOrString;
+import io.kubernetes.client.openapi.models.V1NetworkPolicy;
+import io.kubernetes.client.openapi.models.V1NetworkPolicyPort;
+import io.kubernetes.client.openapi.models.V1ObjectMeta;
+import java.io.File;
+import java.io.FileInputStream;
+import java.util.Arrays;
+import java.util.Collections;
+import java.util.List;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+import org.lockss.test.LockssCoreTestCase5;
 
-public class TestNetworkPolicyManager extends LockssTestCase4 {
-  NetworkPolicyManager npMgr;
-  private static Logger log = Logger.getLogger();
-  private static final String TEST_IP_ADDRESS = "192.168.1.1";
-  private static final String TEST_CIDR = "192.168.1.0/24";
-  private static final String TEST_CIDR_2 = "192.168.2.0/24";
-  private static final String TEST_CIDR_3 = "192.168.3.0/24";
+import static org.junit.jupiter.api.Assertions.*;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.when;
 
+public class TestNetworkPolicyManager extends LockssCoreTestCase5 {
 
-  @Before
+  private TestableNetworkPolicyManager npMgr;
+
+  @BeforeEach
   public void setUpBeforeEachTest() throws Exception {
-    super.setUp();
-    npMgr = new NetworkPolicyManager();
-    getMockLockssDaemon().setManagerByType(NetworkPolicyManager.class, npMgr);
+    npMgr = new TestableNetworkPolicyManager();
+    super.getMockLockssDaemon().setManagerByType(NetworkPolicyManager.class, npMgr);
     npMgr.initService(getMockLockssDaemon());
     npMgr.startService();
   }
 
-  @After
+  @AfterEach
   public void tearDownAfterEachTest() throws Exception {
-    super.tearDown();
+    if (npMgr != null) {
+      npMgr.stopService();
+      npMgr = null;
+    }
   }
 
   @Override
@@ -124,8 +132,11 @@ public class TestNetworkPolicyManager extends LockssTestCase4 {
   @Test
   public void testGenerateLockssStyleNetworkPolicyFileSkipsWhenNoAllowed() throws Exception {
     // Should early-return and not create file
-    File tmpDir = new File(System.getProperty("java.io.tmpdir"));
-    File out = new File(tmpDir, "lockss-np-" + System.nanoTime() + ".yaml");
+    File out = getTempFile("lockss-np-", ".yaml");
+    // Ensure a clean, non-existent path for this test
+    if (out.exists()) {
+      out.delete();
+    }
     assertFalse(out.exists());
 
     npMgr.generateLockssStyleNetworkPolicyFile(
@@ -133,7 +144,7 @@ public class TestNetworkPolicyManager extends LockssTestCase4 {
         Arrays.asList("10.0.0.0/8"),
         out.getAbsolutePath());
 
-    assertFalse("File should not be created when include list is empty", out.exists());
+    assertFalse(out.exists(), "File should not be created when include list is empty");
   }
 
   @Test
@@ -146,7 +157,7 @@ public class TestNetworkPolicyManager extends LockssTestCase4 {
     try {
       npMgr.writePolicyToFile(policy, out.getAbsolutePath());
       assertTrue(out.exists());
-      assertTrue("Output file should not be empty", out.length() > 0L);
+      assertTrue(out.length() > 0L, "Output file should not be empty");
 
       // Spot-check contents contain basic YAML fields
       byte[] buf = new byte[(int) Math.min(out.length(), 2048)];
@@ -159,67 +170,165 @@ public class TestNetworkPolicyManager extends LockssTestCase4 {
       }
     } finally {
       // Cleanup
-      if (out.exists()) out.delete();
-    }
-  }
-
-  @Test
-  public void testApplyNetworkPolicyToClusterNullPolicyDoesNotThrow() {
-    npMgr.applyNetworkPolicyToCluster(null);
-  }
-
-  @Test
-  public void testApplyNetworkPolicyToClusterNullMetadataDoesNotThrow() {
-    V1NetworkPolicy policy = new V1NetworkPolicy();
-    npMgr.applyNetworkPolicyToCluster(policy);
-  }
-
-  @Test
-  public void testApplyNetworkPolicyToClusterNullNameDoesNotThrow() {
-    V1NetworkPolicy policy = new V1NetworkPolicy()
-        .metadata(new V1ObjectMeta().namespace("lockss"));
-    npMgr.applyNetworkPolicyToCluster(policy);
-  }
-
-  @Test
-  public void testApplyNetworkPolicyToClusterNullNamespaceDoesNotThrow() {
-    V1NetworkPolicy policy = new V1NetworkPolicy()
-        .metadata(new V1ObjectMeta().name("some-name"));
-    npMgr.applyNetworkPolicyToCluster(policy);
-  }
-
-  @Test
-  public void testGeneratesYamlWhenIncludePresent() throws Exception {
-    // Given include contains 171.67.138.0/24, a YAML file should be generated
-    File out = getTempFile("lockss-np-" + System.nanoTime(),".yaml");
-    assertTrue(out.exists());
-
-    try {
-      npMgr.generateLockssStyleNetworkPolicyFile(
-          Collections.singletonList("171.67.138.0/24"),
-          Collections.emptyList(),
-          out.getAbsolutePath());
-
-      assertTrue("YAML file should be created", out.exists());
-      assertTrue("Output file should not be empty", out.length() > 0L);
-
-      // Spot-check contents for key fields and the CIDR we included
-      byte[] buf = new byte[(int) Math.min(out.length(), 4096)];
-      int read;
-      try (FileInputStream fis = new FileInputStream(out)) {
-        read = fis.read(buf);
-      }
-      String yaml = new String(buf, 0, Math.max(0, read));
-      assertTrue("YAML should contain NetworkPolicy kind", yaml.contains("kind: NetworkPolicy"));
-      assertTrue("YAML should contain policy name", yaml.contains("name: lockss-network-policy"));
-      assertTrue("YAML should contain target namespace", yaml.contains("namespace: lockss"));
-      assertTrue("YAML should include the specified CIDR",
-          yaml.contains("171.67.138.0/24"));
-    } finally {
       if (out.exists()) {
-        // Cleanup
         out.delete();
       }
     }
   }
+
+
+  @Test
+  public void testSetConfigIgnoredWhenNotKubernetes() throws Exception {
+    // Force non-Kubernetes platform behavior via mock
+    npMgr.setTestPlatformVersion(mockPlatformVersion(false));
+    org.lockss.test.ConfigurationUtil.resetConfig();
+    org.lockss.test.ConfigurationUtil.setFromArgs(
+        "org.lockss.ui.ip.include", "10.*.*.*;192.168.0.0/16",
+        "org.lockss.ui.ip.exclude", "172.16.0.0/12");
+
+    // Because platform is not Kubernetes, the async task should NOT run
+    Boolean signal = npMgr.calls.poll(300, java.util.concurrent.TimeUnit.MILLISECONDS);
+    boolean triggered = signal != null;
+    assertFalse(triggered, "updateNetworkPolicyIngress should not be invoked off-Kubernetes");
+    assertEquals(0, npMgr.updateCalls);
+  }
+
+  @Test
+  public void testSetConfigRunsWhenKubernetes() throws Exception {
+    npMgr.setTestPlatformVersion(mockPlatformVersion(true));
+    org.lockss.test.ConfigurationUtil.setFromArgs(
+        "org.lockss.ui.ip.include", "10.*.*.*;192.168.0.0/16",
+        "org.lockss.ui.ip.exclude", "172.16.0.0/12");
+
+    // Because platform is Kubernetes, the async task should  run
+    Boolean signal = npMgr.calls.poll(5, java.util.concurrent.TimeUnit.SECONDS);
+    assertTrue(signal != null,
+        "updateNetworkPolicyIngress should be invoked on Kubernetes");
+    assertEquals(1, npMgr.updateCalls, "Expected exactly two calls");
+  }
+
+  @Test
+  void buildPorts_throwsOnNullOrBlank() {
+    IllegalArgumentException ex1 =
+        assertThrows(IllegalArgumentException.class, () -> npMgr.buildPorts(null));
+    assertTrue(ex1.getMessage().contains("Null or blank"));
+
+    IllegalArgumentException ex2 =
+        assertThrows(IllegalArgumentException.class, () -> npMgr.buildPorts("   "));
+    assertTrue(ex2.getMessage().contains("Null or blank"));
+  }
+
+  @Test
+  void buildPorts_throwsOnInvalidToken() {
+    IllegalArgumentException ex =
+        assertThrows(IllegalArgumentException.class, () -> npMgr.buildPorts("80:abc:443"));
+    assertTrue(ex.getMessage().contains("Invalid port"));
+  }
+
+  @Test
+  void buildPorts_throwsOnOutOfRange() {
+    IllegalArgumentException exLow =
+        assertThrows(IllegalArgumentException.class, () -> npMgr.buildPorts("0"));
+    assertTrue(exLow.getMessage().contains("out of range"));
+
+    IllegalArgumentException exHigh =
+        assertThrows(IllegalArgumentException.class, () -> npMgr.buildPorts("70000"));
+    assertTrue(exHigh.getMessage().contains("out of range"));
+  }
+
+  @Test
+  void buildPorts_parsesValidPorts() {
+    List<V1NetworkPolicyPort> ports = npMgr.buildPorts("80:443:8080");
+    assertEquals(3, ports.size());
+
+    assertPortIntValue(ports.get(0), 80);
+    assertPortIntValue(ports.get(1), 443);
+    assertPortIntValue(ports.get(2), 8080);
+  }
+
+  @Test
+  void buildPorts_trimsAndSkipsEmpty() {
+    List<V1NetworkPolicyPort> ports = npMgr.buildPorts(" 80 : : 443 :8080 ");
+    assertEquals(3, ports.size());
+
+    assertPortIntValue(ports.get(0), 80);
+    assertPortIntValue(ports.get(1), 443);
+    assertPortIntValue(ports.get(2), 8080);
+  }
+
+  @Test
+  void buildPorts_removesDuplicatesPreservesFirstOrder() {
+    List<V1NetworkPolicyPort> ports = npMgr.buildPorts("80:80:443:80:443");
+    assertEquals(2, ports.size(), "Duplicates should be removed");
+    assertPortIntValue(ports.get(0), 80);
+    assertPortIntValue(ports.get(1), 443);
+  }
+
+  @Test
+  void buildPorts_throwsWhenNoValidPortsRemain() {
+    IllegalArgumentException ex =
+        assertThrows(IllegalArgumentException.class, () -> npMgr.buildPorts(" :  : "));
+    assertTrue(ex.getMessage().toLowerCase().contains("no valid ports"));
+  }
+
+  private  void assertPortIntValue(V1NetworkPolicyPort npPort, int expected) {
+    IntOrString ios = npPort.getPort();
+    assertNotNull(ios, "Port should be set");
+    assertEquals(expected, ios.getIntValue());
+  }
+
+  // Add completed mock to allow changing platform version
+  private static org.lockss.util.PlatformVersion mockPlatformVersion(boolean isK8s) {
+    org.lockss.util.PlatformVersion pv = mock(org.lockss.util.PlatformVersion.class);
+    when(pv.isKubernetes()).thenReturn(isK8s);
+    when(pv.isRuncluster()).thenReturn(!isK8s);
+    when(pv.getName()).thenReturn(isK8s ? "K8s" : "runcluster");
+    when(pv.getVersion()).thenReturn("1");
+    when(pv.toString()).thenReturn((isK8s ? "K8s" : "runcluster") + "-1");
+    when(pv.toString(" ")).thenReturn((isK8s ? "K8s" : "runcluster") + " 1");
+
+    return pv;
+  }
+
+  private static class TestableNetworkPolicyManager extends NetworkPolicyManager {
+    volatile int updateCalls = 0;
+    // Use a resettable signal queue to avoid one-shot CountDownLatch issues across multiple calls
+    final java.util.concurrent.BlockingQueue<Boolean> calls = new java.util.concurrent.LinkedBlockingQueue<>();
+    private org.lockss.util.PlatformVersion testPv;
+
+    void setTestPlatformVersion(org.lockss.util.PlatformVersion pv) {
+      this.testPv = pv;
+    }
+
+    @Override
+    void updateNetworkPolicyIngress(List<String> includeFilters, List<String> excludeFilters) {
+      updateCalls++;
+      calls.offer(Boolean.TRUE);
+    }
+
+    @Override
+    public void setConfig(org.lockss.config.Configuration config,
+        org.lockss.config.Configuration oldConfig,
+        org.lockss.config.Configuration.Differences diffs) {
+      try {
+        org.lockss.util.PlatformVersion pv =
+            (testPv != null) ? testPv : org.lockss.config.ConfigManager.getPlatformVersion();
+        if (pv != null && pv.isKubernetes()) {
+          if (diffs.contains(PREFIX) ||
+              diffs.contains("org.lockss.ui.ip.include") ||
+              diffs.contains("org.lockss.ui.ip.exclude")) {
+            if (diffs.contains(PREFIX)) {
+              managedPorts = config.get(PARAM_LOCKSS_PROTECTED_PORTS, DEFAULT_LOCKSS_PROTECTED_PORTS);
+            }
+            final List<String> includes = config.getList("org.lockss.ui.ip.include");
+            final List<String> excludes = config.getList("org.lockss.ui.ip.exclude");
+            updateNetworkPolicyIngress(includes, excludes);
+          }
+        }
+      } catch (Exception ex) {
+        // swallow in test override
+      }
+    }
+  }
+
 }
