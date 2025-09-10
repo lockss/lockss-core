@@ -42,7 +42,6 @@ import java.util.concurrent.*;
 import org.lockss.app.*;
 import org.lockss.config.*;
 import org.lockss.config.Configuration;
-import org.lockss.config.Configuration.*;
 import org.lockss.util.IpFilter.*;
 
 public class NetworkPolicyManager extends BaseLockssManager implements ConfigurableManager {
@@ -89,9 +88,9 @@ public class NetworkPolicyManager extends BaseLockssManager implements Configura
     super.stopService();
   }
 
-  public void setConfig(org.lockss.config.Configuration config,
-      org.lockss.config.Configuration oldConfig,
-      org.lockss.config.Configuration.Differences diffs) {
+  public void setConfig(Configuration config,
+                        Configuration oldConfig,
+                        Configuration.Differences diffs) {
     try {
       if (ConfigManager.getPlatformVersion().isKubernetes()) {
         queueConfigChanges(config, diffs);
@@ -101,15 +100,13 @@ public class NetworkPolicyManager extends BaseLockssManager implements Configura
     }
   }
 
-  void queueConfigChanges(Configuration config, Differences diffs) {
+  void queueConfigChanges(Configuration config, Configuration.Differences diffs) {
     if (diffs.contains(PREFIX) ||
         diffs.contains(PARAM_IP_ACCESS_INCLUDE) ||
         diffs.contains(PARAM_IP_ACCESS_EXCLUDE)) {
-      if(diffs.contains(PREFIX)) {
-        // we changed a protected port
-        managedPorts = config.get(PARAM_LOCKSS_PROTECTED_PORTS,
-            DEFAULT_LOCKSS_PROTECTED_PORTS);
-      }
+      // we changed a protected port
+      managedPorts = config.get(PARAM_LOCKSS_PROTECTED_PORTS,
+          DEFAULT_LOCKSS_PROTECTED_PORTS);
       // enqueue the update to be processed by a single background thread
       final List<String> includes = config.getList(PARAM_IP_ACCESS_INCLUDE);
       final List<String> excludes = config.getList(PARAM_IP_ACCESS_EXCLUDE);
