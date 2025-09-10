@@ -1,23 +1,21 @@
 package org.lockss.util;
 
-import io.kubernetes.client.custom.IntOrString;
-import io.kubernetes.client.openapi.models.V1NetworkPolicy;
-import io.kubernetes.client.openapi.models.V1NetworkPolicyPort;
-import io.kubernetes.client.openapi.models.V1ObjectMeta;
-import java.io.File;
-import java.io.FileInputStream;
-import java.util.*;
-import org.junit.jupiter.api.AfterEach;
-import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.Test;
-import org.lockss.test.LockssCoreTestCase5;
+import static org.mockito.Mockito.*;
 
-import static org.junit.jupiter.api.Assertions.*;
-import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.when;
+import io.kubernetes.client.custom.*;
+import io.kubernetes.client.openapi.models.*;
+import io.kubernetes.client.util.*;
+import java.io.*;
+import java.util.*;
+import org.junit.jupiter.api.*;
+import org.lockss.test.*;
 
 public class TestNetworkPolicyManager extends LockssCoreTestCase5 {
 
+  private static final List<Integer> EXPECTED_PORTS = List.of(24681, 24682, 24602);
+  private static final List<String> INCLUDE_CIDRS = List.of("10.255.0.0/16", "171.67.138.0/24");
+  private static final String EXCLUDE_CIDRS = "192.168.0.0/16";
+  private static final String REFERENCE_YAML = "lockss-network-policy.yaml";
   private TestableNetworkPolicyManager npMgr;
 
   @BeforeEach
@@ -137,7 +135,7 @@ public class TestNetworkPolicyManager extends LockssCoreTestCase5 {
     }
     assertFalse(out.exists());
 
-    npMgr.generateLockssStyleNetworkPolicyFile(
+    npMgr.updateNetworkPolicyIngress(
         Collections.emptyList(),
         Arrays.asList("10.0.0.0/8"),
         out.getAbsolutePath());
@@ -320,6 +318,135 @@ public class TestNetworkPolicyManager extends LockssCoreTestCase5 {
     IllegalArgumentException ex =
         assertThrows(IllegalArgumentException.class, () -> npMgr.buildPorts(" ;  ; "));
     assertTrue(ex.getMessage().toLowerCase().contains("no valid ports"));
+  }
+  
+  
+  private void assertIpRuleWithPorts(V1NetworkPolicyIngressRule rule, String expectedCidr,
+      List<Integer> expectedPorts) {
+    assertNotNull(rule.getFrom(), "CIDR rule should have 'from'");
+    assertEquals(1, rule.getFrom().size(), "CIDR rule should have exactly one 'from' entry");
+    V1NetworkPolicyPeer peer = rule.getFrom().get(0);
+    V1IPBlock block = peer.getIpBlock();
+    assertNotNull(block, "CIDR rule should have an ipBlock");
+    assertEquals(expectedCidr, block.getCidr());
+    assertNotNull(rule.getPorts(), "CIDR rule should specify ports");
+    assertEquals(expectedPorts.size(), rule.getPorts().size(),
+        "CIDR rule should have expected number of ports");
+    for (int i = 0; i < expectedPorts.size(); i++) {
+      assertNotNull(rule.getPorts().get(i).getPort(), "Port entry should have a value");
+      assertEquals(expectedPorts.get(i).intValue(), rule.getPorts().get(i).getPort().getIntValue());
+    }
+  }
+
+  @Test
+  public void testResourceYamlRoundTrip() throws Exception {
+    // Read the reference YAML from the classpath
+    try (java.io.InputStream is = org.lockss.util.UrlUtil.getResourceAsStream(REFERENCE_YAML)) {
+      assertNotNull(is, "Reference " + REFERENCE_YAML + " should be on the classpath");
+      V1NetworkPolicy original = loadNetworkPolicy(is);
+
+      // Write it back out to a temp file
+      File out = getTempFile("np-roundtrip-", ".yaml");
+      try {
+        npMgr.writePolicyToFile(original, out.getAbsolutePath());
+        assertTrue(out.exists(), "Output file should exist");
+
+        // Load the written file
+        V1NetworkPolicy reloaded = loadNetworkPolicy(out);
+
+        // Assert the important fields are identical after round-trip
+        assertEquals(original.getApiVersion(), reloaded.getApiVersion());
+        assertEquals(original.getKind(), reloaded.getKind());
+        assertNotNull(reloaded.getMetadata());
+        assertEquals(original.getMetadata().getName(), reloaded.getMetadata().getName());
+        assertEquals(original.getMetadata().getNamespace(), reloaded.getMetadata().getNamespace());
+
+        assertNotNull(reloaded.getSpec(), "Spec should be present");
+        assertEquals(original.getSpec().getPolicyTypes(), reloaded.getSpec().getPolicyTypes(), "Policy types should match");
+        // Pod selector and ingress rules should match semantically
+        assertEquals(
+            original.getSpec().getPodSelector() == null ? null : original.getSpec().getPodSelector().getMatchLabels(),
+            reloaded.getSpec().getPodSelector() == null ? null : reloaded.getSpec().getPodSelector().getMatchLabels(),
+            "Pod selector matchLabels should match");
+
+        assertEquals(
+            original.getSpec().getIngress() == null ? 0 : original.getSpec().getIngress().size(),
+            reloaded.getSpec().getIngress() == null ? 0 : reloaded.getSpec().getIngress().size(),
+            "Ingress rule count should match");
+
+        if (original.getSpec().getIngress() != null) {
+          for (int i = 0; i < original.getSpec().getIngress().size(); i++) {
+            V1NetworkPolicyIngressRule oRule = original.getSpec().getIngress().get(i);
+            V1NetworkPolicyIngressRule rRule = reloaded.getSpec().getIngress().get(i);
+
+            // Compare 'from' peers
+            java.util.List<V1NetworkPolicyPeer> oFrom = oRule.getFrom();
+            java.util.List<V1NetworkPolicyPeer> rFrom = rRule.getFrom();
+            assertEquals(oFrom == null ? 0 : oFrom.size(), rFrom == null ? 0 : rFrom.size(), "from peer count should match at index " + i);
+            if (oFrom != null) {
+              for (int j = 0; j < oFrom.size(); j++) {
+                V1NetworkPolicyPeer oPeer = oFrom.get(j);
+                V1NetworkPolicyPeer rPeer = rFrom.get(j);
+                // ipBlock CIDR and except lists
+                if (oPeer.getIpBlock() != null || rPeer.getIpBlock() != null) {
+                  assertNotNull(oPeer.getIpBlock());
+                  assertNotNull(rPeer.getIpBlock());
+                  assertEquals(oPeer.getIpBlock().getCidr(), rPeer.getIpBlock().getCidr(), "CIDR should match at rule " + i);
+                  assertEquals(
+                      oPeer.getIpBlock().getExcept() == null ? java.util.List.of() : oPeer.getIpBlock().getExcept(),
+                      rPeer.getIpBlock().getExcept() == null ? java.util.List.of() : rPeer.getIpBlock().getExcept(),
+                      "CIDR except list should match at rule " + i);
+                }
+                // podSelector matchLabels
+                if (oPeer.getPodSelector() != null || rPeer.getPodSelector() != null) {
+                  assertNotNull(oPeer.getPodSelector());
+                  assertNotNull(rPeer.getPodSelector());
+                  assertEquals(
+                      oPeer.getPodSelector().getMatchLabels(),
+                      rPeer.getPodSelector().getMatchLabels(),
+                      "podSelector matchLabels should match at rule " + i);
+                }
+              }
+            }
+
+            // Compare ports
+            java.util.List<V1NetworkPolicyPort> oPorts = oRule.getPorts();
+            java.util.List<V1NetworkPolicyPort> rPorts = rRule.getPorts();
+            assertEquals(oPorts == null ? 0 : oPorts.size(), rPorts == null ? 0 : rPorts.size(), "port count should match at rule " + i);
+            if (oPorts != null) {
+              for (int j = 0; j < oPorts.size(); j++) {
+                V1NetworkPolicyPort op = oPorts.get(j);
+                V1NetworkPolicyPort rp = rPorts.get(j);
+                // Compare IntOrString port values as integers if possible
+                if (op.getPort() != null || rp.getPort() != null) {
+                  assertNotNull(op.getPort());
+                  assertNotNull(rp.getPort());
+                  assertEquals(op.getPort().getIntValue(), rp.getPort().getIntValue(), "port intValue should match at rule " + i + " idx " + j);
+                }
+              }
+            }
+          }
+        }
+      } finally {
+        // Cleanup temp file
+        // ignore failures
+        //noinspection ResultOfMethodCallIgnored
+        out.delete();
+      }
+    }
+  }
+
+  private V1NetworkPolicy loadNetworkPolicy(File file) throws IOException {
+    try (java.io.FileReader reader = new java.io.FileReader(file)) {
+      return Yaml.loadAs(reader, V1NetworkPolicy.class);
+    }
+  }
+
+  private V1NetworkPolicy loadNetworkPolicy(java.io.InputStream is) throws java.io.IOException {
+    try (java.io.Reader reader =
+             new java.io.InputStreamReader(is, java.nio.charset.StandardCharsets.UTF_8)) {
+      return Yaml.loadAs(reader, V1NetworkPolicy.class);
+    }
   }
 
   private  void assertPortIntValue(V1NetworkPolicyPort npPort, int expected) {
