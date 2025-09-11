@@ -976,7 +976,6 @@ public class BaseLockssRepository implements LockssRepository, JmsFactorySource 
     return store;
   }
 
-
   public synchronized void incTimeSpentReiterating(long msAmount) {
     timeSpentReiterating += msAmount;
   }

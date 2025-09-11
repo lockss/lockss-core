@@ -189,6 +189,9 @@ public abstract class WarcArtifactDataStore implements ArtifactDataStore, WARCCo
 
   protected FutureRecordingStripedExecutorService stripedExecutor;
 
+  /** Default Artifact.toStringShort style if none set by RepoSvc */
+  private String artShortStyle = "uuid,namespace,auid,uri,version,committed,storageUrl,contentLength,contentDigest,collectionDate";
+
   public void updateDatastoreToVersion(int existingVersion, int targetVersion) throws IOException {
     log.info("Updating from version " + existingVersion + " to " + targetVersion + "...");
 
@@ -1466,6 +1469,14 @@ public abstract class WarcArtifactDataStore implements ArtifactDataStore, WARCCo
     return repo.getArtifactIndex();
   }
 
+  public void setArtifactToStringShortStyle(String style) {
+    artShortStyle = style;
+  }
+
+  public String getArtifactToStringShortStyle() {
+    return artShortStyle;
+  }
+
   // *******************************************************************************************************************
   // * ArtifactDataStore INTERFACE IMPLEMENTATION
   // *******************************************************************************************************************
@@ -1602,7 +1613,8 @@ public abstract class WarcArtifactDataStore implements ArtifactDataStore, WARCCo
       // Return the artifact
       // *******************
 
-      log.debug("Added artifact {}", artifact);
+      log.debug("Added artifact {}",
+                artifact.toStringShort(artShortStyle));
       return artifact;
 
     } catch (Exception e) {
