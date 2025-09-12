@@ -27,26 +27,40 @@
     */
 package org.lockss.util;
 
-import io.kubernetes.client.custom.*;
-import io.kubernetes.client.openapi.*;
+import inet.ipaddr.AddressStringException;
+import inet.ipaddr.IPAddress;
+import inet.ipaddr.IPAddressString;
+import io.kubernetes.client.custom.IntOrString;
+import io.kubernetes.client.openapi.ApiException;
 import io.kubernetes.client.openapi.models.*;
-import java.io.*;
-import java.nio.file.*;
-import java.text.*;
-import java.util.*;
-import java.util.concurrent.*;
-import org.lockss.app.*;
-import org.lockss.config.*;
+import org.lockss.app.BaseLockssManager;
+import org.lockss.app.ConfigurableManager;
+import org.lockss.config.ConfigManager;
 import org.lockss.config.Configuration;
+import org.lockss.log.L4JLogger;
+import org.lockss.servlet.AdminServletManager;
+
+import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.text.MessageFormat;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Collections;
+import java.util.List;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.LinkedBlockingQueue;
+import java.util.concurrent.ThreadPoolExecutor;
+import java.util.concurrent.TimeUnit;
 
 public class NetworkPolicyManager extends BaseLockssManager implements ConfigurableManager {
 
   private final L4JLogger log = L4JLogger.getLogger();
   static final String PREFIX = Configuration.PREFIX + "networkPolicy";
   // our network policy parameters
-  final static String PARAM_LOCKSS_PROTECTED_PORTS = NetworkPolicyManager.PREFIX +".protected.ports";
+  final static String PARAM_LOCKSS_PROTECTED_PORTS = NetworkPolicyManager.PREFIX + ".protected.ports";
   static final String DEFAULT_LOCKSS_PROTECTED_PORTS = "24681;24682;24602";
-  static final String PARAM_POLICY_FILE= NetworkPolicyManager.PREFIX + ".policyFile";
+  static final String PARAM_POLICY_FILE = NetworkPolicyManager.PREFIX + ".policyFile";
   static final String DEFAULT_POLICY_FILE = "lockss-network-policy.yaml";
 
   private static final String EXISTING_POLICY_NAME = "lockss-network-policy";
@@ -86,8 +100,8 @@ public class NetworkPolicyManager extends BaseLockssManager implements Configura
   }
 
   public void setConfig(final org.lockss.config.Configuration config,
-      final org.lockss.config.Configuration oldConfig,
-      final org.lockss.config.Configuration.Differences diffs) {
+                        final org.lockss.config.Configuration oldConfig,
+                        final org.lockss.config.Configuration.Differences diffs) {
     try {
       if (ConfigManager.getPlatformVersion().isKubernetes()) {
         this.queueConfigChanges(config, diffs);
@@ -128,11 +142,12 @@ public class NetworkPolicyManager extends BaseLockssManager implements Configura
       });
     }
   }
+
   /**
    * Build and persist a NetworkPolicy based on the include/exclude IP filters.
    */
   void updateNetworkPolicyIngress(final List<String> includeFilters,
-      final List<String> excludeFilters) {
+                                  final List<String> excludeFilters) {
     // Delegate to the new overload preserving existing default filename behavior
     this.updateNetworkPolicyIngress(includeFilters, excludeFilters, null);
   }
@@ -142,7 +157,7 @@ public class NetworkPolicyManager extends BaseLockssManager implements Configura
    * Allows specifying an alternate output filename; if null/blank, defaults to K8S_OUTPUT_FILENAME.
    */
   void updateNetworkPolicyIngress(final List<String> includeFilters,
-      final List<String> excludeFilters, final String outFilename) {
+                                  final List<String> excludeFilters, final String outFilename) {
     final List<String> allowedCidrs = this.toCidrList(includeFilters);
     final List<String> deniedCidrs = this.toCidrList(excludeFilters);
 
@@ -174,13 +189,14 @@ public class NetworkPolicyManager extends BaseLockssManager implements Configura
       // Find existing policy or create a default one; ensure spec exists
       final V1NetworkPolicy networkPolicy = this.findExistingPolicyorCreate(
           NetworkPolicyManager.EXISTING_POLICY_NAME, namespace);
+
       this.ensureSpecWithDefaults(networkPolicy);
       // Build ingress rules
       final List<V1NetworkPolicyIngressRule> ingressRules = new ArrayList<>();
       // Always allow from any pod (podSelector: {})
-      ingressRules.add( new V1NetworkPolicyIngressRule()
-              .from(java.util.Collections.singletonList(new V1NetworkPolicyPeer().podSelector(
-                  this.anyPodSelector())))
+      ingressRules.add(new V1NetworkPolicyIngressRule()
+          .from(java.util.Collections.singletonList(new V1NetworkPolicyPeer().podSelector(
+              this.anyPodSelector())))
       );
       // Build ports from current managedPorts
       final List<V1NetworkPolicyPort> ports = this.buildPorts(this.managedPorts);
@@ -197,7 +213,7 @@ public class NetworkPolicyManager extends BaseLockssManager implements Configura
       this.writePolicyToFile(networkPolicy, outputPath);
       this.log.info("Wrote updated ingress for NetworkPolicy '" + NetworkPolicyManager.EXISTING_POLICY_NAME
           + "' in namespace '"
-              + namespace + "' to " + outputPath);
+          + namespace + "' to " + outputPath);
       if (!this.dryRun) {
         this.applyNetworkPolicyToCluster(networkPolicy);
       }
