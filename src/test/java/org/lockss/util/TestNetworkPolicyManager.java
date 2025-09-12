@@ -211,8 +211,8 @@ public class TestNetworkPolicyManager extends LockssCoreTestCase5 {
     npMgr.setTestPlatformVersion(mockPlatformVersion(false));
     org.lockss.test.ConfigurationUtil.resetConfig();
     org.lockss.test.ConfigurationUtil.setFromArgs(
-        "org.lockss.ui.ip.include", "10.*.*.*;192.168.0.0/16",
-        "org.lockss.ui.ip.exclude", "172.16.0.0/12");
+        "org.lockss.ui.access.ip.include", "10.*.*.*;192.168.0.0/16",
+        "org.lockss.ui.access.ip.exclude", "172.16.0.0/12");
 
     // Because platform is not Kubernetes, the async task should NOT run
     Boolean signal = npMgr.calls.poll(300, java.util.concurrent.TimeUnit.MILLISECONDS);
@@ -225,8 +225,8 @@ public class TestNetworkPolicyManager extends LockssCoreTestCase5 {
   public void testSetConfigRunsWhenKubernetes() throws Exception {
     npMgr.setTestPlatformVersion(mockPlatformVersion(true));
     org.lockss.test.ConfigurationUtil.setFromArgs(
-        "org.lockss.ui.ip.include", "10.*.*.*;192.168.0.0/16",
-        "org.lockss.ui.ip.exclude", "172.16.0.0/12");
+        "org.lockss.ui.access.ip.include", "10.*.*.*;192.168.0.0/16",
+        "org.lockss.ui.access.ip.exclude", "172.16.0.0/12");
 
     // Because platform is Kubernetes, the async task should  run
     Boolean signal = npMgr.calls.poll(5, java.util.concurrent.TimeUnit.SECONDS);
@@ -241,8 +241,8 @@ public class TestNetworkPolicyManager extends LockssCoreTestCase5 {
     npMgr.setTestPlatformVersion(mockPlatformVersion(true));
     Properties props = new Properties();
     props.put("org.lockss.networkPolicy.protected.ports", "80;443");
-    props.put("org.lockss.ui.ip.include", "10.*.*.*");
-    props.put("org.lockss.ui.ip.exclude", "192.168.0.0/16");
+    props.put("org.lockss.ui.access.ip.include", "10.*.*.*");
+    props.put("org.lockss.ui.access.ip.exclude", "192.168.0.0/16");
     // Change the protected ports under the PREFIX to trigger diffs.contains(PREFIX)
     org.lockss.test.ConfigurationUtil.setCurrentConfigFromProps(props);
 
@@ -267,8 +267,8 @@ public class TestNetworkPolicyManager extends LockssCoreTestCase5 {
     npMgr.setTestPlatformVersion(mockPlatformVersion(true));
     Properties props = new Properties();
     props.put("org.lockss.networkPolicy.protected.ports", "8080;24682");
-    props.put("org.lockss.ui.ip.include", "10.*.*.*");
-    props.put("org.lockss.ui.ip.exclude", "192.168.0.0/16");
+    props.put("org.lockss.ui.access.ip.include", "10.*.*.*");
+    props.put("org.lockss.ui.access.ip.exclude", "192.168.0.0/16");
     org.lockss.test.ConfigurationUtil.setCurrentConfigFromProps(props);
     // Wait for initial config to apply
     Boolean firstSignal = npMgr.calls.poll(5, java.util.concurrent.TimeUnit.SECONDS);
@@ -278,8 +278,8 @@ public class TestNetworkPolicyManager extends LockssCoreTestCase5 {
     // Now change only the include/exclude (no PREFIX change)
     props = new Properties();
     props.put("org.lockss.networkPolicy.protected.ports", "8080;24682");
-    props.put("org.lockss.ui.ip.include","172.16.0.0/12");
-    props.put("org.lockss.ui.ip.exclude", "192.168.1.0/24");
+    props.put("org.lockss.ui.access.ip.include","172.16.0.0/12");
+    props.put("org.lockss.ui.access.ip.exclude", "192.168.1.0/24");
     org.lockss.test.ConfigurationUtil.setCurrentConfigFromProps(props);
     Boolean secondSignal = npMgr.calls.poll(5, java.util.concurrent.TimeUnit.SECONDS);
     assertNotNull(secondSignal, "Expected update to be invoked due to include/exclude change");

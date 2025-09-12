@@ -49,9 +49,6 @@ public class NetworkPolicyManager extends BaseLockssManager implements Configura
   static final String DEFAULT_LOCKSS_PROTECTED_PORTS = "24681;24682;24602";
   static final String PARAM_POLICY_FILE= NetworkPolicyManager.PREFIX + ".policyFile";
   static final String DEFAULT_POLICY_FILE = "lockss-network-policy.yaml";
-  // acceess includes/exclue params
-  private static final String PARAM_IP_ACCESS_INCLUDE = "org.lockss.ui.ip.include";
-  private static final String PARAM_IP_ACCESS_EXCLUDE = "org.lockss.ui.ip.exclude";
 
   private static final String EXISTING_POLICY_NAME = "lockss";
   private static final String K8S_NAMESPACE_LOCKSS = "lockss";
@@ -113,16 +110,16 @@ public class NetworkPolicyManager extends BaseLockssManager implements Configura
 
   void queueConfigChanges(final Configuration config, final Configuration.Differences diffs) {
     if (diffs.contains(NetworkPolicyManager.PARAM_LOCKSS_PROTECTED_PORTS) ||
-        diffs.contains(NetworkPolicyManager.PARAM_IP_ACCESS_INCLUDE) ||
-        diffs.contains(NetworkPolicyManager.PARAM_IP_ACCESS_EXCLUDE)) {
-      if(diffs.contains(NetworkPolicyManager.PARAM_LOCKSS_PROTECTED_PORTS)) {
+        diffs.contains(AdminServletManager.PARAM_IP_INCLUDE) ||
+        diffs.contains(AdminServletManager.PARAM_IP_EXCLUDE)) {
+      if (diffs.contains(NetworkPolicyManager.PARAM_LOCKSS_PROTECTED_PORTS)) {
         // we changed a protected port
         this.managedPorts = config.get(NetworkPolicyManager.PARAM_LOCKSS_PROTECTED_PORTS,
             NetworkPolicyManager.DEFAULT_LOCKSS_PROTECTED_PORTS);
       }
       // enqueue the update to be processed by a single background thread
-      List<String> includes = config.getList(NetworkPolicyManager.PARAM_IP_ACCESS_INCLUDE);
-      List<String> excludes = config.getList(NetworkPolicyManager.PARAM_IP_ACCESS_EXCLUDE);
+      List<String> includes = config.getList(AdminServletManager.PARAM_IP_INCLUDE);
+      List<String> excludes = config.getList(AdminServletManager.PARAM_IP_EXCLUDE);
       this.ingressUpdateExecutor.submit(() -> {
         try {
           this.updateNetworkPolicyIngress(includes, excludes);
