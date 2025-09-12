@@ -306,11 +306,13 @@ public class NetworkPolicyManager extends BaseLockssManager implements Configura
   void writePolicyToFile(final V1NetworkPolicy policy, final String filename) throws IOException {
     K8sClientUtils.writeNetworkPolicyToFile(policy, filename);
   }
-  
-  private V1IPBlock buildIpBlock(final String cidr, final List<String> deniedCidrs) {
+
+  private V1IPBlock buildIpBlock(final String cidr, final List<String> deniedCidrs) throws AddressStringException {
+    List<String> intersectedDeniedCidrs = getCidrIntersection(cidr, deniedCidrs);
+
     final V1IPBlock block = new V1IPBlock().cidr(cidr);
-    if (null != deniedCidrs && !deniedCidrs.isEmpty()) {
-      block.setExcept(new ArrayList<>(deniedCidrs));
+    if (!intersectedDeniedCidrs.isEmpty()) {
+      block.setExcept(intersectedDeniedCidrs);
     }
     return block;
   }
