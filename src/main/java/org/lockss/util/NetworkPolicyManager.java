@@ -49,7 +49,7 @@ public class NetworkPolicyManager extends BaseLockssManager implements Configura
   static final String PARAM_POLICY_FILE= NetworkPolicyManager.PREFIX + ".policyFile";
   static final String DEFAULT_POLICY_FILE = "lockss-network-policy.yaml";
 
-  private static final String EXISTING_POLICY_NAME = "lockss";
+  private static final String EXISTING_POLICY_NAME = "lockss-network-policy";
   private static final String K8S_NAMESPACE_LOCKSS = "lockss";
   protected static final String K8S_API_VERSION = "networking.k8s.io/v1";
   private static final String LABEL_SERVICE_KIND = "service-kind";
