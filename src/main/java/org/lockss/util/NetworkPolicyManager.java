@@ -41,8 +41,7 @@ import org.lockss.config.Configuration;
 
 public class NetworkPolicyManager extends BaseLockssManager implements ConfigurableManager {
 
-  protected static final String NETWORK_POLICY_TEMPLATE_FILENAME = "lockss-network-policy.yaml";
-  private final Logger log = Logger.getLogger();
+  private final L4JLogger log = L4JLogger.getLogger();
   static final String PREFIX = Configuration.PREFIX + "networkPolicy";
   // our network policy parameters
   final static String PARAM_LOCKSS_PROTECTED_PORTS = NetworkPolicyManager.PREFIX +".protected.ports";
@@ -124,7 +123,7 @@ public class NetworkPolicyManager extends BaseLockssManager implements Configura
         try {
           this.updateNetworkPolicyIngress(includes, excludes);
         } catch (final Throwable t) {
-          this.log.warning("Error running queued updateNetworkPolicyIngress task", t);
+          this.log.warn("Error running queued updateNetworkPolicyIngress task", t);
         }
       });
     }
@@ -146,6 +145,10 @@ public class NetworkPolicyManager extends BaseLockssManager implements Configura
       final List<String> excludeFilters, final String outFilename) {
     final List<String> allowedCidrs = this.toCidrList(includeFilters);
     final List<String> deniedCidrs = this.toCidrList(excludeFilters);
+
+    log.debug2("includeFilters: {}, toCidrList(includeFilters): {}", includeFilters, allowedCidrs);
+    log.debug2("excludeFilters: {}, toCidrList(excludeFilters): {}", excludeFilters, deniedCidrs);
+
     if (allowedCidrs.isEmpty()) {
       // xxx this should never be empty.
       this.log.info(
@@ -165,7 +168,7 @@ public class NetworkPolicyManager extends BaseLockssManager implements Configura
         outputPath = outFilename;
       }
     } catch (final IOException ioe) {
-      this.log.warning("Failed to choose output file; defaulting to " + this.policyFileName, ioe);
+      this.log.warn("Failed to choose output file; defaulting to " + this.policyFileName, ioe);
     }
     try {
       // Find existing policy or create a default one; ensure spec exists
@@ -190,6 +193,7 @@ public class NetworkPolicyManager extends BaseLockssManager implements Configura
         ingressRules.add(cidrRule);
       }
       networkPolicy.getSpec().setIngress(ingressRules);
+      log.debug2("networkPolicy: {}", networkPolicy);
       this.writePolicyToFile(networkPolicy, outputPath);
       this.log.info("Wrote updated ingress for NetworkPolicy '" + NetworkPolicyManager.EXISTING_POLICY_NAME
           + "' in namespace '"
@@ -198,7 +202,7 @@ public class NetworkPolicyManager extends BaseLockssManager implements Configura
         this.applyNetworkPolicyToCluster(networkPolicy);
       }
     } catch (final Exception e) {
-      this.log.warning("Error while preparing Kubernetes NetworkPolicy for access control", e);
+      this.log.warn("Error while preparing Kubernetes NetworkPolicy for access control", e);
     }
   }
 
@@ -218,7 +222,7 @@ public class NetworkPolicyManager extends BaseLockssManager implements Configura
             final IpFilter.Mask mask = IpFilter.newMask(s);
             result.add(mask.toString());
           } catch (final IpFilter.MalformedException ex) {
-            this.log.warning(
+            this.log.warn(
                 MessageFormat.format("Skipping unparsable IP entry for NetworkPolicy: {0} ({1})", s,
                     ex.getMessage()));
           }
@@ -270,14 +274,14 @@ public class NetworkPolicyManager extends BaseLockssManager implements Configura
    */
   void applyNetworkPolicyToCluster(final V1NetworkPolicy policy) {
     if (null == policy || null == policy.getMetadata()) {
-      this.log.warning("Cannot apply NetworkPolicy: policy or metadata is null");
+      this.log.warn("Cannot apply NetworkPolicy: policy or metadata is null");
       return;
     }
     String name = policy.getMetadata().getName();
     String namespace = policy.getMetadata().getNamespace();
 
     if (null == name || null == namespace) {
-      this.log.warning("Cannot apply NetworkPolicy: name or namespace is null");
+      this.log.warn("Cannot apply NetworkPolicy: name or namespace is null");
       return;
     }
 
@@ -292,7 +296,7 @@ public class NetworkPolicyManager extends BaseLockssManager implements Configura
         this.log.info("No change for NetworkPolicy '" + name + "' in namespace '" + namespace + "'");
       }
     } catch (final Exception e) {
-      this.log.warning("Failed to apply NetworkPolicy to cluster", e);
+      this.log.warn("Failed to apply NetworkPolicy to cluster", e);
     }
   }
 
