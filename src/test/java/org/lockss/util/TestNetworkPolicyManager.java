@@ -34,6 +34,7 @@ package org.lockss.util;
 
 import static org.mockito.Mockito.*;
 
+import inet.ipaddr.AddressStringException;
 import io.kubernetes.client.custom.*;
 import io.kubernetes.client.openapi.models.*;
 import io.kubernetes.client.util.*;
@@ -128,7 +129,7 @@ public class TestNetworkPolicyManager extends LockssCoreTestCase5 {
     assertEquals(4, res.size());
     assertEquals("10.0.0.0/8", res.get(0));
     assertEquals("172.16.31.0/24", res.get(1));
-    assertEquals("192.168.1.5", res.get(2));
+    assertEquals("192.168.1.5/32", res.get(2));
     assertEquals("172.16.0.0/12", res.get(3));
   }
 
