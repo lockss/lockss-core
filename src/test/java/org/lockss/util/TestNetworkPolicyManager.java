@@ -71,6 +71,20 @@ public class TestNetworkPolicyManager extends LockssCoreTestCase5 {
     return true;
   }
 
+  @Test
+  public void testGetCidrIntersection() throws Exception {
+    assertCidrIntersection(List.of("10.0.0.1"), "10.0.0.0/8", List.of("10.0.0.1"));
+    assertCidrIntersection(List.of("10.0.0.1/32"), "10.0.0.0/8", List.of("10.0.0.1/32"));
+    assertCidrIntersection(Collections.emptyList(), "171.66.236.0/24", List.of("10.0.0.1"));
+    assertCidrIntersection(List.of("171.66.236.16"), "171.66.236.0/24", List.of("10.0.0.1", "171.66.236.16"));
+  }
+
+  private void assertCidrIntersection(List<String> expectedIntersection, String cidr, List<String> deniedCidrs)
+      throws AddressStringException {
+    List<String> actualIntersection = npMgr.getCidrIntersection(cidr, deniedCidrs);
+    assertEquals(expectedIntersection, actualIntersection);
+  }
+
   /**
    * Tests for npMgr.toCidrList
    */

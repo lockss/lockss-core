@@ -315,6 +315,27 @@ public class NetworkPolicyManager extends BaseLockssManager implements Configura
     return block;
   }
 
+  public static List<String> getCidrIntersection(final String cidr, final List<String> deniedCidrs)
+      throws AddressStringException {
+
+    if (deniedCidrs == null || deniedCidrs.isEmpty()) {
+      return Collections.emptyList();
+    }
+
+    IPAddress cidrAddr = new IPAddressString(cidr).toAddress();
+    List<String> intersectedDeniedCidrs = new ArrayList<>();
+
+    for (final String deniedCidr : deniedCidrs) {
+      IPAddress deniedCidrAddr = new IPAddressString(deniedCidr).toAddress();
+      IPAddress cidrIntersection = cidrAddr.intersect(deniedCidrAddr);
+      if (cidrIntersection != null) {
+        intersectedDeniedCidrs.add(cidrIntersection.toString());
+      }
+    }
+
+    return intersectedDeniedCidrs;
+  }
+
   private V1LabelSelector anyPodSelector() {
     // Empty selector means "any pod"
     return new V1LabelSelector();

@@ -616,6 +616,12 @@ POSSIBILITY OF SUCH DAMAGE.
 <!--    </dependency>-->
 
     <dependency>
+      <groupId>com.github.seancfoley</groupId>
+      <artifactId>ipaddress</artifactId>
+      <version>5.5.1</version>
+    </dependency>
+
+    <dependency>
       <groupId>com.sun.xml.fastinfoset</groupId>
       <artifactId>FastInfoset</artifactId>
       <version>1.2.13</version>
