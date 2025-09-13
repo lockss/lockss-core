@@ -106,14 +106,26 @@ public class TestPlatformVersion extends LockssTestCase {
   }
 
   public void testKube() {
-    PlatformVersion pv = new PlatformVersion("K8s v1.31.5-1");
-    assertEquals("K8s 1.31.5-1", pv.toString(" "));
-    assertEquals("K8s-1.31.5-1", pv.toString());
-    assertEquals(1031005, pv.toLong());
-    assertEquals("1.31.5", pv.getVersion());
-    assertEquals("K8s", pv.getName());
-    assertTrue(pv.isKubernetes());
-    assertFalse(pv.isRuncluster());
+    {
+      PlatformVersion pv = new PlatformVersion("K8s v1.31.5-1");
+      assertEquals("K8s 1.31.5-1", pv.toString(" "));
+      assertEquals("K8s-1.31.5-1", pv.toString());
+      assertEquals(1031005, pv.toLong());
+      assertEquals("1.31.5", pv.getVersion());
+      assertEquals("K8s", pv.getName());
+      assertTrue(pv.isKubernetes());
+      assertFalse(pv.isRuncluster());
+    }
+    {
+      PlatformVersion pv = new PlatformVersion("K8s v1.31.5+k3s1-1");
+      assertEquals("K8s 1.31.5-k3s1-1", pv.toString(" "));
+      assertEquals("K8s-1.31.5-k3s1-1", pv.toString());
+      assertEquals(1031005, pv.toLong());
+      assertEquals("1.31.5", pv.getVersion());
+      assertEquals("K8s", pv.getName());
+      assertTrue(pv.isKubernetes());
+      assertFalse(pv.isRuncluster());
+    }
   }
 
   public void testRuncluster() {
