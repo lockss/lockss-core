@@ -55,7 +55,7 @@ public class PlatformVersion implements Version {
 				Perl5Compiler.READ_ONLY_MASK);
 
   private static Pattern newPat =
-    RegexpUtil.uncheckedCompile("^([^- ]+)[ -](?:[vV])?([0-9.]+)(?:-(.+))?$",
+    RegexpUtil.uncheckedCompile("^([^- ]+)[ -](?:[vV])?([0-9.]+)(?:[-+](.+))?$",
 				Perl5Compiler.READ_ONLY_MASK);
 
 
