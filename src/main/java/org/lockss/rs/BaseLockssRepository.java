@@ -366,7 +366,7 @@ public class BaseLockssRepository implements LockssRepository, JmsFactorySource 
     repoStats.setTimeSpentReiteratingIterators(timeSpentReiterating);
 
     return new RepositoryInfo(sto, ind)
-        .setRepositoryStatistics(repoStats);
+        .repositoryStatistics(repoStats);
   }
 
   @Override
