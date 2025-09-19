@@ -113,7 +113,7 @@ public class TestNetworkPolicyManager extends LockssCoreTestCase5 {
     // 192.168.1.1 -> 192.168.1.1/32
     assertEquals(2, res.size());
     assertEquals("10.0.0.0/8", res.get(0));
-    assertEquals("192.168.1.1", res.get(1));
+    assertEquals("192.168.1.1/32", res.get(1));
   }
 
   @Test
@@ -161,7 +161,7 @@ public class TestNetworkPolicyManager extends LockssCoreTestCase5 {
     // Only the valid ones should remain, in order
     assertEquals(2, res.size());
     assertEquals("10.0.0.0/8", res.get(0));
-    assertEquals("192.0.2.1", res.get(1));
+    assertEquals("192.0.2.1/32", res.get(1));
   }
 
   @Test
