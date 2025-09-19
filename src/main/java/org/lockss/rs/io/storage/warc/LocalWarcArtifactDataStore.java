@@ -33,7 +33,6 @@ package org.lockss.rs.io.storage.warc;
 import org.apache.commons.io.FileUtils;
 import org.archive.format.warc.WARCConstants;
 import org.lockss.log.L4JLogger;
-import org.lockss.rs.io.storage.ArtifactDataStore;
 import org.lockss.util.io.FileUtil;
 import org.lockss.util.os.PlatformUtil;
 import org.lockss.util.rest.repo.model.NamespacedAuid;
@@ -126,8 +125,7 @@ public class LocalWarcArtifactDataStore extends WarcArtifactDataStore {
     log.debug("Cleared internal AU maps");
 
     // Reset maps
-    auPathsMap = new HashMap<>();
-    auActiveWarcsMap = new HashMap<>();
+    appendablePermanentWarcsMap = new HashMap<>();
   }
 
   // *******************************************************************************************************************
@@ -150,47 +148,41 @@ public class LocalWarcArtifactDataStore extends WarcArtifactDataStore {
   }
 
   /**
-   * Local filesystems implementation of {@link ArtifactDataStore#initAu(String, String)}.
-   * <p>
-   * Initializes an AU by reloading any existing directories of this AU or creates a new one if initializing this AU
-   * for the first time.
+   * Initializes an Archival Unit (AU) in the specified namespace and returns a list of paths
+   * associated with it. The method ensures that the namespace is properly set up across
+   * storage locations and any required AU-related directories are initialized.
    *
-   * @param namespace A {@code String} containing the namespace.
-   * @param auid
-   * @return
-   * @throws IOException
+   * @param namespace The namespace to which the AU belongs.
+   * @param auid The Archival Unit identifier (AUID) for which initialization is performed.
+   * @return A {@code List<Path>} containing paths associated with the initialized AU.
+   * @throws IOException if an I/O error occurs during the initialization process.
    */
   @Override
   public List<Path> initAu(String namespace, String auid) throws IOException {
-    //// Initialize namespace on each filesystem
     initNamespace(namespace);
+    return findExistingAUPaths(namespace, auid);
+  }
 
-    //// Reload any existing AU base paths
-
-    // Get base paths of the repository
+  /**
+   * Finds and returns a list of paths to existing AU (Archival Unit) directories
+   * under the configured base paths for a given namespace and AU identifier (AUID).
+   *
+   * @param namespace A {@code String} containing the namespace of the AU.
+   * @param auid A {@code String} containing the AUID of the AU.
+   * @return A {@code List<Path>} containing the paths to the existing AU directories.
+   */
+  public List<Path> findExistingAUPaths(String namespace, String auid) {
     Path[] baseDirs = getBasePaths();
 
     if (baseDirs == null || baseDirs.length < 1) {
-      log.error("No data store base directories configured");
-      throw new IllegalStateException("Data store is misconfigured");
+      log.error("No content base paths configured");
+      throw new IllegalStateException("No content base paths configured");
     }
 
-    // Find existing base directories of this AU
-    List<Path> auPathsFound = Arrays.stream(baseDirs)
-        .map(basePath -> getAuPath(basePath, namespace, auid))
-        .filter(auPath -> auPath.toFile().isDirectory())
-        .collect(Collectors.toList());
-
-    if (auPathsFound.isEmpty()) {
-      // No existing directories for this AU: Initialize a new AU directory
-      auPathsFound.add(initAuDir(namespace, auid));
-    }
-
-    // Track AU directories in internal AU paths map
-    NamespacedAuid key = new NamespacedAuid(namespace, auid);
-    auPathsMap.put(key, auPathsFound);
-
-    return auPathsFound;
+    return Arrays.stream(baseDirs)
+        .map(basePath -> generateAUPath(basePath, namespace, auid))
+        .filter(auBasePath -> auBasePath.toFile().isDirectory())
+        .toList();
   }
 
   /**
@@ -203,25 +195,12 @@ public class LocalWarcArtifactDataStore extends WarcArtifactDataStore {
    * @throws IOException
    */
   @Override
-  protected Path initAuDir(String namespace, String auid) throws IOException {
-    Path[] basePaths = getBasePaths();
-
-    if (basePaths == null || basePaths.length < 1) {
-      log.error("No data store base directories configured");
-      throw new IllegalStateException("Data store is misconfigured");
-    }
-
-    // Determine which base path to use based on current available space
-    Path basePath = Arrays.stream(basePaths)
-        .sorted((a, b) -> (int) (getFreeSpace(b.getParent()) - getFreeSpace(a.getParent())))
-        .findFirst()
-        .get();
-
-    // Generate an AU path under this base path and create it on disk
-    Path auPath = getAuPath(basePath, namespace, auid);
+  protected Path initAuDir(Path basePath, String namespace, String auid) throws IOException {
+    Path auPath = generateAUPath(basePath, namespace, auid);
+    File auPathFile = auPath.toFile();
 
     // Create the AU directory if necessary
-    if (!auPath.toFile().isDirectory()) {
+    if (!auPathFile.exists() && !auPathFile.isDirectory()) {
       mkdirs(auPath);
     }
 

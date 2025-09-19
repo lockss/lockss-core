@@ -103,7 +103,6 @@ import java.util.*;
 import java.util.concurrent.*;
 import java.util.function.Function;
 import java.util.function.Predicate;
-import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import java.util.zip.GZIPInputStream;
 import java.util.zip.GZIPOutputStream;
@@ -156,7 +155,7 @@ public abstract class WarcArtifactDataStore implements ArtifactDataStore, WARCCo
 
   private static final long DEFAULT_DFOS_THRESHOLD = 16L * FileUtils.ONE_MB;
 
-  protected final static long MAX_AUACTIVEWARCS_RELOADED = 10;
+  protected final static long MAX_PERMANENT_WARCS_TO_RELOAD = 10;
 
   protected static final String ENV_THRESHOLD_WARC_SIZE = "REPO_MAX_WARC_SIZE";
   protected static final long DEFAULT_THRESHOLD_WARC_SIZE = FileUtils.ONE_GB;
@@ -176,8 +175,7 @@ public abstract class WarcArtifactDataStore implements ArtifactDataStore, WARCCo
 
   protected Path[] basePaths;
   protected WarcFilePool tmpWarcPool;
-  protected Map<NamespacedAuid, List<Path>> auActiveWarcsMap = new HashMap<>();
-  protected Map<NamespacedAuid, List<Path>> auPathsMap = new HashMap<>();
+  protected Map<NamespacedAuid, List<Path>> appendablePermanentWarcsMap = new HashMap<>();
 
   private final Map<ArtifactIdentifier, CopyArtifactTask> queuedCopyTasks = new ConcurrentHashMap<>();
 
@@ -325,7 +323,7 @@ public abstract class WarcArtifactDataStore implements ArtifactDataStore, WARCCo
    */
   public abstract StorageInfo getStorageInfo();
 
-  protected abstract Path initAuDir(String namespace, String auid) throws IOException;
+  protected abstract Path initAuDir(Path basePath, String namespace, String auid) throws IOException;
 
   // *******************************************************************************************************************
   // * CONSTRUCTORS
@@ -434,9 +432,6 @@ public abstract class WarcArtifactDataStore implements ArtifactDataStore, WARCCo
         for (Path tmpBasePath : getTmpWarcBasePaths()) {
           reloadTemporaryWarcs(getArtifactIndex(), tmpBasePath);
         }
-
-        //// TODO: Reload active WARCs
-        // reloadActiveWarcs();
       } catch (Exception e) {
         log.error("Could not complete asynchronous data store reload", e);
         throw new IllegalStateException("Could not complete asynchronous reload", e);
@@ -567,58 +562,41 @@ public abstract class WarcArtifactDataStore implements ArtifactDataStore, WARCCo
    * @param auid      A {@link String} containing the AUID of the AU.
    * @return A {@link Path} containing the base path of the AU, under the given data store base path.
    */
-  public Path getAuPath(Path basePath, String namespace, String auid) {
+  public Path generateAUPath(Path basePath, String namespace, String auid) {
     validateNamespace(namespace);
     return getNamespacePath(basePath, namespace).resolve(AU_DIR_PREFIX + DigestUtils.md5Hex(auid));
   }
 
   /**
-   * Returns a list containing all the paths of this AU.
-   *
-   * @param namespace A {@link String} containing the name of the namespace the AU belongs to.
-   * @param auid      A {@link String} containing the AUID of the AU.
-   * @return A {@link List<Path>} containing all paths of this AU.
-   */
-  public List<Path> getAuPaths(String namespace, String auid) throws IOException {
-    validateNamespace(namespace);
-    synchronized (auPathsMap) {
-      // Get AU's initialized paths from map
-      NamespacedAuid key = new NamespacedAuid(namespace, auid);
-      List<Path> auPaths = auPathsMap.get(key);
-
-      // Initialize the AU if there is no entry in the map, or return the AU's paths
-      // Q: Do we really want to call initAu() here?
-      return auPaths == null ? initAu(namespace, auid) : auPaths;
-    }
-  }
-
-  /**
-   * Returns an active WARC of an AU or initializes a new one, on the base path having the most free space.
+   * Returns a permanent WARC in an AU or initializes a new one, on the base path having the most free space.
    *
    * @param namespace      A {@link String} containing the name of the namespace the AU belongs to.
    * @param auid           A {@link String} containing the AUID of the AU.
-   * @param minSize        A {@code long} containing the minimum available space the underlying base path must have in bytes.
-   * @param compressedWarc A {@code boolean} indicating a compressed active WARC is needed.
-   * @return A {@link Path} containing the path of the chosen active WARC.
+   * @param minFree        A {@code long} containing the minimum available space the underlying base path must have in bytes.
+   * @param wantCompressedWarc A {@code boolean} indicating a compressed permanent WARC is needed.
+   * @return A {@link Path} containing the path of a permanent WARC.
    * @throws IOException
    */
-  public Path getAuActiveWarcPath(String namespace, String auid, long minSize, boolean compressedWarc) throws IOException {
+  public Path getAppendablePermanentWarcInAU(String namespace, String auid, long minFree, boolean wantCompressedWarc)
+      throws IOException {
     validateNamespace(namespace);
-    synchronized (auActiveWarcsMap) {
-      // Get all the active WARCs of this AU
-      List<Path> activeWarcs = getAuActiveWarcPaths(namespace, auid);
 
-      // Filter active WARCs by compression
-      List<Path> fActiveWarcs = activeWarcs.stream()
-          .filter(p -> isCompressedWarcFile(p) == compressedWarc)
-          .collect(Collectors.toList());
+    synchronized (appendablePermanentWarcsMap) {
+      // Get all the permanent WARCs in this AU
+      List<Path> permanentWarcs = getAppendablePermanentWarcsInAU(namespace, auid);
 
-      // If there are multiple active WARCs for this AU, pick the one under the base path with the most free space
-      Path activeWarc = getMinMaxFreeSpacePath(fActiveWarcs, minSize);
+      // Filter permanent WARCs by compression
+      List<Path> permanentWarcCandidates = permanentWarcs.stream()
+          .filter(permanentWarcPath -> isCompressedWarcFile(permanentWarcPath) == wantCompressedWarc)
+          .toList();
 
-      // Return the active WARC or initialize a new one if there were no active WARCs or no active WARC resides under a
-      // base path with enough space
-      return activeWarc == null ? initAuActiveWarc(namespace, auid, minSize) : activeWarc;
+      // If there is more than one candidate, pick the one under the base path with the most free space.
+      // This call may return null if there are no candidates.
+      Path permanentWarc = getFilePathWithMaxFreeSpace(permanentWarcCandidates, minFree);
+
+      // Return the permanent WARC or initialize a new one if there was no permanent WARC candidate:
+      return permanentWarc == null ?
+          initPermanentWarcForAU(namespace, auid, minFree) : permanentWarc;
     }
   }
 
@@ -631,7 +609,7 @@ public abstract class WarcArtifactDataStore implements ArtifactDataStore, WARCCo
    * @return A {@link Path} containing the chosen path among the provided paths or {@code null} if no such path could
    * be found.
    */
-  protected Path getMinMaxFreeSpacePath(List<Path> paths, long minSize) {
+  protected Path getFilePathWithMaxFreeSpace(List<Path> paths, long minSize) {
     if (paths == null) {
       throw new IllegalArgumentException("null paths");
     }
@@ -643,35 +621,50 @@ public abstract class WarcArtifactDataStore implements ArtifactDataStore, WARCCo
         .orElse(null);
   }
 
-  /**
-   * Returns an array containing all the active WARCs of this AU.
-   *
-   * @param namespace A {@link String} containing the name of the namespace the AU belongs to.
-   * @param auid      A {@link String} containing the AUID of the AU.
-   * @return A {@link List<Path>} containing all active WARCs of this AU.
-   */
-  public List<Path> getAuActiveWarcPaths(String namespace, String auid) throws IOException {
-    validateNamespace(namespace);
-    synchronized (auActiveWarcsMap) {
-      // Get the active WARCs of this AU if it exists in the map
-      NamespacedAuid key = new NamespacedAuid(namespace, auid);
-      List<Path> auActiveWarcs = auActiveWarcsMap.get(key);
-
-      log.trace("auActiveWarcs = {}", auActiveWarcs);
-
-      if (auActiveWarcs == null) {
-        // Reload the active WARCs for this AU
-        auActiveWarcs = findAuActiveWarcs(namespace, auid);
-        auActiveWarcsMap.put(key, auActiveWarcs);
-      }
-
-      return auActiveWarcs;
+  protected Path getDirectoryPathWithMaxFreeSpace(List<Path> paths, long minSize) {
+    if (paths == null) {
+      throw new IllegalArgumentException("null paths");
     }
+
+    return paths.stream()
+        .filter(p -> getFreeSpace(p) > minSize)
+        .sorted((a, b) -> (int) (getFreeSpace(b) - getFreeSpace(a)))
+        .findFirst()
+        .orElse(null);
   }
 
   /**
-   * In service of {@link WarcArtifactDataStore#findAuActiveWarcs(String, String)}.
+   * Returns a list containing all the permanent WARCs in this AU.
+   *
+   * @param namespace A {@link String} containing the name of the namespace the AU belongs to.
+   * @param auid      A {@link String} containing the AUID of the AU.
+   * @return A {@link List<Path>} containing all permanent WARCs in this AU.
    */
+  public List<Path> getAppendablePermanentWarcsInAU(String namespace, String auid) throws IOException {
+    validateNamespace(namespace);
+
+    synchronized (appendablePermanentWarcsMap) {
+      NamespacedAuid key = new NamespacedAuid(namespace, auid);
+      List<Path> permanentWarcs = appendablePermanentWarcsMap.getOrDefault(key, new ArrayList<>());
+
+//      if (permanentWarcs == null || permanentWarcs.isEmpty()) {
+//        // Existing permanent WARCs eligible to be appended must be:
+//        // 1. Under the WARC size threshold and,
+//        // 2. Pass validation (i.e., not truncated or otherwise corrupted)
+//        permanentWarcs = findExistingPermanentWarcsInAU(namespace, auid).stream()
+//            .filter(new WarcSizeThresholdPredicate())
+//            .filter(new WarcFileValidationPredicate())
+//            .sorted(new WarcLengthComparator())
+//            .limit(MAX_PERMANENT_WARCS_TO_RELOAD)
+//            .toList();
+//
+//        appendablePermanentWarcsMap.put(key, permanentWarcs);
+//      }
+
+      return permanentWarcs;
+    }
+  }
+
   private class WarcSizeThresholdPredicate implements Predicate<Path> {
     @Override
     public boolean test(Path warcPath) {
@@ -684,9 +677,6 @@ public abstract class WarcArtifactDataStore implements ArtifactDataStore, WARCCo
     }
   }
 
-  /**
-   * In service of {@link WarcArtifactDataStore#findAuActiveWarcs(String, String)}.
-   */
   private class WarcLengthComparator implements Comparator<Path> {
     @Override
     public int compare(Path a, Path b) {
@@ -727,56 +717,9 @@ public abstract class WarcArtifactDataStore implements ArtifactDataStore, WARCCo
   }
 
   /**
-   * Finds the artifact-containing WARCs of an AU that have not met size or block-usage thresholds and are therefore
-   * eligible to be reloaded as active WARCs (to have new artifacts appended to the WARC).
+   * Returns the WARC file extension based on whether compression is in use.
    *
-   * @param namespace A {@link String} containing the namespace.
-   * @param auid      A {@link String} containing the the AUID.
-   * @return A {@link List<Path>} containing paths to WARCs that are eligible to be reloaded as active WARCs.
-   * @throws IOException
-   */
-  protected List<Path> findAuActiveWarcs(String namespace, String auid) throws IOException {
-    validateNamespace(namespace);
-    return findAuArtifactWarcsStream(namespace, auid)
-        .filter(new WarcSizeThresholdPredicate())
-        .sorted(new WarcLengthComparator())
-        .limit(MAX_AUACTIVEWARCS_RELOADED)
-        .collect(Collectors.toList());
-  }
-
-  /**
-   * Returns the paths to WARC files containing artifacts in an AU.
-   *
-   * @param namespace A {@link String} containing the namespace of the AU.
-   * @param auid      A {@link String} containing the AUID of the AU.
-   * @return A {@link List<Path>} containing the paths to the WARC files.
-   * @throws IOException
-   */
-  protected List<Path> findAuArtifactWarcs(String namespace, String auid) throws IOException {
-    validateNamespace(namespace);
-    return findAuArtifactWarcsStream(namespace, auid).collect(Collectors.toList());
-  }
-
-  /**
-   * Returns the paths to WARC files containing artifacts in an AU.
-   *
-   * @param namespace A {@link String} containing the namespace of the AU.
-   * @param auid      A {@link String} containing the AUID of the AU.
-   * @return A {@link List<Path>} containing the paths to the WARC files.
-   * @throws IOException
-   */
-  protected Stream<Path> findAuArtifactWarcsStream(String namespace, String auid) throws IOException {
-    validateNamespace(namespace);
-    return getAuPaths(namespace, auid).stream()
-        .map(auPath -> findWarcsOrEmpty(auPath))
-        .flatMap(Collection::stream)
-        .filter(warcPath -> warcPath.getFileName().toString().startsWith("artifacts_"));
-  }
-
-  /**
-   * Returns the preferred WARC file extension based on whether compression is in use.
-   *
-   * @return A {@link String} containing the preferred file extension.
+   * @return A {@link String} containing the WARC file extension.
    */
   protected String getWarcFileExtension() {
     return useCompression ?
@@ -896,19 +839,19 @@ public abstract class WarcArtifactDataStore implements ArtifactDataStore, WARCCo
   // *******************************************************************************************************************
 
   /**
-   * Generates a file name for a new active WARC of an AU. Makes no guarantee about file name uniqueness.
+   * Generates a file name for a new permanent WARC for an AU. Makes no guarantee about file name uniqueness.
    *
    * @param namespace A {@link String} containing the name of the namespace the AU belongs to.
    * @param auid      A {@link String} containing the AUID of the AU.
-   * @return A {@link String} containing the generated active WARC file name.
+   * @return A {@link String} containing the generated permanent WARC file name.
    */
-  protected static String generateActiveWarcName(String namespace, String auid) {
+  protected static String generateWarcFileNameForAU(String namespace, String auid) {
     validateNamespace(namespace);
     ZonedDateTime zdt = ZonedDateTime.now(ZoneId.of("UTC"));
-    return generateActiveWarcName(namespace, auid, zdt);
+    return generateWarcFileNameForAU(namespace, auid, zdt);
   }
 
-  protected static String generateActiveWarcName(String namespace, String auid, ZonedDateTime zdt) {
+  protected static String generateWarcFileNameForAU(String namespace, String auid, ZonedDateTime zdt) {
     validateNamespace(namespace);
     String timestamp = zdt.format(FMT_TIMESTAMP);
     String auidHash = DigestUtils.md5Hex(auid);
@@ -916,85 +859,65 @@ public abstract class WarcArtifactDataStore implements ArtifactDataStore, WARCCo
   }
 
   /**
-   * Initializes a new active WARC for an AU on the base path with the most free space.
+   * Initializes a new permanent WARC for an AU on the base path with the most free space.
    *
    * @param namespace A {@link String} containing the name of the namespace the AU belongs to.
    * @param auid      A {@link String} containing the AUID of the AU.
-   * @param minSize   A {@code long} containing the minimum amount of available space the underlying filesystem must
-   *                  have available for the new active WARC, in bytes.
-   * @return The {@link Path} to the new active WARC for this AU.
+   * @param minFree   A {@code long} containing the minimum amount of available space the underlying filesystem must
+   *                  have available for the new permanent WARC, in bytes.
+   * @return The {@link Path} to the new permanent WARC for this AU.
    * @throws IOException
    */
-  public Path initAuActiveWarc(String namespace, String auid, long minSize) throws IOException {
+  public Path initPermanentWarcForAU(String namespace, String auid, long minFree) throws IOException {
     validateNamespace(namespace);
-    // Debugging
-    log.trace("namespace = {}", namespace);
-    log.trace("auid = {}", auid);
-    log.trace("minSize = {}", minSize);
 
-    // Get an array of the AU's initialized paths in storage
-    List<Path> auPaths = getAuPaths(namespace, auid);
+    // Determine which content base path to use based on available space
+    Path basePath = getDirectoryPathWithMaxFreeSpace(List.of(getBasePaths()), minFree);
 
-    // Determine which existing AU path to use based on currently available space
-    Path auPath = getMinMaxFreeSpacePath(auPaths, minSize);
-
-    if (auPath == null) {
-      //// AU not initialized or no existing AU meets minimum space requirement
-
-
-      // Have we exhausted all available base paths?
-      if (auPaths.size() < basePaths.length) {
-        // Create a new AU base directory (or get the existing one with the most available space)
-        auPath = initAuDir(namespace, auid);
-      } else {
-        log.error("No AU directory available: Configured data store base paths are full");
-        throw new IOException("No AU directory available");
-      }
+    if (basePath == null) {
+      throw new IOException("No content base path has enough free space for a new WARC file");
     }
 
-    // Generate path to new active WARC file under chosen AU path
-    Path auActiveWarc = auPath.resolve(generateActiveWarcName(namespace, auid) + getWarcFileExtension());
+    // Generate and initialize a new permanent WARC file for this AU under the base path
+    Path auBasePath = initAuDir(basePath, namespace, auid);
+    Path permanentWarcPath = auBasePath.resolve(generateWarcFileNameForAU(namespace, auid) + getWarcFileExtension());
+    initWarc(permanentWarcPath);
 
-    // Add new active WARC to active WARCs map
-    synchronized (auActiveWarcsMap) {
-      // Initialize the new WARC file
-      initWarc(auActiveWarc);
-
-      // Add WARC file path to list of active WARC paths of this AU
+    // Add to the list of appendable permanent WARC files for this AU
+    synchronized (appendablePermanentWarcsMap) {
       NamespacedAuid key = new NamespacedAuid(namespace, auid);
-      List<Path> auActiveWarcs = auActiveWarcsMap.getOrDefault(key, new ArrayList<>());
-      auActiveWarcs.add(auActiveWarc);
-      auActiveWarcsMap.put(key, auActiveWarcs);
+      List<Path> permanentWarcs = appendablePermanentWarcsMap.getOrDefault(key, new ArrayList<>());
+      permanentWarcs.add(permanentWarcPath);
+      appendablePermanentWarcsMap.put(key, permanentWarcs);
     }
 
-    return auActiveWarc;
+    return permanentWarcPath;
   }
 
   /**
-   * "Seals" the active WARC of an AU in permanent storage from further writes.
+   * "Seals" the permanent WARC of an AU from further writes.
    *
    * @param namespace A {@link String} containing the namespace of the AU.
    * @param auid      A {@link String} containing the AUID of the AU.
    */
-  public void sealActiveWarc(String namespace, String auid, Path warcPath) {
+  public void sealPermanentWarcInAU(String namespace, String auid, Path warcPath) {
     validateNamespace(namespace);
-    log.trace("namespace = {}", namespace);
-    log.trace("auid = {}", auid);
-    log.trace("warcPath = {}", warcPath);
 
-    synchronized (auActiveWarcsMap) {
+    synchronized (appendablePermanentWarcsMap) {
       NamespacedAuid key = new NamespacedAuid(namespace, auid);
 
-      if (auActiveWarcsMap.containsKey(key)) {
-        List<Path> activeWarcs = auActiveWarcsMap.get(key);
+      if (appendablePermanentWarcsMap.containsKey(key)) {
+        List<Path> permanentWarcs = appendablePermanentWarcsMap.get(key);
 
-        if (!activeWarcs.remove(warcPath)) {
-          log.warn("Attempted to seal an active WARC of an AU that is not active!");
+        if (!permanentWarcs.remove(warcPath)) {
+          log.debug("Attempted to seal permanent WARC of an AU that is not in the list of appendable WARCs [ns: {}, auid: {}, warcPath: {}]",
+              namespace, auid, warcPath);
         }
 
-        auActiveWarcsMap.put(key, activeWarcs);
+        appendablePermanentWarcsMap.put(key, permanentWarcs);
       } else {
-        log.warn("Attempted to seal an active WARC of an AU having no active WARCs!");
+        log.debug("Attempted to seal permanent WARC of an AU having no appendable WARCs [ns: {}, auid: {}, warcPath: {}]",
+            namespace, auid, warcPath);
       }
     }
   }
@@ -1591,20 +1514,6 @@ public abstract class WarcArtifactDataStore implements ArtifactDataStore, WARCCo
       // Write artifact state to journal
       // *******************************
 
-      // Write journal entry to journal file under an existing AU path
-      List<Path> auPaths = getAuPaths(artifactId.getNamespace(), artifactId.getAuid());
-
-      Path auPath = auPaths.stream()
-          .sorted((a, b) -> (int) (getFreeSpace(b) - getFreeSpace(a)))
-          .findFirst()
-          .orElse(null); // should never happen
-
-      Path auBasePath = Arrays.stream(getBasePaths())
-          .sorted()
-          .filter(bp -> auPath.startsWith(bp))
-          .findFirst()
-          .orElse(null); // should never happen
-
       // Mark artifact as uncommitted in the journal
       writeJournalEntryForArtifact(artifact,
           new WarcArtifactStateEntry(artifactId, WarcArtifactState.UNCOMMITTED));
@@ -1869,7 +1778,7 @@ public abstract class WarcArtifactDataStore implements ArtifactDataStore, WARCCo
   /**
    * Implementation of {@link Callable} that copies an artifact from temporary to permanent storage.
    * <p>
-   * This is implemented as a {@link StripedCallable} because we maintain one active WARC file per AU.
+   * This is implemented as a {@link StripedCallable} because we maintain one permanent WARC file per AU.
    */
   protected class CopyArtifactTask implements StripedCallable<Artifact> {
     protected Artifact artifact;
@@ -1951,17 +1860,18 @@ public abstract class WarcArtifactDataStore implements ArtifactDataStore, WARCCo
       long recordLength = loc.getLength();
 
       // Used to match source and target WARC compression
-      boolean warcCompressionTarget = isCompressedWarcFile(loc.getPath());
+      boolean wantCompressedWarc = isCompressedWarcFile(loc.getPath());
 
-      // Get an active WARC of this AU to append the artifact to
-      Path dst = getAuActiveWarcPath(artifact.getNamespace(), artifact.getAuid(), recordLength, warcCompressionTarget);
+      // Get an permanent WARC of this AU to append the artifact to
+      Path dst = getAppendablePermanentWarcInAU(
+          artifact.getNamespace(), artifact.getAuid(), recordLength, wantCompressedWarc);
 
       // Artifact will be appended as a WARC record to this WARC file so its offset is the current length of the file
       long warcLength = getWarcLength(dst);
 
-      // *********************************
-      // Append WARC record to active WARC
-      // *********************************
+      // ************************************
+      // Append WARC record to permanent WARC
+      // ************************************
 
       // 1. Mark temp WARC in use
       // 2. Open InputStream and copy artifact
@@ -1992,7 +1902,7 @@ public abstract class WarcArtifactDataStore implements ArtifactDataStore, WARCCo
         } catch (IOException e) {
           // Encountered a problem reading or writing - there is a good chance the WARC record
           // is corrupted so "seal" the WARC file from further writes:
-          sealActiveWarc(artifact.getNamespace(), artifact.getAuid(), dst);
+          sealPermanentWarcInAU(artifact.getNamespace(), artifact.getAuid(), dst);
 
           // TODO: What else to do about IOExceptions thrown here?
 
@@ -2023,9 +1933,9 @@ public abstract class WarcArtifactDataStore implements ArtifactDataStore, WARCCo
           log.debug2("Updated storage URL [uuid: {}, storageUrl: {}]",
               artifact.getUuid(), artifact.getStorageUrl());
 
-          // Seal active permanent WARC if we've gone over the size threshold
+          // Seal permanent WARC if we've gone over the size threshold
           if (warcLength + recordLength >= getThresholdWarcSize()) {
-            sealActiveWarc(artifact.getNamespace(), artifact.getAuid(), dst);
+            sealPermanentWarcInAU(artifact.getNamespace(), artifact.getAuid(), dst);
           }
 
           // **********************************************
@@ -2172,7 +2082,9 @@ public abstract class WarcArtifactDataStore implements ArtifactDataStore, WARCCo
   @Override
   public long auWarcSize(String namespace, String auid) throws IOException {
     validateNamespace(namespace);
-    return getAuPaths(namespace, auid).stream()
+
+    return List.of(getBasePaths()).stream()
+        .map(basePath -> generateAUPath(basePath, namespace, auid))
         .map(auPath -> findWarcsOrEmpty(auPath))
         .flatMap(Collection::stream)
         .filter(path -> !isWarcJournalPath(path))

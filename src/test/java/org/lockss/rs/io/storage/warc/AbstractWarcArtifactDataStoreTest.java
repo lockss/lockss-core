@@ -665,8 +665,12 @@ public abstract class AbstractWarcArtifactDataStoreTest<WADS extends WarcArtifac
 
   public abstract void testGetFreeSpaceImpl() throws Exception;
 
+  /**
+   * Test for {@link WarcArtifactDataStore#initAuDir(Path, String, String)}.
+   */
   @Test
   public void testInitAuDir() throws Exception {
+    // Delegate to implementation-specific test implementation.
     testInitAuDirImpl();
   }
 
@@ -853,19 +857,19 @@ public abstract class AbstractWarcArtifactDataStoreTest<WADS extends WarcArtifac
   }
 
   /**
-   * Test for {@link WarcArtifactDataStore#getAuPath(Path, String, String)}.
+   * Test for {@link WarcArtifactDataStore#generateAUPath(Path, String, String)}.
    *
    * @throws Exception
    */
   @Test
-  public void testGetAuPath() throws Exception {
+  public void testGenerateAUPath() throws Exception {
     WarcArtifactDataStore ds = mock(WarcArtifactDataStore.class);
 
     doCallRealMethod().when(ds).getNamespacesBasePath(ArgumentMatchers.any(Path.class));
 
     doCallRealMethod().when(ds).getNamespacePath(ArgumentMatchers.any(Path.class), ArgumentMatchers.anyString());
 
-    doCallRealMethod().when(ds).getAuPath(
+    doCallRealMethod().when(ds).generateAUPath(
         ArgumentMatchers.any(Path.class),
         ArgumentMatchers.anyString(),
         ArgumentMatchers.anyString()
@@ -878,92 +882,118 @@ public abstract class AbstractWarcArtifactDataStoreTest<WADS extends WarcArtifac
         .resolve(NS1)
         .resolve(WarcArtifactDataStore.AU_DIR_PREFIX + DigestUtils.md5Hex(AUID1));
 
-    assertEquals(expectedAuPath, ds.getAuPath(basePath, NS1, AUID1));
+    assertEquals(expectedAuPath, ds.generateAUPath(basePath, NS1, AUID1));
   }
 
   /**
-   * Test for {@link WarcArtifactDataStore#getAuPaths(String, String)}.
+   * Test for {@link WarcArtifactDataStore#getAppendablePermanentWarcInAU(String, String, long, boolean)}.
    *
    * @throws Exception
    */
   @Test
-  public void testGetAuPaths() throws Exception {
-    NamespacedAuid key = new NamespacedAuid(NS1, AUID1);
-
-    // Mocks
-    WarcArtifactDataStore ds = mock(WarcArtifactDataStore.class);
-    ds.auPathsMap = mock(Map.class);
-    List<Path> auPaths = mock(List.class);
-
-    // Mock behavior
-    doCallRealMethod().when(ds).getAuPaths(ArgumentMatchers.anyString(), ArgumentMatchers.anyString());
-    when(ds.initAu(NS1, AUID1)).thenReturn(auPaths);
-
-    // Assert initAu() is called if there is no AU paths list in map
-    when(ds.auPathsMap.get(key)).thenReturn(null);
-    assertEquals(auPaths, ds.getAuPaths(NS1, AUID1));
-    verify(ds).initAu(NS1, AUID1);
-    clearInvocations(ds);
-
-    // Assert initAu() is not called and AU paths list is returned from map, if it exists in map
-    when(ds.auPathsMap.get(key)).thenReturn(auPaths);
-    assertEquals(auPaths, ds.getAuPaths(NS1, AUID1));
-    verify(ds, never()).initAu(NS1, AUID1);
-    clearInvocations(ds);
-  }
-
-  /**
-   * Test for {@link WarcArtifactDataStore#getAuActiveWarcPath(String, String, long, boolean)}.
-   *
-   * @throws Exception
-   */
-  @Test
-  public void testGetAuActiveWarcPath() throws Exception {
+  public void testGetAppendablePermanentWarcInAU() throws Exception {
     long minSize = 1234L;
 
     // Mocks
     WarcArtifactDataStore ds = mock(WarcArtifactDataStore.class);
-    ds.auActiveWarcsMap = mock(Map.class);
+    ds.appendablePermanentWarcsMap = mock(Map.class);
     Path activeWarc = mock(Path.class);
 
     // Mock behavior
-    doCallRealMethod().when(ds).getAuActiveWarcPath(NS1, AUID1, minSize, false);
+    doCallRealMethod().when(ds).getAppendablePermanentWarcInAU(NS1, AUID1, minSize, false);
 
     // Assert getAuActiveWarcPath() calls initAuActiveWarc() if there are no active WARCs for this AU
-    when(ds.getMinMaxFreeSpacePath(ArgumentMatchers.anyList(), ArgumentMatchers.anyLong()))
+    when(ds.getFilePathWithMaxFreeSpace(ArgumentMatchers.anyList(), ArgumentMatchers.anyLong()))
         .thenReturn(null);
-    when(ds.initAuActiveWarc(NS1, AUID1, minSize)).thenReturn(activeWarc);
-    assertEquals(activeWarc, ds.getAuActiveWarcPath(NS1, AUID1, minSize, false));
-    verify(ds).initAuActiveWarc(NS1, AUID1, minSize);
+    when(ds.initPermanentWarcForAU(NS1, AUID1, minSize)).thenReturn(activeWarc);
+    assertEquals(activeWarc, ds.getAppendablePermanentWarcInAU(NS1, AUID1, minSize, false));
+    verify(ds).initPermanentWarcForAU(NS1, AUID1, minSize);
     clearInvocations(ds);
 
     // Assert if active WARC path found, then it is returned
-    when(ds.getMinMaxFreeSpacePath(ArgumentMatchers.anyList(), ArgumentMatchers.anyLong()))
+    when(ds.getFilePathWithMaxFreeSpace(ArgumentMatchers.anyList(), ArgumentMatchers.anyLong()))
         .thenReturn(activeWarc);
-    assertEquals(activeWarc, ds.getAuActiveWarcPath(NS1, AUID1, minSize, false));
-    verify(ds, never()).initAuActiveWarc(NS1, AUID1, minSize);
+    assertEquals(activeWarc, ds.getAppendablePermanentWarcInAU(NS1, AUID1, minSize, false));
+    verify(ds, never()).initPermanentWarcForAU(NS1, AUID1, minSize);
   }
 
   /**
-   * Test for {@link WarcArtifactDataStore#getMinMaxFreeSpacePath(List, long)}.
-   *
-   * @throws Exception
+   * Test for {@link WarcArtifactDataStore#getDirectoryPathWithMaxFreeSpace(List, long)}.
    */
   @Test
-  public void testGetMinMaxFreeSpacePath() throws Exception {
+  public void testGetDirectoryPathWithMaxFreeSpace() throws Exception {
     long minSize = 1234L;
 
     // Mocks
     WarcArtifactDataStore ds = mock(WarcArtifactDataStore.class);
 
     // Mock behavior
-    doCallRealMethod().when(ds).getMinMaxFreeSpacePath(
+    doCallRealMethod().when(ds).getDirectoryPathWithMaxFreeSpace(
         ArgumentMatchers.any(),
         ArgumentMatchers.anyLong()
     );
 
     // Assert IllegalArgumentException thrown if method is passed a null list
-    assertThrows(IllegalArgumentException.class, () -> ds.getMinMaxFreeSpacePath(null, 0));
+    assertThrows(IllegalArgumentException.class, () -> ds.getDirectoryPathWithMaxFreeSpace(null, 0));
+
+    // Assert null returned if empty list passed
+    assertNull(ds.getDirectoryPathWithMaxFreeSpace(new ArrayList<>(), minSize));
+
+    //// Assert we get back path with most space meeting the minimum threshold
+
+    // Setup scenario
+    Path path1 = mock(Path.class);
+    when(ds.getFreeSpace(path1)).thenReturn(1000L);
+
+    Path path2 = mock(Path.class);
+    when(ds.getFreeSpace(path2)).thenReturn(1235L);
+
+    Path path3 = mock(Path.class);
+    when(ds.getFreeSpace(path3)).thenReturn(2000L);
+
+    Path path4 = mock(Path.class);
+    when(ds.getFreeSpace(path4)).thenReturn(1500L);
+
+    // Incrementally add paths to input and assert result
+    List<Path> paths = new ArrayList<>();
+
+    // Assert null result if no paths match
+    paths.add(path1);
+    assertNull(ds.getDirectoryPathWithMaxFreeSpace(paths, minSize));
+
+    // Assert we get back path2 if the input contains path1 and path2
+    paths.add(path2);
+    assertEquals(path2, ds.getDirectoryPathWithMaxFreeSpace(paths, minSize));
+
+    // Assert we get back path3 if the input contains all three paths
+    paths.add(path3);
+    assertEquals(path3, ds.getDirectoryPathWithMaxFreeSpace(paths, minSize));
+
+    // Assert if we add one with less free space than path3, we still get back path3
+    paths.add(path4);
+    assertEquals(path3, ds.getDirectoryPathWithMaxFreeSpace(paths, minSize));
+  }
+
+  /**
+   * Test for {@link WarcArtifactDataStore#getFilePathWithMaxFreeSpace(List, long)}.
+   *
+   * @throws Exception
+   */
+  @Test
+  public void testGetFilePathWithMaxFreeSpace() throws Exception {
+    long minSize = 1234L;
+
+    // Mocks
+    WarcArtifactDataStore ds = mock(WarcArtifactDataStore.class);
+
+    // Mock behavior
+    doCallRealMethod().when(ds).getFilePathWithMaxFreeSpace(
+        ArgumentMatchers.any(),
+        ArgumentMatchers.anyLong()
+    );
+
+    // Assert IllegalArgumentException thrown if method is passed a null list
+    assertThrows(IllegalArgumentException.class, () -> ds.getFilePathWithMaxFreeSpace(null, 0));
 
     //// Assert we get back auPath with most space meeting the minimum threshold
 
@@ -989,115 +1019,51 @@ public abstract class AbstractWarcArtifactDataStoreTest<WADS extends WarcArtifac
 
     // Assert null result if no AU paths match
     auPaths.add(auPath1);
-    assertEquals(null, ds.getMinMaxFreeSpacePath(auPaths, minSize));
+    assertEquals(null, ds.getFilePathWithMaxFreeSpace(auPaths, minSize));
 
     // Assert we get back auPath2 if the input contains auPath1 and auPath2
     auPaths.add(auPath2);
-    assertEquals(auPath2, ds.getMinMaxFreeSpacePath(auPaths, minSize));
+    assertEquals(auPath2, ds.getFilePathWithMaxFreeSpace(auPaths, minSize));
 
     // Assert we get back auPath3 if the input contains all three AU paths
     auPaths.add(auPath3);
-    assertEquals(auPath3, ds.getMinMaxFreeSpacePath(auPaths, minSize));
+    assertEquals(auPath3, ds.getFilePathWithMaxFreeSpace(auPaths, minSize));
 
     // Assert if we add one with less free space than auPath3, we still get back auPath3
     auPaths.add(auPath4);
-    assertEquals(auPath3, ds.getMinMaxFreeSpacePath(auPaths, minSize));
+    assertEquals(auPath3, ds.getFilePathWithMaxFreeSpace(auPaths, minSize));
   }
 
   /**
-   * Test for {@link WarcArtifactDataStore#getAuActiveWarcPaths(String, String)}.
+   * Test for {@link WarcArtifactDataStore#getAppendablePermanentWarcsInAU(String, String)}.
    *
    * @throws Exception
    */
   @Test
-  public void testGetAuActiveWarcPaths() throws Exception {
+  public void testGetAppendablePermanentWarcPaths() throws Exception {
     NamespacedAuid key = new NamespacedAuid(NS1, AUID1);
 
     // Mocks
     WarcArtifactDataStore ds = mock(WarcArtifactDataStore.class);
-    ds.auActiveWarcsMap = mock(Map.class);
+    ds.appendablePermanentWarcsMap = mock(Map.class);
     List<Path> auActiveWarcs = mock(List.class);
 
     // Mock behavior
-    doCallRealMethod().when(ds).getAuActiveWarcPaths(NS1, AUID1);
+    doCallRealMethod().when(ds).getAppendablePermanentWarcsInAU(NS1, AUID1);
 
-    // Assert active WARCs reloaded if map contains null list for this AU
-    when(ds.auActiveWarcsMap.get(key)).thenReturn(null);
-    when(ds.findAuActiveWarcs(NS1, AUID1)).thenReturn(auActiveWarcs);
-    assertEquals(auActiveWarcs, ds.getAuActiveWarcPaths(NS1, AUID1));
-    verify(ds).findAuActiveWarcs(NS1, AUID1);
-    verify(ds.auActiveWarcsMap).put(key, auActiveWarcs);
-    clearInvocations(ds, ds.auActiveWarcsMap);
+//    // Assert active WARCs reloaded if map contains null list for this AU
+//    when(ds.appendablePermanentWarcsMap.get(key)).thenReturn(null);
+//    when(ds.findExistingPermanentWarcsInAU(NS1, AUID1)).thenReturn(auActiveWarcs);
+//    assertEquals(auActiveWarcs, ds.getAppendablePermanentWarcsInAU(NS1, AUID1));
+//    verify(ds).findExistingPermanentWarcsInAU(NS1, AUID1);
+//    verify(ds.appendablePermanentWarcsMap).put(key, auActiveWarcs);
+//    clearInvocations(ds, ds.appendablePermanentWarcsMap);
 
     // Assert AU active WARCs returned without reloading otherwise
-    when(ds.auActiveWarcsMap.get(key)).thenReturn(auActiveWarcs);
-    assertEquals(auActiveWarcs, ds.getAuActiveWarcPaths(NS1, AUID1));
-    verify(ds, never()).findAuActiveWarcs(NS1, AUID1);
-    verify(ds.auActiveWarcsMap, never()).put(key, auActiveWarcs);
-    clearInvocations(ds, ds.auActiveWarcsMap);
-  }
-
-  /**
-   * Test for {@link WarcArtifactDataStore#findAuActiveWarcs(String, String)}.
-   *
-   * @throws Exception
-   */
-  @Test
-  public void testFindAuActiveWarcs() throws Exception {
-    List<Path> auPaths = new ArrayList<>();
-
-    // Mocks
-    WarcArtifactDataStore ds = mock(WarcArtifactDataStore.class);
-    Path auPath = mock(Path.class);
-    auPaths.add(auPath);
-
-    // Mock behavior
-    doCallRealMethod().when(ds).findAuActiveWarcs(NS1, AUID1);
-    doCallRealMethod().when(ds).findAuArtifactWarcs(NS1, AUID1);
-    doCallRealMethod().when(ds).findAuArtifactWarcsStream(NS1, AUID1);
-    when(ds.getAuPaths(NS1, AUID1)).thenReturn(auPaths);
-    when(ds.getThresholdWarcSize()).thenReturn(1000L);
-    when(ds.getBlockSize()).thenReturn(100L);
-
-    // Setup scenario
-    List<Path> warcPaths = new ArrayList();
-    warcPaths.add(makeTestAuWarcPath(ds, "foo", 100L));
-    warcPaths.add(makeTestAuWarcPath(ds, "artifacts_XXX", 1001));
-    warcPaths.add(makeTestAuWarcPath(ds, "artifacts_XXX", 2000L));
-
-    List<Path> expectedResults = new ArrayList();
-    expectedResults.add(makeTestAuWarcPath(ds, "artifacts_XXX", 100L));
-    expectedResults.add(makeTestAuWarcPath(ds, "artifacts_XXX", 999L));
-
-    // Add expected results to eligible WARCs
-    warcPaths.addAll(expectedResults);
-
-    // Mock findWarcs(auPath) to return warcPaths
-    when(ds.findWarcs(auPath)).thenReturn(warcPaths);
-
-    // Call findAuActiveWarcs()
-    assertIterableEquals(expectedResults, ds.findAuActiveWarcs(NS1, AUID1));
-
-    // Assert findAuActiveWarcs() returns no more than the maximum number of active WARCs
-    for (int i = 0; i < WarcArtifactDataStore.MAX_AUACTIVEWARCS_RELOADED; i++) {
-      warcPaths.add(makeTestAuWarcPath(ds, String.format("artifacts_%d", i), i));
-    }
-
-    List<Path> result = ds.findAuActiveWarcs(NS1, AUID1);
-    assertEquals(WarcArtifactDataStore.MAX_AUACTIVEWARCS_RELOADED, result.size());
-
-    log.trace("result = {}", result);
-  }
-
-  private Path makeTestAuWarcPath(WarcArtifactDataStore ds, String fileName, long warcSize) throws IOException {
-    Path warcPath = mock(Path.class);
-    Path warcPathFileName = Paths.get(fileName);
-    when(warcPath.getFileName()).thenReturn(warcPathFileName);
-    when(warcPath.toString()).thenReturn(fileName);
-
-    when(ds.getWarcLength(warcPath)).thenReturn(warcSize);
-
-    return warcPath;
+    when(ds.appendablePermanentWarcsMap.getOrDefault(key, new ArrayList<>())).thenReturn(auActiveWarcs);
+    assertEquals(auActiveWarcs, ds.getAppendablePermanentWarcsInAU(NS1, AUID1));
+    verify(ds.appendablePermanentWarcsMap, never()).put(key, auActiveWarcs);
+    clearInvocations(ds, ds.appendablePermanentWarcsMap);
   }
 
   // *******************************************************************************************************************
@@ -1230,12 +1196,12 @@ public abstract class AbstractWarcArtifactDataStoreTest<WADS extends WarcArtifac
   // *******************************************************************************************************************
 
   /**
-   * Test for {@link WarcArtifactDataStore#generateActiveWarcName(String, String, ZonedDateTime)}.
+   * Test for {@link WarcArtifactDataStore#generateWarcFileNameForAU(String, String, ZonedDateTime)}.
    *
    * @throws Exception
    */
   @Test
-  public void testGenerateActiveWarcName() throws Exception {
+  public void testGenerateWarcFileNameForAU() throws Exception {
     ZonedDateTime zdt = ZonedDateTime.now(ZoneId.of("UTC"));
 
     // Expected active WARC file name
@@ -1244,105 +1210,76 @@ public abstract class AbstractWarcArtifactDataStoreTest<WADS extends WarcArtifac
     String expectedName = String.format("artifacts_%s-%s_%s", NS1, auidHash, timestamp);
 
     // Assert generated active WARC file name matches expected file name
-    assertEquals(expectedName, WarcArtifactDataStore.generateActiveWarcName(NS1, AUID1, zdt));
+    assertEquals(expectedName, WarcArtifactDataStore.generateWarcFileNameForAU(NS1, AUID1, zdt));
   }
 
   /**
-   * Test for {@link WarcArtifactDataStore#initAuActiveWarc(String, String, long)}.
+   * Test for {@link WarcArtifactDataStore#initPermanentWarcForAU(String, String, long)}.
    *
    * @throws Exception
    */
   @Test
-  public void testInitAuActiveWarc() throws Exception {
-    NamespacedAuid key = new NamespacedAuid(NS1, AUID1);
-    long minSize = 1234L;
-
-    // Mock
+  public void testInitPermanentWarcForAU() throws Exception {
     WarcArtifactDataStore ds = mock(WarcArtifactDataStore.class);
-    ds.auActiveWarcsMap = new HashMap<>();
-    ds.basePaths = new Path[]{mock(Path.class)};
-    Path auPath1 = mock(Path.class);
-    Path auPath2 = mock(Path.class);
-    Path auActiveWarc1 = mock(Path.class);
-    Path auActiveWarc2 = mock(Path.class);
+    ds.appendablePermanentWarcsMap = new HashMap<>();
+    Path[] basePaths = new Path[]{mock(Path.class)};
 
-    // Mock behavior
-    doCallRealMethod().when(ds).initAuActiveWarc(NS1, AUID1, minSize);
-    when(auPath1.resolve(ArgumentMatchers.anyString())).thenReturn(auActiveWarc1);
-    when(auPath2.resolve(ArgumentMatchers.anyString())).thenReturn(auActiveWarc2);
+    doCallRealMethod().when(ds).initPermanentWarcForAU(NS1, AUID1, 1234L);
+    doCallRealMethod().when(ds).getWarcFileExtension();
+    when(ds.getBasePaths()).thenReturn(basePaths);
+    when(ds.getDirectoryPathWithMaxFreeSpace(ArgumentMatchers.anyList(), ArgumentMatchers.anyLong()))
+        .thenReturn(basePaths[0]);
 
-    //// Assert if no suitable AU path, then initAuDir() is called
-    when(ds.getMinMaxFreeSpacePath(ArgumentMatchers.any(), ArgumentMatchers.anyLong())).thenReturn(null);
-    when(ds.initAuDir(NS1, AUID1)).thenReturn(auPath2);
-    assertEquals(auActiveWarc2, ds.initAuActiveWarc(NS1, AUID1, minSize));
-    verify(ds).initAuDir(NS1, AUID1);
-    verify(auPath1, never()).resolve(ArgumentMatchers.anyString());
-    verify(auPath2).resolve(ArgumentMatchers.anyString());
-    assertTrue(ds.auActiveWarcsMap.containsKey(key));
-    ds.auActiveWarcsMap.clear();
-    clearInvocations(ds, auPath1, auPath2);
-    clearInvocations();
+    Path auBasePath = Paths.get("/lockss/auid1");
+    Path expectedWarcPath = auBasePath.resolve(WarcArtifactDataStore.generateWarcFileNameForAU(NS1, AUID1) + ".warc" );
+    when(ds.initAuDir(basePaths[0], NS1, AUID1)).thenReturn(auBasePath);
+    Path result = ds.initPermanentWarcForAU(NS1, AUID1, 1234L);
 
-    //// Assert if no suitable AU path and exhausted base dirs then initAuDir() is *not* called
-    List<Path> auPaths = mock(List.class);
-    when(auPaths.size()).thenReturn(1); // Q: This might be implementation-specific?
-    when(ds.getAuPaths(NS1, AUID1)).thenReturn(auPaths);
-//    when(ds.getMinMaxFreeSpacePath(ArgumentMatchers.any(), ArgumentMatchers.anyLong())).thenReturn(null);
-    assertThrows(IOException.class, () -> ds.initAuActiveWarc(NS1, AUID1, minSize));
-    verify(ds, never()).initAuDir(NS1, AUID1);
-    assertTrue(ds.auActiveWarcsMap.isEmpty());
-    ds.auActiveWarcsMap.clear();
-    clearInvocations(ds, auPath1, auPath2);
+    // FIXME: This is time-dependent; use TimeBase.msNow() somehow?
+    // assertEquals(expectedWarcPath, result);
+    assertNotNull(ds.appendablePermanentWarcsMap.get(new NamespacedAuid(NS1, AUID1)));
 
-    //// Assert if suitable AU path found
-//    when(ds.getAuPaths(NS1, AUID1)).thenReturn(auPaths);
-    when(ds.getMinMaxFreeSpacePath(ArgumentMatchers.any(), ArgumentMatchers.anyLong())).thenReturn(auPath1);
-//    when(auPath1.resolve(ArgumentMatchers.anyString())).thenReturn(auActiveWarc1);
-    assertEquals(auActiveWarc1, ds.initAuActiveWarc(NS1, AUID1, minSize));
-    verify(ds, never()).initAuDir(NS1, AUID1);
-    verify(auPath1).resolve(ArgumentMatchers.anyString());
-    verify(auPath2, never()).resolve(ArgumentMatchers.anyString());
-    assertTrue(ds.auActiveWarcsMap.containsKey(key));
-    ds.auActiveWarcsMap.clear();
-    clearInvocations(ds, auPath1, auPath2);
+    verify(ds).initAuDir(basePaths[0], NS1, AUID1);
+    verify(ds).initWarc(ArgumentMatchers.any(Path.class));
+    clearInvocations(ds);
   }
 
   /**
-   * Test for {@link WarcArtifactDataStore#sealActiveWarc(String, String, Path)}.
+   * Test for {@link WarcArtifactDataStore#sealPermanentWarcInAU(String, String, Path)}.
    *
    * @throws Exception
    */
   @Test
-  public void testSealActiveWarc() throws Exception {
+  public void testSealPermanentWarcInAU() throws Exception {
     NamespacedAuid key = new NamespacedAuid(NS1, AUID1);
 
     // Mock
     WarcArtifactDataStore ds = mock(WarcArtifactDataStore.class);
 
     // Mock behavior
-    ds.auActiveWarcsMap = new HashMap<>();
-    doCallRealMethod().when(ds).sealActiveWarc(
+    ds.appendablePermanentWarcsMap = new HashMap<>();
+    doCallRealMethod().when(ds).sealPermanentWarcInAU(
         ArgumentMatchers.anyString(),
         ArgumentMatchers.anyString(),
         ArgumentMatchers.any(Path.class)
     );
 
     // "WARN: Attempted to seal an active WARC of an AU having no active WARCs!"
-    ds.sealActiveWarc(NS1, AUID1, mock(Path.class));
+    ds.sealPermanentWarcInAU(NS1, AUID1, mock(Path.class));
 
     // "WARN: Attempted to seal an active WARC of an AU that is not active!"
-    ds.auActiveWarcsMap.put(key, new ArrayList<>());
-    ds.sealActiveWarc(NS1, AUID1, mock(Path.class));
+    ds.appendablePermanentWarcsMap.put(key, new ArrayList<>());
+    ds.sealPermanentWarcInAU(NS1, AUID1, mock(Path.class));
 
     // Inject active WARCs list for this AU
     Path activeWarc = mock(Path.class);
     List<Path> activeWarcs = new ArrayList<>();
     activeWarcs.add(activeWarc);
-    ds.auActiveWarcsMap.put(key, activeWarcs);
+    ds.appendablePermanentWarcsMap.put(key, activeWarcs);
 
     // Assert sealing the active WARC succeeds
-    ds.sealActiveWarc(NS1, AUID1, activeWarc);
-    assertFalse(ds.auActiveWarcsMap.get(key).contains(activeWarc));
+    ds.sealPermanentWarcInAU(NS1, AUID1, activeWarc);
+    assertFalse(ds.appendablePermanentWarcsMap.get(key).contains(activeWarc));
   }
 
   // *******************************************************************************************************************
@@ -2805,7 +2742,7 @@ public abstract class AbstractWarcArtifactDataStoreTest<WADS extends WarcArtifac
   }
 
   /**
-   * Test for {@link WarcArtifactDataStore#readJournalFromWarc(Path, Class)}.
+   * Test for {@link WarcArtifactDataStore#readJournalFromWarc(Path, Class, Function)}.
    */
   @Test
   public void testReadJournalFromWarc() throws Exception {
@@ -3208,21 +3145,20 @@ public abstract class AbstractWarcArtifactDataStoreTest<WADS extends WarcArtifac
   @Disabled
   @Deprecated
   @Test
-  public void testSealActiveWarc_deprecated() throws Exception {
+  public void testSealPermanentWarc_InAU_deprecated() throws Exception {
     // Constants for this test so that we can be consistent
     final String testUri = "testUri";
     long minSize = 1234L;
 
     // Asserting sealing an AU with no active WARCs results in no files being rewritten
-    store.sealActiveWarc(NS1, AUID1, null);
-    assertEmpty(findWarcs(store.getAuPaths(NS1, AUID1)));
+    store.sealPermanentWarcInAU(NS1, AUID1, null);
 
     // Assert the active WARCs for this AU do not exist yet
 //    for (Path activeWarcPath : store.getAuActiveWarcPaths(NS1, AUID1)) {
 //      assertFalse(pathExists(activeWarcPath));
 //    }
 
-    Path activeWarcPath = store.getAuActiveWarcPath(NS1, AUID1, minSize, false);
+    Path activeWarcPath = store.getAppendablePermanentWarcInAU(NS1, AUID1, minSize, false);
     assertFalse(pathExists(activeWarcPath));
 
     // Generate and add an artifact
@@ -3239,36 +3175,33 @@ public abstract class AbstractWarcArtifactDataStoreTest<WADS extends WarcArtifac
 //    for (Path activeWarcPath : store.getAuActiveWarcPaths(NS1, AUID1)) {
 //      assertTrue(pathExists(activeWarcPath));
 //    }
-    activeWarcPath = store.getAuActiveWarcPath(NS1, AUID1, minSize, false);
+    activeWarcPath = store.getAppendablePermanentWarcInAU(NS1, AUID1, minSize, false);
     assertTrue(pathExists(activeWarcPath));
 
     // Seal the AU's active WARCs
-    store.sealActiveWarc(artifact.getNamespace(), artifact.getAuid(), activeWarcPath);
+    store.sealPermanentWarcInAU(artifact.getNamespace(), artifact.getAuid(), activeWarcPath);
 
-    Iterable<Path> warcsBefore = findWarcs(store.getAuPaths(artifact.getNamespace(), artifact.getAuid()));
 
     // Get the next active WARC path for this AU and assert it does not exist in storage
-    Path nextActiveWarcPath = store.getAuActiveWarcPath(artifact.getNamespace(), artifact.getAuid(), minSize, false);
+    Path nextActiveWarcPath = store.getAppendablePermanentWarcInAU(artifact.getNamespace(), artifact.getAuid(), minSize, false);
     assertFalse(pathExists(nextActiveWarcPath));
 
     // Attempt to seal the AU's active WARC again
-    store.sealActiveWarc(artifact.getNamespace(), artifact.getAuid(), activeWarcPath);
+    store.sealPermanentWarcInAU(artifact.getNamespace(), artifact.getAuid(), activeWarcPath);
 
     // Assert next active WARC still does not exist (since nothing was written to it before second seal)
     assertFalse(pathExists(nextActiveWarcPath));
 
     // Get set of WARC files in the AU directory after second seal
-    Iterable<Path> warcsAfter = findWarcs(store.getAuPaths(artifact.getNamespace(), artifact.getAuid()));
 
     // Assert the contents of the AU directory did not change after performing another seal
-    assertIterableEquals(getURIsFromPaths(warcsBefore), getURIsFromPaths(warcsAfter));
 
     // Insert sleep for volatile data store (on fast machines there isn't enough resolution in the timestamp used in the
     // active WARC file name which causes the next and latest active WARC paths to match incorrectly)
     Thread.sleep(10);
 
     // Assert the next active WARC is unaffected
-    Path latestActiveWarcPath = store.getAuActiveWarcPath(artifact.getNamespace(), artifact.getAuid(), minSize, false);
+    Path latestActiveWarcPath = store.getAppendablePermanentWarcInAU(artifact.getNamespace(), artifact.getAuid(), minSize, false);
     assertEquals(nextActiveWarcPath, latestActiveWarcPath);
 
     // Assert the new active WARC for this artifact's AU does not exist

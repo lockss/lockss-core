@@ -145,30 +145,9 @@ public class TestVolatileWarcArtifactDataStore extends AbstractWarcArtifactDataS
    */
   @Override
   public void testInitAuImpl() throws Exception {
-    List<Path> auPaths;
-
-    // Mocks
     VolatileWarcArtifactDataStore ds = mock(VolatileWarcArtifactDataStore.class);
-    Path auPath = mock(Path.class);
-    ds.auPathsMap = mock(Map.class);
-
-    // Mock behavior
     doCallRealMethod().when(ds).initAu(ArgumentMatchers.anyString(), ArgumentMatchers.anyString());
-    when(ds.initAuDir(NS1, AUID1)).thenReturn(auPath);
-
-    // Assert initAuDir() called if a list of AU paths does not exist in the map
-    auPaths = ds.initAu(NS1, AUID1);
-    assertNotNull(auPaths);
-    assertTrue(auPaths.contains(auPath));
-    verify(ds).initAuDir(NS1, AUID1);
-    clearInvocations(ds);
-
-    // Assert initAuDir() is not called if a list of AU paths exists in the map
-    auPaths = ds.initAu(NS1, AUID1);
-    assertNotNull(auPaths);
-    assertTrue(auPaths.contains(auPath));
-    verify(ds).initAuDir(NS1, AUID1);
-    clearInvocations(ds);
+    assertEmpty(ds.initAu(NS1, AUID1));
   }
 
   /**
@@ -180,7 +159,7 @@ public class TestVolatileWarcArtifactDataStore extends AbstractWarcArtifactDataS
   public void testMakeStorageUrlImpl() throws Exception {
     ArtifactIdentifier aid = new ArtifactIdentifier(NS1, AUID1, "http://example.com/u1", 1);
 
-    Path activeWarcPath = store.getAuActiveWarcPath(aid.getNamespace(), aid.getAuid(), 4321L, false);
+    Path activeWarcPath = store.getAppendablePermanentWarcInAU(aid.getNamespace(), aid.getAuid(), 4321L, false);
 
     URI expectedStorageUrl = URI.create(String.format(
         "volatile://%s?offset=%d&length=%d",
@@ -339,24 +318,20 @@ public class TestVolatileWarcArtifactDataStore extends AbstractWarcArtifactDataS
   }
 
   /**
-   * Test for {@link VolatileWarcArtifactDataStore#initAuDir(String, String)}.
-   *
-   * @throws Exception
+   * Test for {@link VolatileWarcArtifactDataStore#initAuDir(Path, String, String)}.
    */
-  // FIXME: This test seems kind of pointless - we're effectively exercising the mocks
   @Override
   public void testInitAuDirImpl() throws Exception {
-    // Mocks
+    Path basePath = Paths.get("/lockss");
     VolatileWarcArtifactDataStore ds = mock(VolatileWarcArtifactDataStore.class);
-    Path basePath = mock(Path.class);
-    Path auPath = mock(Path.class);
 
-    // Mock behavior
-    doCallRealMethod().when(ds).initAuDir(ArgumentMatchers.anyString(), ArgumentMatchers.anyString());
-    when(ds.getBasePaths()).thenReturn(new Path[]{basePath});
-    when(ds.getAuPath(basePath, NS1, AUID1)).thenReturn(auPath);
+    doCallRealMethod().when(ds).initAuDir(eq(basePath), ArgumentMatchers.anyString(), ArgumentMatchers.anyString());
+    doCallRealMethod().when(ds).generateAUPath(eq(basePath), ArgumentMatchers.anyString(), ArgumentMatchers.anyString());
+    doCallRealMethod().when(ds).getNamespacePath(eq(basePath), ArgumentMatchers.anyString());
+    doCallRealMethod().when(ds).getNamespacesBasePath(eq(basePath));
 
-    // Assert initAuDir() returns expected result
-    assertEquals(auPath, ds.initAuDir(NS1, AUID1));
+    Path expectedAuPath = Paths.get("/lockss/ns/ns1/au-116cf2bbfdcfbe0c9ad94987b00101cd");
+    Path auPath = ds.initAuDir(basePath, NS1, AUID1);
+    assertEquals(expectedAuPath, auPath);
   }
 }
