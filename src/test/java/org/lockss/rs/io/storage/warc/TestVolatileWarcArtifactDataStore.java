@@ -145,8 +145,7 @@ public class TestVolatileWarcArtifactDataStore extends AbstractWarcArtifactDataS
    */
   @Override
   public void testInitAuImpl() throws Exception {
-    VolatileWarcArtifactDataStore ds = mock(VolatileWarcArtifactDataStore.class);
-    doCallRealMethod().when(ds).initAu(ArgumentMatchers.anyString(), ArgumentMatchers.anyString());
+    VolatileWarcArtifactDataStore ds = new VolatileWarcArtifactDataStore();
     assertEmpty(ds.initAu(NS1, AUID1));
   }
 

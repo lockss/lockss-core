@@ -621,13 +621,13 @@ public abstract class WarcArtifactDataStore implements ArtifactDataStore, WARCCo
         .orElse(null);
   }
 
-  protected Path getDirectoryPathWithMaxFreeSpace(List<Path> paths, long minSize) {
+  protected Path getDirectoryPathWithMaxFreeSpace(List<Path> paths, long minFree) {
     if (paths == null) {
       throw new IllegalArgumentException("null paths");
     }
 
     return paths.stream()
-        .filter(p -> getFreeSpace(p) > minSize)
+        .filter(p -> getFreeSpace(p) >= minFree)
         .sorted((a, b) -> (int) (getFreeSpace(b) - getFreeSpace(a)))
         .findFirst()
         .orElse(null);
@@ -847,7 +847,8 @@ public abstract class WarcArtifactDataStore implements ArtifactDataStore, WARCCo
    */
   protected static String generateWarcFileNameForAU(String namespace, String auid) {
     validateNamespace(namespace);
-    ZonedDateTime zdt = ZonedDateTime.now(ZoneId.of("UTC"));
+    Instant now = Instant.ofEpochMilli(TimeBase.nowMs());
+    ZonedDateTime zdt = ZonedDateTime.ofInstant(now, ZoneId.of("UTC"));
     return generateWarcFileNameForAU(namespace, auid, zdt);
   }
 
@@ -875,7 +876,8 @@ public abstract class WarcArtifactDataStore implements ArtifactDataStore, WARCCo
     Path basePath = getDirectoryPathWithMaxFreeSpace(List.of(getBasePaths()), minFree);
 
     if (basePath == null) {
-      throw new IOException("No content base path has enough free space for a new WARC file");
+      log.error("No content base path has enough free space for a new WARC file; needed {} bytes", minFree);
+      throw new IOException("Not enough free space on any content base path");
     }
 
     // Generate and initialize a new permanent WARC file for this AU under the base path

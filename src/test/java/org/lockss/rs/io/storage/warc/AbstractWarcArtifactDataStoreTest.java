@@ -934,12 +934,11 @@ public abstract class AbstractWarcArtifactDataStoreTest<WADS extends WarcArtifac
     );
 
     // Assert IllegalArgumentException thrown if method is passed a null list
-    assertThrows(IllegalArgumentException.class, () -> ds.getDirectoryPathWithMaxFreeSpace(null, 0));
+    assertThrows(IllegalArgumentException.class,
+        () -> ds.getDirectoryPathWithMaxFreeSpace(null, 0));
 
     // Assert null returned if empty list passed
     assertNull(ds.getDirectoryPathWithMaxFreeSpace(new ArrayList<>(), minSize));
-
-    //// Assert we get back path with most space meeting the minimum threshold
 
     // Setup scenario
     Path path1 = mock(Path.class);
@@ -1222,25 +1221,27 @@ public abstract class AbstractWarcArtifactDataStoreTest<WADS extends WarcArtifac
   public void testInitPermanentWarcForAU() throws Exception {
     WarcArtifactDataStore ds = mock(WarcArtifactDataStore.class);
     ds.appendablePermanentWarcsMap = new HashMap<>();
-    Path[] basePaths = new Path[]{mock(Path.class)};
+
+    Path basePath1 = mock(Path.class);
+    Path basePath2 = mock(Path.class);
+    when(ds.getFreeSpace(basePath1)).thenReturn(1000L);
+    when(ds.getFreeSpace(basePath2)).thenReturn(2000L);
+    Path[] basePaths = new Path[]{basePath1, basePath2};
+    when(ds.getBasePaths()).thenReturn(basePaths);
 
     doCallRealMethod().when(ds).initPermanentWarcForAU(NS1, AUID1, 1234L);
     doCallRealMethod().when(ds).getWarcFileExtension();
-    when(ds.getBasePaths()).thenReturn(basePaths);
-    when(ds.getDirectoryPathWithMaxFreeSpace(ArgumentMatchers.anyList(), ArgumentMatchers.anyLong()))
-        .thenReturn(basePaths[0]);
+    doCallRealMethod().when(ds).getDirectoryPathWithMaxFreeSpace(
+        ArgumentMatchers.anyList(), ArgumentMatchers.anyLong());
 
     Path auBasePath = Paths.get("/lockss/auid1");
-    Path expectedWarcPath = auBasePath.resolve(WarcArtifactDataStore.generateWarcFileNameForAU(NS1, AUID1) + ".warc" );
-    when(ds.initAuDir(basePaths[0], NS1, AUID1)).thenReturn(auBasePath);
-    Path result = ds.initPermanentWarcForAU(NS1, AUID1, 1234L);
+    when(ds.initAuDir(basePath2, NS1, AUID1)).thenReturn(auBasePath);
+    Path expectedWarcPath = auBasePath.resolve(WarcArtifactDataStore.generateWarcFileNameForAU(NS1, AUID1) + ".warc");
+    assertEquals(expectedWarcPath, ds.initPermanentWarcForAU(NS1, AUID1, 1234L));
 
-    // FIXME: This is time-dependent; use TimeBase.msNow() somehow?
-    // assertEquals(expectedWarcPath, result);
-    assertNotNull(ds.appendablePermanentWarcsMap.get(new NamespacedAuid(NS1, AUID1)));
-
-    verify(ds).initAuDir(basePaths[0], NS1, AUID1);
-    verify(ds).initWarc(ArgumentMatchers.any(Path.class));
+    // Verify initAuDir was called with the expected base path
+    verify(ds).initAuDir(basePath2, NS1, AUID1);
+    verify(ds).initWarc(expectedWarcPath);
     clearInvocations(ds);
   }
 
