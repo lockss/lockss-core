@@ -30,6 +30,7 @@
 
 package org.lockss.rs.io.storage.warc;
 
+import org.apache.commons.codec.digest.DigestUtils;
 import org.apache.commons.io.*;
 import org.apache.commons.io.FileUtils;
 import org.apache.solr.client.solrj.embedded.EmbeddedSolrServer;
@@ -40,13 +41,20 @@ import org.junit.jupiter.api.Test;
 import org.lockss.log.L4JLogger;
 import org.lockss.rs.BaseLockssRepository;
 import org.lockss.rs.io.index.ArtifactIndex;
+import org.lockss.rs.io.index.VolatileArtifactIndex;
 import org.lockss.rs.io.index.solr.SolrArtifactIndex;
 import org.lockss.rs.io.index.solr.TestSolrArtifactIndex;
 import org.lockss.util.ListUtil;
+import org.lockss.util.PatternIntMap;
 import org.lockss.util.io.FileUtil;
+import org.lockss.util.rest.repo.model.Artifact;
+import org.lockss.util.rest.repo.model.ArtifactData;
 import org.lockss.util.rest.repo.model.ArtifactIdentifier;
+import org.lockss.util.rest.repo.util.ArtifactSpec;
 import org.lockss.util.time.TimeBase;
 import org.mockito.ArgumentMatchers;
+import org.springframework.web.util.UriComponents;
+import org.springframework.web.util.UriComponentsBuilder;
 
 import java.io.*;
 import java.net.URI;
@@ -54,6 +62,7 @@ import java.net.URL;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.*;
+import java.util.concurrent.Future;
 import java.util.function.Predicate;
 
 import static org.mockito.Mockito.*;
@@ -141,15 +150,143 @@ public class TestLocalWarcArtifactDataStore extends AbstractWarcArtifactDataStor
 //  }
 
   // *******************************************************************************************************************
+  // * TEST: LocalWarcArtifactDataStore specific methods
+  // *******************************************************************************************************************
+
+  @Test
+  public void testInitPermanentWarcsAndAUs() throws Exception {
+    File baseDir1 = getTempDir();
+    File baseDir2 = getTempDir();
+
+    Path baseDirPath1 = baseDir1.toPath();
+    Path baseDirPath2 = baseDir2.toPath();
+
+    Path auBaseDir1 =
+        baseDirPath1.resolve("ns/" + NS1 + "/au-" + DigestUtils.md5Hex(AUID1));
+    Path auBaseDir2 =
+        baseDirPath2.resolve("ns/" + NS1 + "/au-" + DigestUtils.md5Hex(AUID1));
+
+    Map<Path, Integer> diskSpaceMap = new HashMap<>();
+    int expectedWarcRecordSize = 1850; // WARC size empirically through running the test
+    diskSpaceMap.put(baseDirPath1, expectedWarcRecordSize);
+    diskSpaceMap.put(baseDirPath2, expectedWarcRecordSize * 3 + 1);
+
+    TestingLocalWarcArtifactDataStore ds =
+        new TestingLocalWarcArtifactDataStore(new File[]{baseDir1, baseDir2});
+
+    // Set initial disk space map
+    updateDiskSpaceMap(ds, diskSpaceMap, null);
+
+    VolatileArtifactIndex index = new VolatileArtifactIndex();
+    BaseLockssRepository repo = mock(BaseLockssRepository.class);
+    when(repo.getArtifactIndex()).thenReturn(index);
+    ds.setLockssRepository(repo);
+
+    // Verify that calling initAu on a AU with no existing AU directories results in
+    // an empty list of AU base directories
+    List<Path> auBaseDirs = ds.initAu(NS1, AUID1);
+    assertEmpty(auBaseDirs);
+    assertTrue(new File(baseDir1, "ns/" + NS1).isDirectory());
+    assertTrue(new File(baseDir2, "ns/" + NS1).isDirectory());
+    assertEquals(0, new File(baseDir1, "ns/" + NS1).listFiles().length);
+    assertEquals(0, new File(baseDir2, "ns/" + NS1).listFiles().length);
+
+    // Verify that adding an artifact in a new AU results in only one directory being created
+    // on the disk with the most space (i.e., baseDirPath2)
+    Artifact stored1 = createArtifactInAU(ds, NS1, AUID1, 1000L);
+    updateDiskSpaceMap(ds, diskSpaceMap, stored1.getStorageUrl());
+    assertEquals(List.of(auBaseDir2), ds.initAu(NS1, AUID1));
+    assertEquals(List.of(auBaseDir2), ds.findExistingAUPaths(NS1, AUID1));
+    assertTrue(isStorageUrlPathUnderBaseDirectory(stored1.getStorageUrl(), baseDirPath2));
+
+    // Verify adding an artifact to a different AUID2 results in the directory being
+    // created on the disk the most space (i.e., still baseDirPath2)
+    Artifact stored2 = createArtifactInAU(ds, NS1, AUID2, 1000L);
+    updateDiskSpaceMap(ds, diskSpaceMap, stored2.getStorageUrl());
+    assertEquals(List.of(auBaseDir2), ds.initAu(NS1, AUID1));
+    assertEquals(List.of(auBaseDir2), ds.findExistingAUPaths(NS1, AUID1));
+    assertTrue(isStorageUrlPathUnderBaseDirectory(stored2.getStorageUrl(), baseDirPath2));
+
+    // Verify that creating a second artifact AUID1 results in a write to a file in the
+    // existing directory (i.e., baseDirPath2) because it has just enough space
+    Artifact stored3 = createArtifactInAU(ds, NS1, AUID1, 1000L);
+    updateDiskSpaceMap(ds, diskSpaceMap, stored3.getStorageUrl());
+    assertEquals(List.of(auBaseDir2), ds.initAu(NS1, AUID1));
+    assertEquals(List.of(auBaseDir2), ds.findExistingAUPaths(NS1, AUID1));
+    assertTrue(isStorageUrlPathUnderBaseDirectory(stored3.getStorageUrl(), baseDirPath2));
+
+    // Verify adding a third artifact AUID1 to a now filled filesystem results in a new
+    // directory being created on the other filesystem (basePath1)
+    Artifact stored4 = createArtifactInAU(ds, NS1, AUID1, 1000L);
+    updateDiskSpaceMap(ds, diskSpaceMap, stored4.getStorageUrl());
+    assertEquals(List.of(auBaseDir1, auBaseDir2), ds.initAu(NS1, AUID1));
+    assertEquals(List.of(auBaseDir1, auBaseDir2), ds.findExistingAUPaths(NS1, AUID1));
+    assertTrue(isStorageUrlPathUnderBaseDirectory(stored4.getStorageUrl(), baseDirPath1));
+  }
+
+  private boolean isStorageUrlPathUnderBaseDirectory(String storageUrl, Path auBasePath) {
+    UriComponents uriComponents = UriComponentsBuilder.fromUriString(storageUrl).build();
+    return uriComponents.getPath().startsWith(auBasePath.toString());
+  }
+
+  private void updateDiskSpaceMap(TestingLocalWarcArtifactDataStore ds,
+                                  Map<Path, Integer> diskSpaceMap,
+                                  String storageUrl) throws Exception {
+
+    List<String> strPatternIntMap = new ArrayList<>();
+
+    for (Map.Entry<Path, Integer> entry : diskSpaceMap.entrySet()) {
+      int currentSpace = entry.getValue();
+
+      if (storageUrl != null) {
+        UriComponents uriComponents = UriComponentsBuilder.fromUriString(storageUrl).build();
+        if (uriComponents.getPath().startsWith(entry.getKey().toString())) {
+          long storedLength = Long.parseLong(uriComponents.getQueryParams().getFirst("length"));
+          currentSpace -= storedLength;
+
+          log.info("Updating disk space map for {} to {}", entry.getKey(), currentSpace);
+          diskSpaceMap.put(entry.getKey(), currentSpace);
+        }
+      }
+
+      strPatternIntMap.add(entry.getKey().toString() + "," + currentSpace);
+    }
+
+    PatternIntMap spaceMap = new PatternIntMap(strPatternIntMap);
+    ds.setTestingDiskSpaceMap(spaceMap);
+  }
+
+  private static Artifact createArtifactInAU(TestingLocalWarcArtifactDataStore ds,
+                                             String namespace, String auid, long contentLength) throws Exception {
+    String artifactUuid = UUID.randomUUID().toString();
+    ArtifactSpec spec = new ArtifactSpec()
+        .setArtifactUuid(artifactUuid)
+        .setNamespace(namespace)
+        .setAuid(auid)
+        .setUrl("http://example.com/" + artifactUuid)
+        .setVersion(1)
+        .setContentLength(contentLength);
+
+    spec.generateContent();
+
+    ArtifactData ad = spec.getArtifactData();
+    Artifact artifact = ds.addArtifactData(ad);
+    Future<Artifact> future = ds.commitArtifactData(artifact);
+    Artifact committedArtifact = future.get();
+
+    return committedArtifact;
+  }
+
+  // *******************************************************************************************************************
   // * TEST: AbstractWarcArtifactDataStoreTest IMPLEMENTATION
   // *******************************************************************************************************************
 
   @Override
   public void testMakeStorageUrlImpl() throws Exception {
-    ArtifactIdentifier aid = new ArtifactIdentifier(NS1, AUID1,"http://example.com/u1", 1);
+    ArtifactIdentifier aid = new ArtifactIdentifier(NS1, AUID1, "http://example.com/u1", 1);
     long pendingArtifactSize = 1234L;
 
-    Path activeWarcPath = store.getAuActiveWarcPath(aid.getNamespace(), aid.getAuid(), pendingArtifactSize, false);
+    Path activeWarcPath = store.getAppendablePermanentWarcInAU(aid.getNamespace(), aid.getAuid(), pendingArtifactSize, false);
 
     URI expectedStorageUrl = URI.create(String.format(
         "file://%s?offset=%d&length=%d",
@@ -253,12 +390,12 @@ public class TestLocalWarcArtifactDataStore extends AbstractWarcArtifactDataStor
 
     // Assert findWarcs() returns only WARCs
     assertTrue(paths.stream().map(Path::toString)
-        .allMatch(name ->
-            name.endsWith(WARCConstants.DOT_WARC_FILE_EXTENSION) ||
-            name.endsWith(WARCConstants.DOT_COMPRESSED_WARC_FILE_EXTENSION)
+            .allMatch(name ->
+                    name.endsWith(WARCConstants.DOT_WARC_FILE_EXTENSION) ||
+                        name.endsWith(WARCConstants.DOT_COMPRESSED_WARC_FILE_EXTENSION)
 //            FilenameUtils.getExtension(name).equalsIgnoreCase(WARCConstants.WARC_FILE_EXTENSION) ||
 //            FilenameUtils.getExtension(name).equalsIgnoreCase(WARCConstants.COMPRESSED_WARC_FILE_EXTENSION)
-        )
+            )
     );
   }
 
@@ -312,9 +449,7 @@ public class TestLocalWarcArtifactDataStore extends AbstractWarcArtifactDataStor
   }
 
   /**
-   * Test for {@link LocalWarcArtifactDataStore#initAuDir(String, String)}.
-   *
-   * @throws Exception
+   * Test for {@link LocalWarcArtifactDataStore#initAuDir(Path, String, String)}.
    */
   @Override
   public void testInitAuDirImpl() throws Exception {
@@ -325,27 +460,26 @@ public class TestLocalWarcArtifactDataStore extends AbstractWarcArtifactDataStor
     File auPathFile = mock(File.class);
 
     // Mock behavior
-    doCallRealMethod().when(ds).initAuDir(ArgumentMatchers.anyString(), ArgumentMatchers.anyString());
+    doCallRealMethod().when(ds).initAuDir(eq(basePath), ArgumentMatchers.anyString(), ArgumentMatchers.anyString());
+    when(ds.generateAUPath(basePath, NS1, AUID1)).thenReturn(auPath);
     when(auPath.toFile()).thenReturn(auPathFile);
-    when(ds.getAuPath(basePath, NS1, AUID1)).thenReturn(auPath);
 
-    // Assert IllegalStateException thrown if getBasePaths() returns null or is empty
-    when(ds.getBasePaths()).thenReturn(null);
-    assertThrows(IllegalStateException.class, () -> ds.initAuDir(NS1, AUID1));
-    when(ds.getBasePaths()).thenReturn(new Path[]{});
-    assertThrows(IllegalStateException.class, () -> ds.initAuDir(NS1, AUID1));
-
-    when(ds.getBasePaths()).thenReturn(new Path[]{basePath});
-
-    // Assert directory created if not directory
+    // Assert mkdirs is called iff the AU path does not exist and is not a directory
+    when(auPathFile.exists()).thenReturn(false);
     when(auPathFile.isDirectory()).thenReturn(false);
-    assertEquals(auPath, ds.initAuDir(NS1, AUID1));
+    assertEquals(auPath, ds.initAuDir(basePath, NS1, AUID1));
     verify(ds).mkdirs(auPath);
     clearInvocations(ds);
 
-    // Assert directory is *not* created if directory
+    // Assert mkdirs is *not* called otherwise
+    when(auPathFile.exists()).thenReturn(true);
+    when(auPathFile.isDirectory()).thenReturn(false);
+    assertEquals(auPath, ds.initAuDir(basePath, NS1, AUID1));
+    verify(ds, never()).mkdirs(auPath);
+    clearInvocations(ds);
+
     when(auPathFile.isDirectory()).thenReturn(true);
-    assertEquals(auPath, ds.initAuDir(NS1, AUID1));
+    assertEquals(auPath, ds.initAuDir(basePath, NS1, AUID1));
     verify(ds, never()).mkdirs(auPath);
     clearInvocations(ds);
   }
@@ -384,42 +518,20 @@ public class TestLocalWarcArtifactDataStore extends AbstractWarcArtifactDataStor
    */
   @Override
   public void testInitAuImpl() throws Exception {
-    // Mocks
+    String ns = "test-namespace";
+    String auid = "test-auid ";
+
     LocalWarcArtifactDataStore ds = mock(LocalWarcArtifactDataStore.class);
-    Path basePath = mock(Path.class);
+    List<Path> auPaths = mock(List.class);
 
-    // Mock behavior
-    doCallRealMethod().when(ds).clearAuMaps();
-    doCallRealMethod().when(ds).initAu(NS1, AUID1);
+    doCallRealMethod().when(ds).initAu(ns, auid);
+    when(ds.findExistingAUPaths(eq(ns), eq(auid))).thenReturn(auPaths);
 
-    // Assert IllegalStateException thrown if no base paths configured in data store
-    when(ds.getBasePaths()).thenReturn(null);
-    assertThrows(IllegalStateException.class, () -> ds.initAu(NS1, AUID1));
+    List<Path> result = ds.initAu(ns, auid);
 
-    // Assert IllegalStateException thrown if empty base paths
-    when(ds.getBasePaths()).thenReturn(new Path[]{});
-    assertThrows(IllegalStateException.class, () -> ds.initAu(NS1, AUID1));
-
-    // FIXME: Initialize maps
-//    FieldSetter.setField(ds, ds.getClass().getDeclaredField("auPathsMap"), new HashMap<>());
-//    FieldSetter.setField(ds, ds.getClass().getDeclaredField("auActiveWarcsMap"), new HashMap<>());
-    ds.clearAuMaps();
-
-    // Assert if no AU paths found then a new one is created
-    when(ds.getBasePaths()).thenReturn(new Path[]{basePath});
-    Path auPath = mockPathFile(false);
-    when(ds.getAuPath(basePath, NS1, AUID1)).thenReturn(auPath);
-    ds.initAu(NS1, AUID1);
-    verify(ds).initAuDir(NS1, AUID1);
-    clearInvocations(ds);
-
-    // Assert if existing AU paths are found on disk then they are just returned
-    auPath = mockPathFile(true);
-    when(ds.getAuPath(basePath, NS1, AUID1)).thenReturn(auPath);
-    List<Path> auPaths = new ArrayList<>();
-    auPaths.add(auPath);
-    assertIterableEquals(auPaths, ds.initAu(NS1, AUID1));
-    verify(ds, never()).initAuDir(NS1, AUID1);
+    assertSame(auPaths, result);
+    verify(ds).initNamespace(eq(ns));
+    verify(ds).findExistingAUPaths(eq(ns), eq(auid));
     clearInvocations(ds);
   }
 

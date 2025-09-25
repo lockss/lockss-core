@@ -31,7 +31,6 @@
 package org.lockss.rs.io.storage.warc;
 
 import org.lockss.log.L4JLogger;
-import org.lockss.rs.io.storage.warc.LocalWarcArtifactDataStore;
 import org.lockss.util.PatternIntMap;
 
 import java.io.File;
@@ -42,25 +41,25 @@ import java.nio.file.Path;
  * Version of LocalWarcArtifactDataStore that allows manipulating apparent
  * free space
  */
-public class TestingWarcArtifactDataStore extends LocalWarcArtifactDataStore {
+public class TestingLocalWarcArtifactDataStore extends LocalWarcArtifactDataStore {
   private final static L4JLogger log = L4JLogger.getLogger();
   private PatternIntMap freeSpacePatternMap;
 
-  public TestingWarcArtifactDataStore(File basePath) throws IOException {
+  public TestingLocalWarcArtifactDataStore(File basePath) throws IOException {
     super(basePath);
   }
 
-  public TestingWarcArtifactDataStore(File[] basePath)
+  public TestingLocalWarcArtifactDataStore(File[] basePath)
       throws IOException {
     super(basePath);
   }
 
-  public TestingWarcArtifactDataStore(Path basePaths)
+  public TestingLocalWarcArtifactDataStore(Path basePaths)
       throws IOException {
     super(basePaths);
   }
 
-  public TestingWarcArtifactDataStore(Path[] basePaths)
+  public TestingLocalWarcArtifactDataStore(Path[] basePaths)
       throws IOException {
     super(basePaths);
   }
