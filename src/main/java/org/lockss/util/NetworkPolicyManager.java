@@ -162,7 +162,7 @@ public class NetworkPolicyManager extends BaseLockssManager implements Configura
                   config.getList(ProxyManager.PARAM_IP_EXCLUDE),
                   managedContentPorts);
 
-          this.updateAndApplyNetworkPolicy(policyFileName, contentAccessNetworkPolicy, adminAccessNetworkPolicy);
+          this.writeAndApplyNetworkPolicy(policyFileName, contentAccessNetworkPolicy, adminAccessNetworkPolicy);
         } catch (final Throwable t) {
           this.log.warn("Error running queued updateNetworkPolicyIngress task", t);
         }
@@ -174,7 +174,7 @@ public class NetworkPolicyManager extends BaseLockssManager implements Configura
    * Build and persist a NetworkPolicy ingress section based on the include/exclude IP filters.
    * Allows specifying an alternate output filename; if null/blank, defaults to K8S_OUTPUT_FILENAME.
    */
-  void updateAndApplyNetworkPolicy(final String outFilename, V1NetworkPolicy... policies) {
+  void writeAndApplyNetworkPolicy(final String outFilename, V1NetworkPolicy... policies) {
     String outputPath = outFilename;
     if (outFilename == null || outFilename.isBlank()) {
       if (this.dryRun) {

@@ -166,7 +166,7 @@ public class TestNetworkPolicyManager extends LockssCoreTestCase5 {
   }
 
   @Test
-  public void testUpdateAndApplyNetworkPolicyWithNoAllowedSkips() {
+  public void testWriteAndApplyNetworkPolicyWithNoAllowedSkips() {
     // Should log and return without throwing; no Kubernetes calls executed
     // FIXME: This wasn't really testing anything
 //    npMgr.updateNetworkPolicyIngress(
@@ -534,7 +534,7 @@ public class TestNetworkPolicyManager extends LockssCoreTestCase5 {
     }
 
     @Override
-    void updateAndApplyNetworkPolicy(String outFilename, V1NetworkPolicy... policies) {
+    void writeAndApplyNetworkPolicy(String outFilename, V1NetworkPolicy... policies) {
       updateCalls++;
       calls.offer(Boolean.TRUE);
     }
