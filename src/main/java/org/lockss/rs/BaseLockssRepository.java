@@ -412,7 +412,13 @@ public class BaseLockssRepository implements LockssRepository, JmsFactorySource 
             true);
 
         if (result != null) {
-          throw new LockssArtifactAlreadyExistsException(artifactId);
+          if (result.isCommitted()) {
+            throw new LockssArtifactAlreadyExistsException(artifactId);
+          }
+
+          // Delete the existing artifact, allowing it to effectively perform
+          // a replacement with the given artifact
+          index.deleteArtifact(result.getUuid());
         }
 
         nextVersion = artifactId.getVersion();
