@@ -38,39 +38,41 @@ import org.lockss.app.ConfigurableManager;
 import org.lockss.config.ConfigManager;
 import org.lockss.config.Configuration;
 import org.lockss.log.L4JLogger;
+import org.lockss.proxy.ProxyManager;
 import org.lockss.servlet.AdminServletManager;
 
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.text.MessageFormat;
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.Collections;
-import java.util.List;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.LinkedBlockingQueue;
-import java.util.concurrent.ThreadPoolExecutor;
-import java.util.concurrent.TimeUnit;
+import java.util.*;
+import java.util.concurrent.*;
 
 public class NetworkPolicyManager extends BaseLockssManager implements ConfigurableManager {
 
   private final L4JLogger log = L4JLogger.getLogger();
   static final String PREFIX = Configuration.PREFIX + "networkPolicy";
   // our network policy parameters
-  final static String PARAM_LOCKSS_PROTECTED_PORTS = NetworkPolicyManager.PREFIX + ".protected.ports";
-  static final String DEFAULT_LOCKSS_PROTECTED_PORTS = "24681;24602;8080";
+  final static String PARAM_LOCKSS_PROTECTED_ADMIN_PORTS = NetworkPolicyManager.PREFIX + ".protected.adminPorts";
+  static final String DEFAULT_LOCKSS_PROTECTED_ADMIN_PORTS = "24602";
+
+  final static String PARAM_LOCKSS_PROTECTED_CONTENT_PORTS = NetworkPolicyManager.PREFIX + ".protected.contentPorts";
+  static final String DEFAULT_LOCKSS_PROTECTED_CONTENT_PORTS = "8080;24681";
+
   static final String PARAM_POLICY_FILE = NetworkPolicyManager.PREFIX + ".policyFile";
   static final String DEFAULT_POLICY_FILE = "lockss-network-policy.yaml";
 
-  private static final String EXISTING_POLICY_NAME = "lockss-network-policy";
+  private static final String NETWORK_POLICY_NAME_CONTENT_ACCESS = "lockss-network-policy-content-access";
+  private static final String NETWORK_POLICY_NAME_ADMIN_ACCESS = "lockss-network-policy-admin-access";
   private static final String K8S_NAMESPACE_LOCKSS = "lockss";
   protected static final String K8S_API_VERSION = "networking.k8s.io/v1";
   private static final String LABEL_SERVICE_KIND = "service-kind";
   private static final String LABEL_VALUE_NON_LOCKSS = "non-lockss";
-  private static final java.util.List<String> POLICY_TYPES_INGRESS = java.util.Collections.singletonList("Ingress");
+  private static final java.util.List<String> POLICY_TYPES_INGRESS = Collections.singletonList("Ingress");
 
-  protected String managedPorts = NetworkPolicyManager.DEFAULT_LOCKSS_PROTECTED_PORTS;
+  protected String managedAdminPorts = NetworkPolicyManager.DEFAULT_LOCKSS_PROTECTED_ADMIN_PORTS;
+  protected String managedContentPorts = NetworkPolicyManager.DEFAULT_LOCKSS_PROTECTED_CONTENT_PORTS;
+
   // Enable test mode that skips talking to a live Kubernetes cluster
   protected boolean dryRun;
   protected String policyFileName = NetworkPolicyManager.DEFAULT_POLICY_FILE;
@@ -122,20 +124,45 @@ public class NetworkPolicyManager extends BaseLockssManager implements Configura
   }
 
   void queueConfigChanges(final Configuration config, final Configuration.Differences diffs) {
-    if (diffs.contains(NetworkPolicyManager.PARAM_LOCKSS_PROTECTED_PORTS) ||
+    if (diffs.contains(NetworkPolicyManager.PARAM_LOCKSS_PROTECTED_ADMIN_PORTS) ||
+        diffs.contains(NetworkPolicyManager.PARAM_LOCKSS_PROTECTED_CONTENT_PORTS) ||
         diffs.contains(AdminServletManager.PARAM_IP_INCLUDE) ||
         diffs.contains(AdminServletManager.PARAM_IP_EXCLUDE)) {
-      if (diffs.contains(NetworkPolicyManager.PARAM_LOCKSS_PROTECTED_PORTS)) {
-        // we changed a protected port
-        this.managedPorts = config.get(NetworkPolicyManager.PARAM_LOCKSS_PROTECTED_PORTS,
-            NetworkPolicyManager.DEFAULT_LOCKSS_PROTECTED_PORTS);
+
+      if (diffs.contains(NetworkPolicyManager.PARAM_LOCKSS_PROTECTED_ADMIN_PORTS)) {
+        // we changed a protected admin port
+        this.managedAdminPorts = config.get(NetworkPolicyManager.PARAM_LOCKSS_PROTECTED_ADMIN_PORTS,
+            NetworkPolicyManager.DEFAULT_LOCKSS_PROTECTED_ADMIN_PORTS);
       }
+
+      if (diffs.contains(NetworkPolicyManager.PARAM_LOCKSS_PROTECTED_CONTENT_PORTS)) {
+        // we changed a protected content port
+        this.managedContentPorts = config.get(NetworkPolicyManager.PARAM_LOCKSS_PROTECTED_CONTENT_PORTS,
+            NetworkPolicyManager.DEFAULT_LOCKSS_PROTECTED_CONTENT_PORTS);
+      }
+
       // enqueue the update to be processed by a single background thread
-      List<String> includes = config.getList(AdminServletManager.PARAM_IP_INCLUDE);
-      List<String> excludes = config.getList(AdminServletManager.PARAM_IP_EXCLUDE);
       this.ingressUpdateExecutor.submit(() -> {
         try {
-          this.updateNetworkPolicyIngress(includes, excludes);
+          // Admin access network policy
+          V1NetworkPolicy adminAccessNetworkPolicy =
+              this.generateUpdatedNetworkPolicy(
+                  K8S_NAMESPACE_LOCKSS,
+                  NETWORK_POLICY_NAME_ADMIN_ACCESS,
+                  config.getList(AdminServletManager.PARAM_IP_INCLUDE),
+                  config.getList(AdminServletManager.PARAM_IP_EXCLUDE),
+                  managedAdminPorts);
+
+          // Content access network policy
+          V1NetworkPolicy contentAccessNetworkPolicy =
+              this.generateUpdatedNetworkPolicy(
+                  K8S_NAMESPACE_LOCKSS,
+                  NETWORK_POLICY_NAME_CONTENT_ACCESS,
+                  config.getList(ProxyManager.PARAM_IP_INCLUDE),
+                  config.getList(ProxyManager.PARAM_IP_EXCLUDE),
+                  managedContentPorts);
+
+          this.updateAndApplyNetworkPolicy(policyFileName, contentAccessNetworkPolicy, adminAccessNetworkPolicy);
         } catch (final Throwable t) {
           this.log.warn("Error running queued updateNetworkPolicyIngress task", t);
         }
@@ -144,20 +171,56 @@ public class NetworkPolicyManager extends BaseLockssManager implements Configura
   }
 
   /**
-   * Build and persist a NetworkPolicy based on the include/exclude IP filters.
-   */
-  void updateNetworkPolicyIngress(final List<String> includeFilters,
-                                  final List<String> excludeFilters) {
-    // Delegate to the new overload preserving existing default filename behavior
-    this.updateNetworkPolicyIngress(includeFilters, excludeFilters, null);
-  }
-
-  /**
    * Build and persist a NetworkPolicy ingress section based on the include/exclude IP filters.
    * Allows specifying an alternate output filename; if null/blank, defaults to K8S_OUTPUT_FILENAME.
    */
-  void updateNetworkPolicyIngress(final List<String> includeFilters,
-                                  final List<String> excludeFilters, final String outFilename) {
+  void updateAndApplyNetworkPolicy(final String outFilename, V1NetworkPolicy... policies) {
+    String outputPath = outFilename;
+    if (outFilename == null || outFilename.isBlank()) {
+      if (this.dryRun) {
+        try {
+          final Path tmp = Files.createTempFile("lockss-network-policy-", ".yaml");
+          outputPath = tmp.toAbsolutePath().toString();
+          this.log.info("Dry-run: writing NetworkPolicy YAML to temp file: " + outputPath);
+        } catch (IOException e) {
+          this.log.warn("Error creating temp file for dry-run NetworkPolicy YAML", e);
+          return;
+        }
+      }
+    }
+
+    if (outputPath == null || outputPath.isBlank()) {
+      throw new IllegalArgumentException("Null or blank outputPath");
+    }
+
+    try {
+      this.writePolicyToFile(outputPath, policies);
+
+      List<String> policyNames = Arrays.stream(policies)
+          .map(V1NetworkPolicy::getMetadata)
+          .filter(Objects::nonNull)
+          .map(V1ObjectMeta::getNamespace)
+          .toList();
+
+      this.log.info("Wrote updated NetworkPolicy files for " + policyNames
+          + " in namespace '" + K8S_NAMESPACE_LOCKSS + "'"
+          + " to " + outputPath);
+
+      if (!this.dryRun) {
+        this.applyNetworkPolicyToCluster(policies);
+      }
+    } catch (final Exception e) {
+      this.log.warn("Error while preparing Kubernetes NetworkPolicy for access control", e);
+    }
+  }
+
+  V1NetworkPolicy generateUpdatedNetworkPolicy(String namespace,
+                                                       String policyName,
+                                                       List<String> includeFilters,
+                                                       List<String> excludeFilters,
+                                                       String managedPorts)
+      throws IOException, ApiException, AddressStringException {
+
     final List<String> allowedCidrs = this.toCidrList(includeFilters);
     final List<String> deniedCidrs = this.toCidrList(excludeFilters);
 
@@ -168,60 +231,41 @@ public class NetworkPolicyManager extends BaseLockssManager implements Configura
       // xxx this should never be empty.
       this.log.info(
           "No allowed CIDRs derived from include list; skipping Kubernetes access policy preparation");
-      return;
+      // FIXME: Should this throw instead?
+      return null;
     }
-    final String namespace = NetworkPolicyManager.K8S_NAMESPACE_LOCKSS;
-    String outputPath = this.policyFileName;
-    try {
-      if (null == outFilename || outFilename.isBlank()) {
-        if (this.dryRun) {
-          final Path tmp = Files.createTempFile("lockss-network-policy-", ".yaml");
-          outputPath = tmp.toAbsolutePath().toString();
-          this.log.info("Dry-run: writing NetworkPolicy YAML to temp file: " + outputPath);
-        }
-      } else {
-        outputPath = outFilename;
-      }
-    } catch (final IOException ioe) {
-      this.log.warn("Failed to choose output file; defaulting to " + this.policyFileName, ioe);
-    }
-    try {
-      // Find existing policy or create a default one; ensure spec exists
-      final V1NetworkPolicy networkPolicy = this.findExistingPolicyorCreate(
-          NetworkPolicyManager.EXISTING_POLICY_NAME, namespace);
 
-      this.ensureSpecWithDefaults(networkPolicy);
-      // Build ingress rules
-      final List<V1NetworkPolicyIngressRule> ingressRules = new ArrayList<>();
-      // Always allow from any pod (podSelector: {})
-      ingressRules.add(new V1NetworkPolicyIngressRule()
-          .from(java.util.Collections.singletonList(new V1NetworkPolicyPeer().podSelector(
-              this.anyPodSelector())))
-      );
-      // Build ports from current managedPorts
-      final List<V1NetworkPolicyPort> ports = this.buildPorts(this.managedPorts);
-      // One rule per allowed CIDR, with optional except list and the fixed ports
-      for (final String cidr : allowedCidrs) {
-        final V1IPBlock block = this.buildIpBlock(cidr, deniedCidrs);
-        final V1NetworkPolicyPeer peer = new V1NetworkPolicyPeer().ipBlock(block);
-        final V1NetworkPolicyIngressRule cidrRule = new V1NetworkPolicyIngressRule()
-            .from(java.util.Collections.singletonList(peer)).ports(ports);
-        ingressRules.add(cidrRule);
-      }
-      networkPolicy.getSpec().setIngress(ingressRules);
-      log.debug2("networkPolicy: {}", networkPolicy);
-      this.writePolicyToFile(networkPolicy, outputPath);
-      this.log.info("Wrote updated ingress for NetworkPolicy '" + NetworkPolicyManager.EXISTING_POLICY_NAME
-          + "' in namespace '"
-          + namespace + "' to " + outputPath);
-      if (!this.dryRun) {
-        this.applyNetworkPolicyToCluster(networkPolicy);
-      }
-    } catch (final Exception e) {
-      this.log.warn("Error while preparing Kubernetes NetworkPolicy for access control", e);
+    // Find existing policy or create a default one; ensure spec exists
+    final V1NetworkPolicy networkPolicy =
+        this.findExistingPolicyorCreate(policyName, namespace);
+
+    this.ensureSpecWithDefaults(networkPolicy);
+
+    // Build ingress rules
+    final List<V1NetworkPolicyIngressRule> ingressRules = new ArrayList<>();
+
+    // Always allow from any pod (podSelector: {})
+    ingressRules.add(new V1NetworkPolicyIngressRule()
+        .from(Collections.singletonList(new V1NetworkPolicyPeer().podSelector(
+            this.anyPodSelector()))));
+
+    // Build ports from current managedPorts
+    final List<V1NetworkPolicyPort> ports = this.buildPorts(managedPorts);
+
+    // One rule per allowed CIDR, with optional except list and the fixed ports
+    for (final String cidr : allowedCidrs) {
+      final V1IPBlock block = this.buildIpBlock(cidr, deniedCidrs);
+      final V1NetworkPolicyPeer peer = new V1NetworkPolicyPeer().ipBlock(block);
+      final V1NetworkPolicyIngressRule cidrRule = new V1NetworkPolicyIngressRule()
+          .from(Collections.singletonList(peer)).ports(ports);
+      ingressRules.add(cidrRule);
     }
+
+    networkPolicy.getSpec().setIngress(ingressRules);
+    log.debug2("networkPolicy: {}", networkPolicy);
+
+    return networkPolicy;
   }
-
 
   /**
    * Convert a list of IP expressions (single IP, wildcard like 10.*.*.*, or CIDR) into CIDR
@@ -288,39 +332,45 @@ public class NetworkPolicyManager extends BaseLockssManager implements Configura
    * Create or replace the given NetworkPolicy in the running Kubernetes cluster. If it doesn't
    * exist, it will be created; otherwise, it is replaced.
    */
-  void applyNetworkPolicyToCluster(final V1NetworkPolicy policy) {
-    if (null == policy || null == policy.getMetadata()) {
-      this.log.warn("Cannot apply NetworkPolicy: policy or metadata is null");
-      return;
-    }
-    String name = policy.getMetadata().getName();
-    String namespace = policy.getMetadata().getNamespace();
-
-    if (null == name || null == namespace) {
-      this.log.warn("Cannot apply NetworkPolicy: name or namespace is null");
+  void applyNetworkPolicyToCluster(final V1NetworkPolicy... policies) {
+    if (policies == null || policies.length == 0) {
+      this.log.warn("No NetworkPolicy to apply: null or empty policies array");
       return;
     }
 
-    try {
-      final K8sClientUtils.ApplyResult result =
-          K8sClientUtils.createOrReplaceNetworkPolicy(policy);
-      if (K8sClientUtils.ApplyResult.REPLACED == result) {
-        this.log.info("Replaced NetworkPolicy '" + name + "' in namespace '" + namespace + "'");
-      } else if (K8sClientUtils.ApplyResult.CREATED == result) {
-        this.log.info("Created NetworkPolicy '" + name + "' in namespace '" + namespace + "'");
-      } else {
-        this.log.info("No change for NetworkPolicy '" + name + "' in namespace '" + namespace + "'");
+    for (final V1NetworkPolicy policy : policies) {
+      V1ObjectMeta policyMetadata = policy.getMetadata();
+      assert policyMetadata != null;
+
+      String name = policyMetadata.getName();
+      String namespace = policyMetadata.getNamespace();
+
+      if (null == name || null == namespace) {
+        this.log.warn("Cannot apply NetworkPolicy: name or namespace is null");
+        return;
       }
-    } catch (final Exception e) {
-      this.log.warn("Failed to apply NetworkPolicy to cluster", e);
+
+      try {
+        final K8sClientUtils.ApplyResult result =
+            K8sClientUtils.createOrReplaceNetworkPolicy(policy);
+        if (K8sClientUtils.ApplyResult.REPLACED == result) {
+          this.log.info("Replaced NetworkPolicy '" + name + "' in namespace '" + namespace + "'");
+        } else if (K8sClientUtils.ApplyResult.CREATED == result) {
+          this.log.info("Created NetworkPolicy '" + name + "' in namespace '" + namespace + "'");
+        } else {
+          this.log.info("No change for NetworkPolicy '" + name + "' in namespace '" + namespace + "'");
+        }
+      } catch (final Exception e) {
+        this.log.warn("Failed to apply NetworkPolicy to cluster", e);
+      }
     }
   }
 
   /**
    * Serialize policy as YAML and write to a file for later application (e.g., kubectl apply -f).
    */
-  void writePolicyToFile(final V1NetworkPolicy policy, final String filename) throws IOException {
-    K8sClientUtils.writeNetworkPolicyToFile(policy, filename);
+  void writePolicyToFile(final String filename, final V1NetworkPolicy... policies) throws IOException {
+    K8sClientUtils.writeNetworkPolicyToFile(filename, policies);
   }
 
   private V1IPBlock buildIpBlock(final String cidr, final List<String> deniedCidrs) throws AddressStringException {
