@@ -247,7 +247,7 @@ public class NetworkPolicyManager extends BaseLockssManager implements Configura
     // Always allow from any pod (podSelector: {})
     ingressRules.add(new V1NetworkPolicyIngressRule()
         .from(Collections.singletonList(new V1NetworkPolicyPeer().podSelector(
-            this.anyPodSelector()))));
+            buildPodSelector(LABEL_VALUE_NON_LOCKSS)))));
 
     // Build ports from current managedPorts
     final List<V1NetworkPolicyPort> ports = this.buildPorts(managedPorts);
@@ -322,7 +322,7 @@ public class NetworkPolicyManager extends BaseLockssManager implements Configura
       spec.setPolicyTypes(NetworkPolicyManager.POLICY_TYPES_INGRESS);
 
       // Empty selector means "any pod"
-      spec.setPodSelector(this.anyPodSelector());
+      spec.setPodSelector(buildPodSelector(LABEL_VALUE_NON_LOCKSS));
       policy.setSpec(spec);
     }
   }
@@ -407,6 +407,12 @@ public class NetworkPolicyManager extends BaseLockssManager implements Configura
   private V1LabelSelector anyPodSelector() {
     // Empty selector means "any pod"
     return new V1LabelSelector();
+  }
+
+  private V1LabelSelector buildPodSelector(final String serviceKind) {
+    final V1LabelSelector podSelector = new V1LabelSelector();
+    podSelector.setMatchLabels(Collections.singletonMap(LABEL_SERVICE_KIND, serviceKind));
+    return podSelector;
   }
 
   List<V1NetworkPolicyPort> buildPorts(final String managedPorts) {
