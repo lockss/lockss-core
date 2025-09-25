@@ -84,21 +84,12 @@ public class VolatileWarcArtifactDataStore extends WarcArtifactDataStore {
 
   @Override
   public List<Path> initAu(String namespace, String auid) throws IOException {
-    NamespacedAuid key = new NamespacedAuid(namespace, auid);
-    List<Path> auPaths = auPathsMap.get(key);
-
-    if (auPaths == null) {
-      auPaths = new ArrayList<>();
-      auPaths.add(initAuDir(namespace, auid));
-      auPathsMap.put(key, auPaths);
-    }
-
-    return auPaths;
+    return Collections.emptyList();
   }
 
   @Override
-  protected Path initAuDir(String namespace, String auid) throws IOException {
-    return getAuPath(getBasePaths()[0], namespace, auid);
+  protected Path initAuDir(Path basePath, String namespace, String auid) throws IOException {
+    return generateAUPath(basePath, namespace, auid);
   }
 
   @Override
