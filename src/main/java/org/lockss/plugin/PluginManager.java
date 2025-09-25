@@ -614,8 +614,10 @@ public class PluginManager
   }
 
   public void setStartupStatus(StartupStatus startStatus) {
-    log.info("Startup status: " + this.startStatus + " => " + startStatus);
-    this.startStatus = startStatus;
+    if (startStatus != this.startStatus) {
+      log.info("Startup status: " + this.startStatus + " => " + startStatus);
+      this.startStatus = startStatus;
+    }
   }
 
   /** Temporary compatibility for {@link #areAusStarted()} */
