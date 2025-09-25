@@ -408,6 +408,12 @@ public class TestV2BaseCachedUrl extends LockssTestCase {
       // good way to get ahold of them.
     }
 
+    public void testContentEncoding() throws Exception {
+      createLeaf(url1, "", fromArgs("Content-Encoding", "\"\""));
+      assertEquals(null, AuUtil.getContentEncoding(getTestCu(url1)));
+      getTestCu(url1).openForHashing();
+    }
+
     public void testGZipped() throws Exception {
       String content = "this is some text to be compressssssed";
       String clen = ""+content.length();
