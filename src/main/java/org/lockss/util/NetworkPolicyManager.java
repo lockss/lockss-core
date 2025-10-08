@@ -199,7 +199,7 @@ public class NetworkPolicyManager extends BaseLockssManager implements Configura
       List<String> policyNames = Arrays.stream(policies)
           .map(V1NetworkPolicy::getMetadata)
           .filter(Objects::nonNull)
-          .map(V1ObjectMeta::getNamespace)
+          .map(V1ObjectMeta::getName)
           .toList();
 
       this.log.info("Wrote updated NetworkPolicy files for " + policyNames
