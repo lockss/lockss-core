@@ -300,15 +300,21 @@ public class NetworkPolicyManager extends BaseLockssManager implements Configura
     if (null == existing) {
       this.log.info("NetworkPolicy '" + policyName + "' not found in namespace '" + namespace
           + "'; creating default.");
-      existing = new V1NetworkPolicy();
-      final V1ObjectMeta metadata = new V1ObjectMeta();
-      metadata.setName(policyName);
-      metadata.setNamespace(namespace);
-      existing.setMetadata(metadata);
-      existing.setApiVersion(NetworkPolicyManager.K8S_API_VERSION);
-      existing.setKind("NetworkPolicy");
+      existing = createDefaultNetworkPolicy(namespace, policyName);
     }
     return existing;
+  }
+
+  public static V1NetworkPolicy createDefaultNetworkPolicy(String namespace, String policyName) {
+    V1NetworkPolicy policy = new V1NetworkPolicy();
+    final V1ObjectMeta metadata = new V1ObjectMeta();
+    metadata.setName(policyName);
+    metadata.setNamespace(namespace);
+    policy.setMetadata(metadata);
+    policy.setApiVersion(NetworkPolicyManager.K8S_API_VERSION);
+    policy.setKind("NetworkPolicy");
+
+    return policy;
   }
 
   /**
