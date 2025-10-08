@@ -68,7 +68,7 @@ public class NetworkPolicyManager extends BaseLockssManager implements Configura
   protected static final String K8S_API_VERSION = "networking.k8s.io/v1";
   private static final String LABEL_SERVICE_KIND = "service-kind";
   private static final String LABEL_VALUE_NON_LOCKSS = "non-lockss";
-  private static final java.util.List<String> POLICY_TYPES_INGRESS = Collections.singletonList("Ingress");
+  public static final java.util.List<String> POLICY_TYPES_INGRESS = Collections.singletonList("Ingress");
 
   protected String managedAdminPorts = NetworkPolicyManager.DEFAULT_LOCKSS_PROTECTED_ADMIN_PORTS;
   protected String managedContentPorts = NetworkPolicyManager.DEFAULT_LOCKSS_PROTECTED_CONTENT_PORTS;
@@ -294,7 +294,7 @@ public class NetworkPolicyManager extends BaseLockssManager implements Configura
   /**
    * Retrieve an existing NetworkPolicy or create a default one.
    */
-  private V1NetworkPolicy findExistingPolicyorCreate(final String policyName, final String namespace)
+  protected V1NetworkPolicy findExistingPolicyorCreate(final String policyName, final String namespace)
       throws ApiException, IOException {
     V1NetworkPolicy existing = K8sClientUtils.readNetworkPolicyOrNull(policyName, namespace);
     if (null == existing) {
@@ -333,7 +333,6 @@ public class NetworkPolicyManager extends BaseLockssManager implements Configura
       policy.setSpec(spec);
     }
   }
-
 
   /**
    * Create or replace the given NetworkPolicy in the running Kubernetes cluster. If it doesn't

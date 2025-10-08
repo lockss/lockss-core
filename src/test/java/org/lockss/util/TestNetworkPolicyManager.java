@@ -42,9 +42,11 @@ import io.kubernetes.client.util.*;
 import java.io.*;
 import java.util.*;
 import org.junit.jupiter.api.*;
+import org.lockss.log.L4JLogger;
 import org.lockss.test.*;
 
 public class TestNetworkPolicyManager extends LockssCoreTestCase5 {
+  private final L4JLogger log = L4JLogger.getLogger();
 
   private static final List<Integer> EXPECTED_PORTS = List.of(24681, 24682, 24602);
   private static final List<String> INCLUDE_CIDRS = List.of("10.255.0.0/16", "171.67.138.0/24");
@@ -166,31 +168,83 @@ public class TestNetworkPolicyManager extends LockssCoreTestCase5 {
   }
 
   @Test
-  public void testWriteAndApplyNetworkPolicyWithNoAllowedSkips() {
-    // Should log and return without throwing; no Kubernetes calls executed
-    // FIXME: This wasn't really testing anything
-//    npMgr.updateNetworkPolicyIngress(
-//        Collections.emptyList(),
-//        Arrays.asList("10.0.0.0/8", "192.168.0.0/16"));
+  public void testGenerateUpdatedNetworkPolicy() throws Exception {
+    String namespace = "lockss";
+    String policyName = "test-policy";
+    List<String> allowed = Arrays.asList("10.0.0.0/8", "192.168.0.0/16");
+    List<String> denied = Arrays.asList("172.16.0.0/12");
+    String managedAdminPorts = "80;443";
+
+    // Assert that if there is not an existing policy, generateUpdatedNetworkPolicy()
+    // creates a default one and populates it with the provided ingress settings
+    {
+      V1NetworkPolicy policy =
+          npMgr.generateUpdatedNetworkPolicy(namespace, policyName, allowed, denied, managedAdminPorts);
+
+      assertNotNull(policy);
+      V1ObjectMeta metadata = policy.getMetadata();
+      assertEquals(namespace, metadata.getNamespace());
+      assertEquals(policyName, metadata.getName());
+      assertEquals(npMgr.K8S_API_VERSION, policy.getApiVersion());
+      assertEquals("NetworkPolicy", policy.getKind());
+    }
+
+    // Assert existing policy with null spec is populated with defaults
+    {
+
+      V1NetworkPolicy existingPolicy = npMgr.findExistingPolicyorCreate(namespace, policyName);
+//      V1NetworkPolicy existingPolicy = new V1NetworkPolicy();
+//      V1ObjectMeta metadata = new V1ObjectMeta();
+//      existingPolicy.setMetadata(metadata);
+//      assertNull(existingPolicy.getSpec());
+
+      npMgr.setExistingPolicy(existingPolicy);
+
+      V1NetworkPolicy policy =
+          npMgr.generateUpdatedNetworkPolicy(namespace, policyName, allowed, denied, managedAdminPorts);
+
+      assertNotNull(existingPolicy.getSpec());
+      assertIterableEquals(NetworkPolicyManager.POLICY_TYPES_INGRESS, existingPolicy.getSpec().getPolicyTypes());
+      assertEquals("non-lockss", existingPolicy.getSpec()
+          .getPodSelector()
+          .getMatchLabels()
+          .get("service-kind"));
+      assertSame(existingPolicy.getSpec(), policy.getSpec());
+
+      for (V1NetworkPolicyIngressRule ingressRule : policy.getSpec().getIngress()) {
+        for (V1NetworkPolicyPeer peer : ingressRule.getFrom()) {
+          log.info("peer: {}", peer);
+        }
+      }
+
+//      String tmpFile = getTempFile("np-", ".yaml").getAbsolutePath();
+//      npMgr.writePolicyToFile(tmpFile, policy);
+      log.info("policy: {}", policy);
+    }
+
+    // Reset existing policy to null
+    npMgr.setExistingPolicy(null);
+
+    // Assert an existing policy is updated with the provided ingress settings
+    {
+      V1NetworkPolicy existingPolicy = new V1NetworkPolicy();
+      npMgr.setExistingPolicy(existingPolicy);
+    }
+
+    // Assert that if there is an existing policy that already has ingress settings, that they
+    // are not repeated:
   }
 
+  /**
+   * Test for {@link NetworkPolicyManager#writeAndApplyNetworkPolicy(String, V1NetworkPolicy...)}.
+   */
   @Test
-  public void testGenerateLockssStyleNetworkPolicyFileSkipsWhenNoAllowed() throws Exception {
-    // Should early-return and not create file
-    File out = getTempFile("lockss-np-", ".yaml");
-    // Ensure a clean, non-existent path for this test
-    if (out.exists()) {
-      out.delete();
-    }
-    assertFalse(out.exists());
+  public void testWriteAndApplyNetworkPolicy() throws Exception {
+    V1NetworkPolicy policy = npMgr.createDefaultNetworkPolicy("lockss", "test-policy");
 
-    // FIXME: This wasn't really testing anything
-//    npMgr.updateAndApplyNetworkPolicy(
-//        Collections.emptyList(),
-//        Arrays.asList("10.0.0.0/8"),
-//        out.getAbsolutePath());
-
-    assertFalse(out.exists(), "File should not be created when include list is empty");
+    V1NetworkPolicy[] policies = new V1NetworkPolicy[] {policy};
+    NetworkPolicyManager npm = new NetworkPolicyManager();
+    npm.writeAndApplyNetworkPolicy("test-namespace", policies);
   }
 
   @Test
@@ -221,7 +275,6 @@ public class TestNetworkPolicyManager extends LockssCoreTestCase5 {
       }
     }
   }
-
 
   @Test
   public void testSetConfigIgnoredWhenNotKubernetes() throws Exception {
@@ -369,7 +422,6 @@ public class TestNetworkPolicyManager extends LockssCoreTestCase5 {
         assertThrows(IllegalArgumentException.class, () -> npMgr.buildPorts(" ;  ; "));
     assertTrue(ex.getMessage().toLowerCase().contains("no valid ports"));
   }
-  
   
   private void assertIpRuleWithPorts(V1NetworkPolicyIngressRule rule, String expectedCidr,
       List<Integer> expectedPorts) {
@@ -523,14 +575,26 @@ public class TestNetworkPolicyManager extends LockssCoreTestCase5 {
     // Use a resettable signal queue to avoid one-shot CountDownLatch issues across multiple calls
     final java.util.concurrent.BlockingQueue<Boolean> calls = new java.util.concurrent.LinkedBlockingQueue<>();
     private org.lockss.util.PlatformVersion testPv;
+    private V1NetworkPolicy existingPolicy;
 
     void setTestPlatformVersion(org.lockss.util.PlatformVersion pv) {
       this.testPv = pv;
     }
 
+    public void setExistingPolicy(V1NetworkPolicy testNetworkPolicy) {
+      this.existingPolicy = testNetworkPolicy;
+    }
+
+    public V1NetworkPolicy getExistingPolicy() {
+      return this.existingPolicy;
+    }
+
     @Override
-    V1NetworkPolicy generateUpdatedNetworkPolicy(String namespace, String policyName, List<String> includeFilters, List<String> excludeFilters, String managedPorts) throws IOException, ApiException, AddressStringException {
-      return null;
+    protected V1NetworkPolicy findExistingPolicyorCreate(final String policyName, final String namespace) {
+      if (existingPolicy == null) {
+        existingPolicy = createDefaultNetworkPolicy(namespace, policyName);
+      }
+      return existingPolicy;
     }
 
     @Override
@@ -554,5 +618,4 @@ public class TestNetworkPolicyManager extends LockssCoreTestCase5 {
       }
     }
   }
-
 }
