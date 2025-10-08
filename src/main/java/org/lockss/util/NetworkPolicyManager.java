@@ -247,7 +247,7 @@ public class NetworkPolicyManager extends BaseLockssManager implements Configura
     // Always allow from any pod (podSelector: {})
     ingressRules.add(new V1NetworkPolicyIngressRule()
         .from(Collections.singletonList(new V1NetworkPolicyPeer().podSelector(
-            buildPodSelector(LABEL_VALUE_NON_LOCKSS)))));
+            anyPodSelector()))));
 
     // Build ports from current managedPorts
     final List<V1NetworkPolicyPort> ports = this.buildPorts(managedPorts);
