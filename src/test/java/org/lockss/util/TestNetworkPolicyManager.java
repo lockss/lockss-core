@@ -32,18 +32,22 @@ POSSIBILITY OF SUCH DAMAGE.
 
 package org.lockss.util;
 
-import static org.mockito.Mockito.*;
-
 import inet.ipaddr.AddressStringException;
-import io.kubernetes.client.custom.*;
-import io.kubernetes.client.openapi.ApiException;
+import io.kubernetes.client.custom.IntOrString;
 import io.kubernetes.client.openapi.models.*;
-import io.kubernetes.client.util.*;
-import java.io.*;
-import java.util.*;
-import org.junit.jupiter.api.*;
+import io.kubernetes.client.util.Yaml;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
 import org.lockss.log.L4JLogger;
-import org.lockss.test.*;
+import org.lockss.test.LockssCoreTestCase5;
+
+import java.io.File;
+import java.io.FileInputStream;
+import java.io.IOException;
+import java.util.*;
+
+import static org.mockito.Mockito.*;
 
 public class TestNetworkPolicyManager extends LockssCoreTestCase5 {
   private final L4JLogger log = L4JLogger.getLogger();
@@ -175,6 +179,29 @@ public class TestNetworkPolicyManager extends LockssCoreTestCase5 {
     List<String> denied = Arrays.asList("172.16.0.0/12");
     String managedAdminPorts = "80;443";
 
+    // Build list of expected ingress rules
+    final List<V1NetworkPolicyIngressRule> expectedIngressRules = new ArrayList<>();
+
+    final List<String> allowedCidrs = npMgr.toCidrList(allowed);
+    final List<String> deniedCidrs = npMgr.toCidrList(denied);
+
+    // Ingress rule allowing any pod access
+    expectedIngressRules.add(new V1NetworkPolicyIngressRule()
+        .from(Collections.singletonList(new V1NetworkPolicyPeer().podSelector(
+            new V1LabelSelector()))));
+
+    // Build ports from current managedPorts
+    final List<V1NetworkPolicyPort> ports = npMgr.buildPorts(managedAdminPorts);
+
+    for (final String cidr : allowedCidrs) {
+      final V1IPBlock block = npMgr.buildIpBlock(cidr, deniedCidrs);
+      final V1NetworkPolicyPeer peer = new V1NetworkPolicyPeer().ipBlock(block);
+      final V1NetworkPolicyIngressRule cidrRule = new V1NetworkPolicyIngressRule()
+          .from(Collections.singletonList(peer))
+          .ports(ports);
+      expectedIngressRules.add(cidrRule);
+    }
+
     // Assert that if there is not an existing policy, generateUpdatedNetworkPolicy()
     // creates a default one and populates it with the provided ingress settings
     {
@@ -182,57 +209,86 @@ public class TestNetworkPolicyManager extends LockssCoreTestCase5 {
           npMgr.generateUpdatedNetworkPolicy(namespace, policyName, allowed, denied, managedAdminPorts);
 
       assertNotNull(policy);
+
+      // Assert default policy fields
       V1ObjectMeta metadata = policy.getMetadata();
       assertEquals(namespace, metadata.getNamespace());
       assertEquals(policyName, metadata.getName());
-      assertEquals(npMgr.K8S_API_VERSION, policy.getApiVersion());
+      assertEquals(NetworkPolicyManager.K8S_API_VERSION, policy.getApiVersion());
       assertEquals("NetworkPolicy", policy.getKind());
+
+      // Assert ensureSpecWithDefaults applied
+      V1NetworkPolicySpec spec = policy.getSpec();
+      assertNotNull(spec);
+      assertIterableEquals(NetworkPolicyManager.POLICY_TYPES_INGRESS, spec.getPolicyTypes());
+      assertEquals("non-lockss", spec.getPodSelector()
+          .getMatchLabels()
+          .get("service-kind"));
+
+      // Assert ingress rules
+      List<V1NetworkPolicyIngressRule> ingressRules = spec.getIngress();
+      assertNotNull(ingressRules);
+      assertIterableEquals(expectedIngressRules, ingressRules);
     }
 
-    // Assert existing policy with null spec is populated with defaults
+    // Assert existing policy with null spec is populated with defaults from ensureSpecWithDefaults
     {
-
-      V1NetworkPolicy existingPolicy = npMgr.findExistingPolicyorCreate(namespace, policyName);
-//      V1NetworkPolicy existingPolicy = new V1NetworkPolicy();
-//      V1ObjectMeta metadata = new V1ObjectMeta();
-//      existingPolicy.setMetadata(metadata);
-//      assertNull(existingPolicy.getSpec());
+      V1NetworkPolicy existingPolicy =
+          NetworkPolicyManager.createDefaultNetworkPolicy(namespace, policyName);
 
       npMgr.setExistingPolicy(existingPolicy);
 
       V1NetworkPolicy policy =
           npMgr.generateUpdatedNetworkPolicy(namespace, policyName, allowed, denied, managedAdminPorts);
 
-      assertNotNull(existingPolicy.getSpec());
-      assertIterableEquals(NetworkPolicyManager.POLICY_TYPES_INGRESS, existingPolicy.getSpec().getPolicyTypes());
-      assertEquals("non-lockss", existingPolicy.getSpec()
+      // Assert ensureSpecWithDefaults applied
+      assertSame(existingPolicy.getSpec(), policy.getSpec());
+      assertNotNull(policy.getSpec());
+      assertIterableEquals(NetworkPolicyManager.POLICY_TYPES_INGRESS, policy.getSpec().getPolicyTypes());
+      assertEquals("non-lockss", policy.getSpec()
           .getPodSelector()
           .getMatchLabels()
           .get("service-kind"));
-      assertSame(existingPolicy.getSpec(), policy.getSpec());
 
-      for (V1NetworkPolicyIngressRule ingressRule : policy.getSpec().getIngress()) {
-        for (V1NetworkPolicyPeer peer : ingressRule.getFrom()) {
-          log.info("peer: {}", peer);
-        }
-      }
-
-//      String tmpFile = getTempFile("np-", ".yaml").getAbsolutePath();
-//      npMgr.writePolicyToFile(tmpFile, policy);
-      log.info("policy: {}", policy);
+      // Assert ingress rules
+      List<V1NetworkPolicyIngressRule> ingressRules = policy.getSpec().getIngress();
+      assertNotNull(ingressRules);
+      assertIterableEquals(expectedIngressRules, ingressRules);
     }
 
     // Reset existing policy to null
     npMgr.setExistingPolicy(null);
 
-    // Assert an existing policy is updated with the provided ingress settings
+    // Assert an existing policy is updated with expected ingress rules
     {
-      V1NetworkPolicy existingPolicy = new V1NetworkPolicy();
-      npMgr.setExistingPolicy(existingPolicy);
-    }
+      // Create an existing policy with a single ingress rule
+      V1NetworkPolicy existingPolicy =
+          NetworkPolicyManager.createDefaultNetworkPolicy(namespace, policyName);
 
-    // Assert that if there is an existing policy that already has ingress settings, that they
-    // are not repeated:
+      final List<V1NetworkPolicyIngressRule> myIngressRules = new ArrayList<>();
+      myIngressRules.add(new V1NetworkPolicyIngressRule()
+          .from(Collections.singletonList(new V1NetworkPolicyPeer().podSelector(
+              new V1LabelSelector()))));
+
+      npMgr.setExistingPolicy(existingPolicy);
+
+      V1NetworkPolicy policy =
+          npMgr.generateUpdatedNetworkPolicy(namespace, policyName, allowed, denied, managedAdminPorts);
+
+      // Assert ensureSpecWithDefaults applied
+      assertSame(existingPolicy.getSpec(), policy.getSpec());
+      assertNotNull(policy.getSpec());
+      assertIterableEquals(NetworkPolicyManager.POLICY_TYPES_INGRESS, policy.getSpec().getPolicyTypes());
+      assertEquals("non-lockss", policy.getSpec()
+          .getPodSelector()
+          .getMatchLabels()
+          .get("service-kind"));
+
+      // Assert ingress rules
+      List<V1NetworkPolicyIngressRule> ingressRules = policy.getSpec().getIngress();
+      assertNotNull(ingressRules);
+      assertIterableEquals(expectedIngressRules, ingressRules);
+    }
   }
 
   /**
@@ -240,11 +296,18 @@ public class TestNetworkPolicyManager extends LockssCoreTestCase5 {
    */
   @Test
   public void testWriteAndApplyNetworkPolicy() throws Exception {
+    String tmpFile = getTempFile("np-", ".yaml").getAbsolutePath();
     V1NetworkPolicy policy = npMgr.createDefaultNetworkPolicy("lockss", "test-policy");
 
     V1NetworkPolicy[] policies = new V1NetworkPolicy[] {policy};
-    NetworkPolicyManager npm = new NetworkPolicyManager();
-    npm.writeAndApplyNetworkPolicy("test-namespace", policies);
+    NetworkPolicyManager npm = spy(new NetworkPolicyManager());
+
+    npm.writeAndApplyNetworkPolicy(tmpFile, policies);
+
+    verify(npm, times(policies.length)).writePolicyToFile(tmpFile, policy);
+    verify(npm, times(policies.length)).applyNetworkPolicyToCluster(policy);
+
+    clearInvocations(npm);
   }
 
   @Test

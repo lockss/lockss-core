@@ -215,10 +215,10 @@ public class NetworkPolicyManager extends BaseLockssManager implements Configura
   }
 
   V1NetworkPolicy generateUpdatedNetworkPolicy(String namespace,
-                                                       String policyName,
-                                                       List<String> includeFilters,
-                                                       List<String> excludeFilters,
-                                                       String managedPorts)
+                                               String policyName,
+                                               List<String> includeFilters,
+                                               List<String> excludeFilters,
+                                               String managedPorts)
       throws IOException, ApiException, AddressStringException {
 
     final List<String> allowedCidrs = this.toCidrList(includeFilters);
@@ -262,6 +262,7 @@ public class NetworkPolicyManager extends BaseLockssManager implements Configura
       ingressRules.add(cidrRule);
     }
 
+    // Set (possibly replacing) ingress rules in network policy
     networkPolicy.getSpec().setIngress(ingressRules);
     log.debug2("networkPolicy: {}", networkPolicy);
 
@@ -379,7 +380,7 @@ public class NetworkPolicyManager extends BaseLockssManager implements Configura
     K8sClientUtils.writeNetworkPolicyToFile(filename, policies);
   }
 
-  private V1IPBlock buildIpBlock(final String cidr, final List<String> deniedCidrs) throws AddressStringException {
+  V1IPBlock buildIpBlock(final String cidr, final List<String> deniedCidrs) throws AddressStringException {
     List<String> intersectedDeniedCidrs = getCidrIntersection(cidr, deniedCidrs);
 
     final V1IPBlock block = new V1IPBlock().cidr(cidr);
