@@ -570,14 +570,14 @@ public abstract class WarcArtifactDataStore implements ArtifactDataStore, WARCCo
   /**
    * Returns a permanent WARC in an AU or initializes a new one, on the base path having the most free space.
    *
-   * @param namespace      A {@link String} containing the name of the namespace the AU belongs to.
-   * @param auid           A {@link String} containing the AUID of the AU.
-   * @param minFree        A {@code long} containing the minimum available space the underlying base path must have in bytes.
+   * @param namespace          A {@link String} containing the name of the namespace the AU belongs to.
+   * @param auid               A {@link String} containing the AUID of the AU.
    * @param wantCompressedWarc A {@code boolean} indicating a compressed permanent WARC is needed.
+   * @param minFree            A {@code long} containing the minimum available space the underlying base path must have in bytes.
    * @return A {@link Path} containing the path of a permanent WARC.
    * @throws IOException
    */
-  public Path getAppendablePermanentWarcInAU(String namespace, String auid, long minFree, boolean wantCompressedWarc)
+  public Path getAppendablePermanentWarcInAU(String namespace, String auid, boolean wantCompressedWarc, long minFree)
       throws IOException {
     validateNamespace(namespace);
 
@@ -596,7 +596,7 @@ public abstract class WarcArtifactDataStore implements ArtifactDataStore, WARCCo
 
       // Return the permanent WARC or initialize a new one if there was no permanent WARC candidate:
       return permanentWarc == null ?
-          initPermanentWarcForAU(namespace, auid, minFree) : permanentWarc;
+          initPermanentWarcForAU(namespace, auid, wantCompressedWarc, minFree) : permanentWarc;
     }
   }
 
@@ -722,7 +722,11 @@ public abstract class WarcArtifactDataStore implements ArtifactDataStore, WARCCo
    * @return A {@link String} containing the WARC file extension.
    */
   protected String getWarcFileExtension() {
-    return useCompression ?
+    return getWarcFileExtension(isCompressionEnabled());
+  }
+
+  public static String getWarcFileExtension(boolean isCompressionEnabled) {
+    return isCompressionEnabled ?
         WARCConstants.DOT_COMPRESSED_WARC_FILE_EXTENSION :
         WARCConstants.DOT_WARC_FILE_EXTENSION;
   }
@@ -869,7 +873,8 @@ public abstract class WarcArtifactDataStore implements ArtifactDataStore, WARCCo
    * @return The {@link Path} to the new permanent WARC for this AU.
    * @throws IOException
    */
-  public Path initPermanentWarcForAU(String namespace, String auid, long minFree) throws IOException {
+  public Path initPermanentWarcForAU(String namespace, String auid, boolean wantCompression, long minFree)
+      throws IOException {
     validateNamespace(namespace);
 
     // Determine which content base path to use based on available space
@@ -882,7 +887,8 @@ public abstract class WarcArtifactDataStore implements ArtifactDataStore, WARCCo
 
     // Generate and initialize a new permanent WARC file for this AU under the base path
     Path auBasePath = initAuDir(basePath, namespace, auid);
-    Path permanentWarcPath = auBasePath.resolve(generateWarcFileNameForAU(namespace, auid) + getWarcFileExtension());
+    Path permanentWarcPath = auBasePath.resolve(
+        generateWarcFileNameForAU(namespace, auid) + getWarcFileExtension(wantCompression));
     initWarc(permanentWarcPath);
 
     // Add to the list of appendable permanent WARC files for this AU
@@ -1282,7 +1288,7 @@ public abstract class WarcArtifactDataStore implements ArtifactDataStore, WARCCo
    * Returns a {@code boolean} indicating whether this WARC artifact data store compresses WARC
    * records.
    */
-  public boolean getUseWarcCompression() {
+  public boolean isCompressionEnabled() {
     return useCompression;
   }
 
@@ -1444,7 +1450,8 @@ public abstract class WarcArtifactDataStore implements ArtifactDataStore, WARCCo
       // ********************************
 
       // Get a temporary WARC from the temporary WARC pool
-      WarcFile tmpWarc = tmpWarcPool.checkoutWarcFileForWrite();
+      boolean compressWarcRecord = isCompressionEnabled();
+      WarcFile tmpWarc = tmpWarcPool.checkoutWarcFileForWrite(compressWarcRecord);
       Path tmpWarcPath = tmpWarc.getPath();
 
       // Record will be appended to the WARC file; its offset is the current length of the WARC
@@ -1458,7 +1465,7 @@ public abstract class WarcArtifactDataStore implements ArtifactDataStore, WARCCo
         // Use a CountingOutputStream to track number of bytes written to the WARC (i.e., size
         // of the WARC record compressed or uncompressed)
         try (CountingOutputStream cos = new CountingOutputStream(output)) {
-          if (useCompression) {
+          if (compressWarcRecord) {
             // Yes - wrap COS in GZIPOutputStream then write to it
             try (GZIPOutputStream gzipOutput = new GZIPOutputStream(cos)) {
               recordLength = writeArtifactData(artifactData, gzipOutput);
@@ -1484,7 +1491,7 @@ public abstract class WarcArtifactDataStore implements ArtifactDataStore, WARCCo
         log.debug2("Wrote {} bytes offset {} to {}; size is now {}",
             storedRecordLength, offset, tmpWarcPath, offset + recordLength);
 
-        if (useCompression) {
+        if (compressWarcRecord) {
           log.debug2("WARC record compression ratio: {} [compressed: {}, uncompressed: {}]",
               (float) recordLength / storedRecordLength, storedRecordLength, recordLength);
         }
@@ -1866,7 +1873,7 @@ public abstract class WarcArtifactDataStore implements ArtifactDataStore, WARCCo
 
       // Get an permanent WARC of this AU to append the artifact to
       Path dst = getAppendablePermanentWarcInAU(
-          artifact.getNamespace(), artifact.getAuid(), recordLength, wantCompressedWarc);
+          artifact.getNamespace(), artifact.getAuid(), wantCompressedWarc, recordLength);
 
       // Artifact will be appended as a WARC record to this WARC file so its offset is the current length of the file
       long warcLength = getWarcLength(dst);

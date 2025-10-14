@@ -78,7 +78,7 @@ class TestWarcFilePool extends LockssTestCase5 {
     when(store.getBasePaths()).thenReturn(baseDirs);
     doCallRealMethod().when(store).setUseWarcCompression(ArgumentMatchers.anyBoolean());
     doCallRealMethod().when(store).getWarcFileExtension();
-    doCallRealMethod().when(store).getUseWarcCompression();
+    doCallRealMethod().when(store).isCompressionEnabled();
 
     store.setUseWarcCompression(useCompression);
 
@@ -87,7 +87,7 @@ class TestWarcFilePool extends LockssTestCase5 {
 
     WarcFilePool pool = new WarcFilePool(store);
 
-    WarcFile result = pool.createWarcFile();
+    WarcFile result = pool.createWarcFile(useCompression);
 
     assertNotNull(result);
     assertFalse(result.isCheckedOut());
@@ -144,7 +144,7 @@ class TestWarcFilePool extends LockssTestCase5 {
     when(store.getBasePaths()).thenReturn(new Path[]{baseDir});
     when(store.getMaxArtifactsThreshold()).thenReturn(1);
     when(store.getThresholdWarcSize()).thenReturn(1L);
-    when(store.getUseWarcCompression()).thenReturn(useCompression);
+    when(store.isCompressionEnabled()).thenReturn(useCompression);
 
     // Assert an empty pool creates a new WARC
     {
@@ -152,8 +152,8 @@ class TestWarcFilePool extends LockssTestCase5 {
 
       assertEmpty(pool.allWarcs);
 
-      WarcFile warcFile = pool.checkoutWarcFileForWrite();
-      verify(pool, Mockito.atMost(1)).createWarcFile();
+      WarcFile warcFile = pool.checkoutWarcFileForWrite(useCompression);
+      verify(pool, Mockito.atMost(1)).createWarcFile(useCompression);
 
       assertNotNull(warcFile);
       assertTrue(warcFile.isCheckedOut());
@@ -176,8 +176,8 @@ class TestWarcFilePool extends LockssTestCase5 {
     List<WarcFile> warcFiles = ListUtil.list(warc1, warc2, warc3, warc4);
     pool.allWarcs.addAll(warcFiles);
 
-    WarcFile result1 = pool.checkoutWarcFileForWrite();
-    verify(pool, Mockito.atMost(1)).createWarcFile();
+    WarcFile result1 = pool.checkoutWarcFileForWrite(useCompression);
+    verify(pool, Mockito.atMost(1)).createWarcFile(useCompression);
     clearInvocations(pool);
 
     assertNotNull(result1);
@@ -189,8 +189,8 @@ class TestWarcFilePool extends LockssTestCase5 {
     pool.returnWarcFile(result1);
     assertFalse(result1.isCheckedOut());
 
-    WarcFile result2 = pool.checkoutWarcFileForWrite();
-    verify(pool, never()).createWarcFile();
+    WarcFile result2 = pool.checkoutWarcFileForWrite(useCompression);
+    verify(pool, never()).createWarcFile(useCompression);
     clearInvocations(pool);
 
     assertNotNull(result2);

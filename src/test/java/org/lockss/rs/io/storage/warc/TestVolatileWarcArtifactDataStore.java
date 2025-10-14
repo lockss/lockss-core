@@ -158,7 +158,7 @@ public class TestVolatileWarcArtifactDataStore extends AbstractWarcArtifactDataS
   public void testMakeStorageUrlImpl() throws Exception {
     ArtifactIdentifier aid = new ArtifactIdentifier(NS1, AUID1, "http://example.com/u1", 1);
 
-    Path activeWarcPath = store.getAppendablePermanentWarcInAU(aid.getNamespace(), aid.getAuid(), 4321L, false);
+    Path activeWarcPath = store.getAppendablePermanentWarcInAU(aid.getNamespace(), aid.getAuid(), false, 4321L);
 
     URI expectedStorageUrl = URI.create(String.format(
         "volatile://%s?offset=%d&length=%d",

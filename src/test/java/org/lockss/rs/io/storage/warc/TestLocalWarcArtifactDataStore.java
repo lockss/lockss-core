@@ -286,7 +286,8 @@ public class TestLocalWarcArtifactDataStore extends AbstractWarcArtifactDataStor
     ArtifactIdentifier aid = new ArtifactIdentifier(NS1, AUID1, "http://example.com/u1", 1);
     long pendingArtifactSize = 1234L;
 
-    Path activeWarcPath = store.getAppendablePermanentWarcInAU(aid.getNamespace(), aid.getAuid(), pendingArtifactSize, false);
+    Path activeWarcPath =
+        store.getAppendablePermanentWarcInAU(aid.getNamespace(), aid.getAuid(), false, pendingArtifactSize);
 
     URI expectedStorageUrl = URI.create(String.format(
         "file://%s?offset=%d&length=%d",
