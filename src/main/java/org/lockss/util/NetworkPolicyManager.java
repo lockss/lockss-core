@@ -67,7 +67,8 @@ public class NetworkPolicyManager extends BaseLockssManager implements Configura
   private static final String K8S_NAMESPACE_LOCKSS = "lockss";
   protected static final String K8S_API_VERSION = "networking.k8s.io/v1";
   private static final String LABEL_SERVICE_KIND = "service-kind";
-  private static final String LABEL_VALUE_NON_LOCKSS = "non-lockss";
+  public static final String LABEL_VALUE_NON_LOCKSS_ADMIN_ACCESS = "non-lockss-admin-access";
+  public static final String LABEL_VALUE_NON_LOCKSS_CONTENT_ACCESS = "non-lockss-content-access";
   public static final java.util.List<String> POLICY_TYPES_INGRESS = Collections.singletonList("Ingress");
 
   protected String managedAdminPorts = NetworkPolicyManager.DEFAULT_LOCKSS_PROTECTED_ADMIN_PORTS;
@@ -149,6 +150,7 @@ public class NetworkPolicyManager extends BaseLockssManager implements Configura
               this.generateUpdatedNetworkPolicy(
                   K8S_NAMESPACE_LOCKSS,
                   NETWORK_POLICY_NAME_ADMIN_ACCESS,
+                  LABEL_VALUE_NON_LOCKSS_ADMIN_ACCESS,
                   config.getList(AdminServletManager.PARAM_IP_INCLUDE),
                   config.getList(AdminServletManager.PARAM_IP_EXCLUDE),
                   managedAdminPorts);
@@ -158,6 +160,7 @@ public class NetworkPolicyManager extends BaseLockssManager implements Configura
               this.generateUpdatedNetworkPolicy(
                   K8S_NAMESPACE_LOCKSS,
                   NETWORK_POLICY_NAME_CONTENT_ACCESS,
+                  LABEL_VALUE_NON_LOCKSS_CONTENT_ACCESS,
                   config.getList(ProxyManager.PARAM_IP_INCLUDE),
                   config.getList(ProxyManager.PARAM_IP_EXCLUDE),
                   managedContentPorts);
@@ -216,6 +219,7 @@ public class NetworkPolicyManager extends BaseLockssManager implements Configura
 
   V1NetworkPolicy generateUpdatedNetworkPolicy(String namespace,
                                                String policyName,
+                                               String podSelectorLabel,
                                                List<String> includeFilters,
                                                List<String> excludeFilters,
                                                String managedPorts)
@@ -239,7 +243,7 @@ public class NetworkPolicyManager extends BaseLockssManager implements Configura
     final V1NetworkPolicy networkPolicy =
         this.findExistingPolicyorCreate(policyName, namespace);
 
-    this.ensureSpecWithDefaults(networkPolicy);
+    this.ensureSpecWithDefaults(networkPolicy, podSelectorLabel);
 
     // Build ingress rules
     final List<V1NetworkPolicyIngressRule> ingressRules = new ArrayList<>();
@@ -321,7 +325,7 @@ public class NetworkPolicyManager extends BaseLockssManager implements Configura
   /**
    * Ensure a NetworkPolicy spec exists, with sane defaults.
    */
-  private void ensureSpecWithDefaults(final V1NetworkPolicy policy) {
+  private void ensureSpecWithDefaults(final V1NetworkPolicy policy, String podSelectorLabel) {
     if (null == policy.getSpec()) {
       this.log.info("NetworkPolicy '" + policy.getMetadata().getName() + "' in namespace '"
           + policy.getMetadata().getNamespace() + "' has null spec; setting defaults.");
@@ -330,7 +334,7 @@ public class NetworkPolicyManager extends BaseLockssManager implements Configura
       spec.setPolicyTypes(NetworkPolicyManager.POLICY_TYPES_INGRESS);
 
       // Empty selector means "any pod"
-      spec.setPodSelector(buildPodSelector(LABEL_VALUE_NON_LOCKSS));
+      spec.setPodSelector(buildPodSelector(podSelectorLabel));
       policy.setSpec(spec);
     }
   }

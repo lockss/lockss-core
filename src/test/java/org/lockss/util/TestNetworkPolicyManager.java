@@ -206,7 +206,9 @@ public class TestNetworkPolicyManager extends LockssCoreTestCase5 {
     // creates a default one and populates it with the provided ingress settings
     {
       V1NetworkPolicy policy =
-          npMgr.generateUpdatedNetworkPolicy(namespace, policyName, allowed, denied, managedAdminPorts);
+          npMgr.generateUpdatedNetworkPolicy(namespace, policyName,
+              NetworkPolicyManager.LABEL_VALUE_NON_LOCKSS_ADMIN_ACCESS,
+              allowed, denied, managedAdminPorts);
 
       assertNotNull(policy);
 
@@ -221,7 +223,7 @@ public class TestNetworkPolicyManager extends LockssCoreTestCase5 {
       V1NetworkPolicySpec spec = policy.getSpec();
       assertNotNull(spec);
       assertIterableEquals(NetworkPolicyManager.POLICY_TYPES_INGRESS, spec.getPolicyTypes());
-      assertEquals("non-lockss", spec.getPodSelector()
+      assertEquals("non-lockss-admin-access", spec.getPodSelector()
           .getMatchLabels()
           .get("service-kind"));
 
@@ -239,13 +241,15 @@ public class TestNetworkPolicyManager extends LockssCoreTestCase5 {
       npMgr.setExistingPolicy(existingPolicy);
 
       V1NetworkPolicy policy =
-          npMgr.generateUpdatedNetworkPolicy(namespace, policyName, allowed, denied, managedAdminPorts);
+          npMgr.generateUpdatedNetworkPolicy(namespace, policyName,
+              NetworkPolicyManager.LABEL_VALUE_NON_LOCKSS_ADMIN_ACCESS,
+              allowed, denied, managedAdminPorts);
 
       // Assert ensureSpecWithDefaults applied
       assertSame(existingPolicy.getSpec(), policy.getSpec());
       assertNotNull(policy.getSpec());
       assertIterableEquals(NetworkPolicyManager.POLICY_TYPES_INGRESS, policy.getSpec().getPolicyTypes());
-      assertEquals("non-lockss", policy.getSpec()
+      assertEquals("non-lockss-admin-access", policy.getSpec()
           .getPodSelector()
           .getMatchLabels()
           .get("service-kind"));
@@ -273,13 +277,15 @@ public class TestNetworkPolicyManager extends LockssCoreTestCase5 {
       npMgr.setExistingPolicy(existingPolicy);
 
       V1NetworkPolicy policy =
-          npMgr.generateUpdatedNetworkPolicy(namespace, policyName, allowed, denied, managedAdminPorts);
+          npMgr.generateUpdatedNetworkPolicy(namespace, policyName,
+              NetworkPolicyManager.LABEL_VALUE_NON_LOCKSS_ADMIN_ACCESS,
+              allowed, denied, managedAdminPorts);
 
       // Assert ensureSpecWithDefaults applied
       assertSame(existingPolicy.getSpec(), policy.getSpec());
       assertNotNull(policy.getSpec());
       assertIterableEquals(NetworkPolicyManager.POLICY_TYPES_INGRESS, policy.getSpec().getPolicyTypes());
-      assertEquals("non-lockss", policy.getSpec()
+      assertEquals("non-lockss-admin-access", policy.getSpec()
           .getPodSelector()
           .getMatchLabels()
           .get("service-kind"));
