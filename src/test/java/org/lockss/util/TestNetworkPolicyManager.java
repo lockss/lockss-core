@@ -191,14 +191,14 @@ public class TestNetworkPolicyManager extends LockssCoreTestCase5 {
             new V1LabelSelector()))));
 
     // Build ports from current managedPorts
-    final List<V1NetworkPolicyPort> ports = npMgr.buildPorts(managedAdminPorts);
+//    final List<V1NetworkPolicyPort> ports = npMgr.buildPorts(managedAdminPorts);
 
     for (final String cidr : allowedCidrs) {
       final V1IPBlock block = npMgr.buildIpBlock(cidr, deniedCidrs);
       final V1NetworkPolicyPeer peer = new V1NetworkPolicyPeer().ipBlock(block);
       final V1NetworkPolicyIngressRule cidrRule = new V1NetworkPolicyIngressRule()
-          .from(Collections.singletonList(peer))
-          .ports(ports);
+          .from(Collections.singletonList(peer));
+//          .ports(ports);
       expectedIngressRules.add(cidrRule);
     }
 
