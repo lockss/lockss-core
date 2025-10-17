@@ -64,7 +64,7 @@ class TestWarcFilePool extends LockssTestCase5 {
   private final static L4JLogger log = L4JLogger.getLogger();
 
   /**
-   * Tests for {@link WarcFilePool#createWarcFile()}.
+   * Tests for {@link WarcFilePool#createWarcFile(boolean)}.
    */
   @Test
   public void testCreateWarcFile() throws Exception {
@@ -103,29 +103,25 @@ class TestWarcFilePool extends LockssTestCase5 {
   }
 
   /**
-   * Test for {@link WarcFilePool#generateTmpWarcFileName()}.
+   * Test for {@link WarcFilePool#generateTmpWarcFileName(boolean)}.
    */
   @Test
   public void testGenerateTmpWarcFileName() throws Exception {
     WarcArtifactDataStore store = mock(WarcArtifactDataStore.class);
-    doCallRealMethod().when(store).getWarcFileExtension();
-    doCallRealMethod().when(store).setUseWarcCompression(ArgumentMatchers.anyBoolean());
-
     WarcFilePool pool = new WarcFilePool(store);
 
-    // WARC compression disabled
+    // Assert the filename generated for an uncompressed WARC file
+    // uses the .warc file extension
     {
-      store.setUseWarcCompression(false);
-      String fileName = pool.generateTmpWarcFileName();
-
+      String fileName = pool.generateTmpWarcFileName(false);
       assertNotNull(fileName);
       assertTrue(StringUtils.endsWithIgnoreCase(fileName, ".warc"));
     }
 
-    // WARC compression enabled
+    // Assert the filename generated for a compressed WARC file
+    // uses the .warc.gz file extension
     {
-      store.setUseWarcCompression(true);
-      String fileName = pool.generateTmpWarcFileName();
+      String fileName = pool.generateTmpWarcFileName(true);
 
       assertNotNull(fileName);
       assertTrue(StringUtils.endsWithIgnoreCase(fileName, ".warc.gz"));
@@ -133,7 +129,7 @@ class TestWarcFilePool extends LockssTestCase5 {
   }
 
   /**
-   * Test for {@link WarcFilePool#checkoutWarcFileForWrite()}.
+   * Test for {@link WarcFilePool#checkoutWarcFileForWrite(boolean)}.
    */
   @Test
   public void testCheckoutWarcFileForWrite() throws Exception {
