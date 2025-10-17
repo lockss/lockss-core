@@ -254,15 +254,15 @@ public class NetworkPolicyManager extends BaseLockssManager implements Configura
             anyPodSelector()))));
 
     // Build ports from current managedPorts
-     final List<V1NetworkPolicyPort> ports = this.buildPorts(managedPorts);
+//     final List<V1NetworkPolicyPort> ports = this.buildPorts(managedPorts);
 
     // One rule per allowed CIDR, with optional except list and the fixed ports
     for (final String cidr : allowedCidrs) {
       final V1IPBlock block = this.buildIpBlock(cidr, deniedCidrs);
       final V1NetworkPolicyPeer peer = new V1NetworkPolicyPeer().ipBlock(block);
       final V1NetworkPolicyIngressRule cidrRule = new V1NetworkPolicyIngressRule()
-          .from(Collections.singletonList(peer))
-          .ports(ports);
+          .from(Collections.singletonList(peer));
+          // .ports(ports);
       ingressRules.add(cidrRule);
     }
 
