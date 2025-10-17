@@ -76,7 +76,7 @@ public class WarcFilePool {
     Path tmpWarcDir = basePath.resolve(WarcArtifactDataStore.TMP_WARCS_DIR);
 
     WarcFile warcFile =
-        new WarcFile(tmpWarcDir.resolve(generateTmpWarcFileName()), wantCompression);
+        new WarcFile(tmpWarcDir.resolve(generateTmpWarcFileName(wantCompression)), wantCompression);
 
     store.initWarc(warcFile.getPath());
 
@@ -85,8 +85,8 @@ public class WarcFilePool {
     return warcFile;
   }
 
-  protected String generateTmpWarcFileName() {
-    return UUID.randomUUID() + store.getWarcFileExtension();
+  protected String generateTmpWarcFileName(boolean wantCompression) {
+    return UUID.randomUUID() + WarcArtifactDataStore.getWarcFileExtension(wantCompression);
   }
 
   /**
