@@ -167,7 +167,9 @@ public class ManagerDescs {
                     "org.lockss.daemon.status.OverviewStatus");
   public static ManagerDesc JMS_MANAGER_DESC =
     new ManagerDesc("org.lockss.jms.JMSManager");
-
+  public static ManagerDesc NETWORK_POLICY_MANAGER_DESC =
+      new ManagerDesc(LockssDaemon.NETWORK_POLICY_MANAGER,
+          "org.lockss.util.NetworkPolicyManager");
   public static ManagerDesc STATE_MANAGER_DESC =
     new ManagerDesc(LockssDaemon.STATE_MANAGER,
 		    "org.lockss.state.ClientStateManager") {
@@ -187,5 +189,4 @@ public class ManagerDescs {
       public boolean shouldStart(LockssApp app) {
         return app instanceof LockssDaemon && ((LockssDaemon)app).isClockss();
       }};
-
 }

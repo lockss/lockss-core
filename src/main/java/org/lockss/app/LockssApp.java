@@ -192,6 +192,8 @@ public class LockssApp {
     managerKey(Cron.class);
   public static final String TRUEZIP_MANAGER =
     managerKey(TrueZipManager.class);
+  public static final String NETWORK_POLICY_MANAGER =
+      managerKey(NetworkPolicyManager.class);
 //   public static final String JOB_MANAGER = "JobManager";
 //   public static final String JOB_DB_MANAGER = "JobDbManager";
 

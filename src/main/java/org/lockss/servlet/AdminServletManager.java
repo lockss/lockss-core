@@ -94,6 +94,9 @@ public class AdminServletManager extends BaseServletManager {
   /** List of IPs or subnets to allow */
   public static final String PARAM_IP_INCLUDE =
           IP_ACCESS_PREFIX + SUFFIX_IP_INCLUDE;
+  /** List of IPs or subnets to exclude */
+  public static final String PARAM_IP_EXCLUDE =
+      IP_ACCESS_PREFIX + SUFFIX_IP_EXCLUDE;
   /** List of IPs or subnets to reject */
   public static final String PARAM_IP_PLATFORM_SUBNET =
           IP_ACCESS_PREFIX + SUFFIX_IP_PLATFORM_SUBNET;

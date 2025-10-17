@@ -222,6 +222,7 @@ public class IpFilter {
   public interface Mask {
     public boolean match(Addr ip);
     public int getMaskBits();
+    public String toString();
   }
 
   /**  An IP address */
@@ -355,10 +356,8 @@ public class IpFilter {
 	  sb.append(".");
 	}
       }
-      if (mask != -1) {
-	sb.append("/");
-	sb.append(Integer.toString(maskBits));
-      }
+      sb.append("/");
+      sb.append(Integer.toString(maskBits));
       return sb.toString();
     }
   }
