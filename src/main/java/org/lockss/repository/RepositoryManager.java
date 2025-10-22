@@ -49,6 +49,8 @@ import org.lockss.util.ListUtil;
 import org.lockss.util.StringUtil;
 import org.lockss.util.os.PlatformUtil;
 import org.lockss.util.rest.RestUtil;
+import org.lockss.util.rest.RestUtil.LockssRestTemplateSettings;
+import org.lockss.util.rest.RestUtil.LockssRestTemplateSettingsBuilder;
 import org.lockss.util.rest.repo.*;
 import org.lockss.util.rest.repo.model.*;
 import org.lockss.util.rest.repo.util.ArtifactCache;
@@ -125,6 +127,7 @@ public class RepositoryManager
     RestLockssRepositoryArtifactIterator.DEFAULT_QUEUE_GET_TIMEOUT;
 
   public static final String REPOSITORY_CLIENT_PREFIX = PREFIX + "client.";
+  public static final String REPOSITORY_CLIENT_POOL_PREFIX = REPOSITORY_CLIENT_PREFIX + "connectionPool.";
 
   /** Toggles whether to use the multipart endpoint for artifact data */
   public static final String PARAM_USE_MULTIPART_ENDPOINT =
@@ -139,6 +142,14 @@ public class RepositoryManager
   public static final String PARAM_READ_TIMEOUT =
       REPOSITORY_CLIENT_PREFIX + "readTimeout";
   public static final long DEFAULT_READ_TIMEOUT = 1 * Constants.HOUR;
+
+  public static final String PARAM_POOL_MAX_CONNECTIONS =
+      REPOSITORY_CLIENT_POOL_PREFIX + "maxConnections";
+  public static final int DEFAULT_POOL_MAX_CONNECTIONS = 250;
+
+  public static final String PARAM_POOL_MAX_CONNECTIONS_PER_ROUTE =
+      REPOSITORY_CLIENT_POOL_PREFIX + "maxConnectionsPerRoute";
+  public static final int DEFAULT_POOL_MAX_CONNECTIONS_PER_ROUTE = 50;
 
   public static final String PARAM_RESPONSE_SIZE_THRESHOLD =
       REPOSITORY_CLIENT_PREFIX + "sizeThreshold";
@@ -190,6 +201,8 @@ public class RepositoryManager
   private boolean useMultipartEndpoint = DEFAULT_USE_MULTIPART_ENDPOINT;
   private long connectTimeout = DEFAULT_CONNECT_TIMEOUT;
   private long readTimeout = DEFAULT_READ_TIMEOUT;
+  private int maxConnections = DEFAULT_POOL_MAX_CONNECTIONS;
+  private int maxConnectionsPerRoute = DEFAULT_POOL_MAX_CONNECTIONS_PER_ROUTE;
   private long sizeThreshold = DEFAULT_RESPONSE_SIZE_THRESHOLD;
   private File tmpDir = DEFAULT_RESPONSE_TMP_DIR;
 
@@ -256,6 +269,8 @@ public class RepositoryManager
 
       connectTimeout = config.getTimeInterval(PARAM_CONNECT_TIMEOUT, DEFAULT_CONNECT_TIMEOUT);
       readTimeout = config.getTimeInterval(PARAM_READ_TIMEOUT, DEFAULT_READ_TIMEOUT);
+      maxConnections = config.getInt(PARAM_POOL_MAX_CONNECTIONS, DEFAULT_POOL_MAX_CONNECTIONS);
+      maxConnectionsPerRoute = config.getInt(PARAM_POOL_MAX_CONNECTIONS_PER_ROUTE, DEFAULT_POOL_MAX_CONNECTIONS_PER_ROUTE);
       sizeThreshold = config.getSize(PARAM_RESPONSE_SIZE_THRESHOLD, DEFAULT_RESPONSE_SIZE_THRESHOLD);
 
       tmpDir = (config.containsKey(PARAM_RESPONSE_TMP_DIR)) ?
@@ -284,8 +299,7 @@ public class RepositoryManager
         // Create repo only once
 	try {
           RepoSpec rs = RepoSpec.fromSpec(spec);
-	  rs.setRepository(createLockssRepository(rs));
-	  setV2Repo(rs);
+	  rs.setRepository(createLockssRepository(rs)); setV2Repo(rs);
           return true;
 	} catch (Exception e) {
 	  log.fatal("Can't create V2 repo", e);
@@ -417,13 +431,23 @@ public class RepositoryManager
 	  }
 	}
 
-        log.debug("Making RestLockssRepository, connectTimeout: {}, readTimeout: {}, sizeThreshold: {}",
+        log.debug("Making RestLockssRepository, connectTimeout: {}, readTimeout: {}, maxConnections: {}, " +
+                "maxConnectionsPerRoute: {} ,sizeThreshold: {}",
                   StringUtil.timeIntervalToString(connectTimeout), StringUtil.timeIntervalToString(readTimeout),
-                  StringUtil.sizeToString(sizeThreshold));
-        RestLockssRepository repo = new RestLockssRepository(url,
-            RestUtil.getRestTemplate(connectTimeout, readTimeout, (int) sizeThreshold, tmpDir),
-            serviceUser,
-            servicePassword);
+                  maxConnections, maxConnectionsPerRoute, StringUtil.sizeToString(sizeThreshold));
+
+        LockssRestTemplateSettings settings =
+            new LockssRestTemplateSettingsBuilder()
+                .setConnectTimeout(connectTimeout)
+                .setReadTimeout(readTimeout)
+                .setMaxConnections(maxConnections)
+                .setMaxConnectionsPerRoute(maxConnectionsPerRoute)
+                .setDfosSizeThreshold(sizeThreshold)
+                .setDfosTmpDir(tmpDir)
+                .build();
+
+        RestLockssRepository repo =
+            new RestLockssRepository(url, RestUtil.getRestTemplate(settings), serviceUser, servicePassword);
 
         repo.setUseMultipartEndpoint(useMultipartEndpoint);
         RestLockssRepositoryArtifactIterator.Params iterParams =
@@ -458,11 +482,25 @@ public class RepositoryManager
         repoClient.setUseMultipartEndpoint(useMultipartEndpoint);
         if (changedKeys.contains(PARAM_READ_TIMEOUT) ||
             changedKeys.contains(PARAM_CONNECT_TIMEOUT) ||
+            changedKeys.contains(PARAM_POOL_MAX_CONNECTIONS) ||
+            changedKeys.contains(PARAM_POOL_MAX_CONNECTIONS_PER_ROUTE) ||
             changedKeys.contains(PARAM_RESPONSE_SIZE_THRESHOLD)) {
-          log.debug("Resetting RestTemplate params. connectTimeout: {}, readTimeout: {}, sizeThreshold: {}",
+          log.debug("Resetting RestTemplate params. connectTimeout: {}, readTimeout: {}, sizeThreshold: {}"
+              + "maxConnections: {}, maxConnectionsPerRoute: {}",
                     StringUtil.timeIntervalToString(connectTimeout), StringUtil.timeIntervalToString(readTimeout),
-                    StringUtil.sizeToString(sizeThreshold));
-          repoClient.setRestTemplate(RestUtil.getRestTemplate(connectTimeout, readTimeout, (int) sizeThreshold, tmpDir));
+                    StringUtil.sizeToString(sizeThreshold), maxConnections, maxConnectionsPerRoute);
+
+          LockssRestTemplateSettings settings =
+              new LockssRestTemplateSettingsBuilder()
+                  .setConnectTimeout(connectTimeout)
+                  .setReadTimeout(readTimeout)
+                  .setMaxConnections(maxConnections)
+                  .setMaxConnectionsPerRoute(maxConnectionsPerRoute)
+                  .setDfosSizeThreshold(sizeThreshold)
+                  .setDfosTmpDir(tmpDir)
+                  .build();
+
+          repoClient.setRestTemplate(RestUtil.getRestTemplate(settings));
         }
       }
     }
