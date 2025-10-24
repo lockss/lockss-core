@@ -174,7 +174,12 @@ public abstract class BaseCrawler implements Crawler {
   protected AuCacheResultMap auResultMap;
   protected Set<String> failedUrls = new HashSet<String>();
 
-  public enum StorePermissionScheme {Legacy, StoreAllInSpec};
+  public enum StorePermissionScheme {
+    Legacy,
+    StoreAllInSpec,
+    AllowOffHostExcursion,
+    AllowOffHostExcursionToOrigUrl,
+  };
 
   /**  the crawl queues are sorted.  <code>CrawlDate</code>:
    * By recency of previous crawl attempt, etc. (Attempts to give all AUs
@@ -196,7 +201,8 @@ public abstract class BaseCrawler implements Crawler {
   public static final String PARAM_STORE_PERMISSION_SCHEME =
     PREFIX + "storePermissionScheme";
   public static final StorePermissionScheme DEFAULT_STORE_PERMISSION_SCHEME =
-    StorePermissionScheme.Legacy;
+    StorePermissionScheme.AllowOffHostExcursion;
+//     StorePermissionScheme.Legacy;
   
   public static final String PARAM_MIME_TYPE_PAUSE_AFTER_304 =
     PREFIX + "mimeTypePauseAfter304";
@@ -736,6 +742,12 @@ public abstract class BaseCrawler implements Crawler {
       break;
     case StoreAllInSpec:
       uf.setRedirectScheme(UrlFetcher.REDIRECT_SCHEME_STORE_ALL_IN_SPEC);
+      break;
+    case AllowOffHostExcursion:
+      uf.setRedirectScheme(UrlFetcher.REDIRECT_SCHEME_ALLOW_HOST_EXCURSION);
+      break;
+    case AllowOffHostExcursionToOrigUrl:
+      uf.setRedirectScheme(UrlFetcher.REDIRECT_SCHEME_ALLOW_HOST_EXCURSION_TO_ORIG_URL);
       break;
     }
     BitSet permFetchFlags = uf.getFetchFlags();
