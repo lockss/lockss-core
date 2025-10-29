@@ -36,8 +36,10 @@ import com.fasterxml.jackson.annotation.JsonAutoDetect;
 import com.fasterxml.jackson.databind.DeserializationFeature;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.apache.commons.codec.digest.DigestUtils;
-import org.apache.commons.collections4.*;
-import org.apache.commons.io.*;
+import org.apache.commons.collections4.IterableUtils;
+import org.apache.commons.collections4.IteratorUtils;
+import org.apache.commons.collections4.ListUtils;
+import org.apache.commons.io.FileUtils;
 import org.apache.commons.io.output.UnsynchronizedByteArrayOutputStream;
 import org.archive.format.warc.WARCConstants;
 import org.archive.io.ArchiveReader;
@@ -88,13 +90,14 @@ import java.time.ZoneOffset;
 import java.time.ZonedDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.*;
-import java.util.function.*;
-import java.util.stream.Stream;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
+import java.util.function.BiConsumer;
+import java.util.function.Function;
 import java.util.stream.Collectors;
+import java.util.stream.Stream;
 import java.util.stream.StreamSupport;
 import java.util.zip.GZIPOutputStream;
 
@@ -1900,6 +1903,39 @@ public abstract class AbstractWarcArtifactDataStoreTest<WADS extends WarcArtifac
   @Test
   public void testAddArtifactData_compressed() throws Exception {
     runTestAddArtifactData(true);
+  }
+
+  /**
+   * Test for {@link WarcArtifactDataStore#getMimeTypeFromArtifactData(ArtifactData)}.
+   */
+  @Test
+  public void testGetMimeTypeFromArtifactData() throws Exception {
+    String url = "http://www.example.com/test.jpg";
+    ArtifactSpec spec = ArtifactSpec.forNsAuUrl(NS1, AUID1, url);
+    spec.generateContent();
+
+    // Assert MIME type derived from URL matches expected
+    assertEquals("image/jpeg",
+        store.getMimeTypeFromArtifactData(spec.getArtifactData(false)));
+
+    Map<String, String> headers = new HashMap<>();
+    headers.put("Content-Type", "application/gzip");
+    spec.setHeaders(headers);
+
+    // Assert MIME type derived from Content-Type header matches expected
+    assertEquals("application/gzip",
+        store.getMimeTypeFromArtifactData(spec.getArtifactData(false)));
+  }
+
+  @Test
+  public void testIsCompressedWarcRecordRequested() throws Exception {
+    store.setDefaultUseWarcCompression(true);
+    assertFalse(store.isCompressedWarcRecordRequested("application/gzip"));
+    assertTrue(store.isCompressedWarcRecordRequested("text/plain"));
+
+    store.setDefaultUseWarcCompression(false);
+    assertFalse(store.isCompressedWarcRecordRequested("application/gzip"));
+    assertFalse(store.isCompressedWarcRecordRequested("text/plain"));
   }
 
   @Test

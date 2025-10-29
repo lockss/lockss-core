@@ -64,9 +64,7 @@ import org.lockss.rs.io.ArtifactContainerStats;
 import org.lockss.rs.io.index.ArtifactIndex;
 import org.lockss.rs.io.storage.ArtifactDataStore;
 import org.lockss.rs.io.storage.ArtifactDataStoreVersion;
-import org.lockss.util.CloseCallbackInputStream;
-import org.lockss.util.Constants;
-import org.lockss.util.StringUtil;
+import org.lockss.util.*;
 import org.lockss.util.concurrent.stripedexecutor.StripedCallable;
 import org.lockss.util.concurrent.stripedexecutor.StripedExecutorService;
 import org.lockss.util.io.DeferredTempFileOutputStream;
@@ -85,12 +83,17 @@ import org.springframework.http.HttpHeaders;
 import org.springframework.util.LinkedMultiValueMap;
 import org.springframework.util.MultiValueMap;
 import org.springframework.util.StreamUtils;
+import org.springframework.web.util.UriComponents;
+import org.springframework.web.util.UriComponentsBuilder;
 
 import java.io.*;
 import java.net.URI;
 import java.net.URISyntaxException;
 import java.nio.charset.StandardCharsets;
-import java.nio.file.*;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
+import java.nio.file.StandardOpenOption;
 import java.time.Instant;
 import java.time.ZoneId;
 import java.time.ZoneOffset;
@@ -1275,6 +1278,49 @@ public abstract class WarcArtifactDataStore implements ArtifactDataStore, WARCCo
   // * GETTERS AND SETTERS
   // *******************************************************************************************************************
 
+  static Set<String> alreadyCompressedMimeTypes = new HashSet<>();
+  static {
+    // Archive formats
+    alreadyCompressedMimeTypes.add("application/java-archive");
+    alreadyCompressedMimeTypes.add("application/zip");
+    alreadyCompressedMimeTypes.add("application/x-zip-compressed");
+    alreadyCompressedMimeTypes.add("application/zlib");
+    alreadyCompressedMimeTypes.add("application/zstd");
+    alreadyCompressedMimeTypes.add("application/gzip");
+    alreadyCompressedMimeTypes.add("application/x-gzip");
+    alreadyCompressedMimeTypes.add("application/x-bzip");
+    alreadyCompressedMimeTypes.add("application/x-bzip2");
+    alreadyCompressedMimeTypes.add("application/x-gtar");
+    alreadyCompressedMimeTypes.add("application/x-lzma");
+    alreadyCompressedMimeTypes.add("application/x-lzo");
+    alreadyCompressedMimeTypes.add("application/x-lzop");
+    alreadyCompressedMimeTypes.add("application/x-lzip");
+    alreadyCompressedMimeTypes.add("application/x-7z-compressed");
+    alreadyCompressedMimeTypes.add("application/x-compress");
+    alreadyCompressedMimeTypes.add("application/x-rar-compressed");
+    alreadyCompressedMimeTypes.add("application/x-brotli");
+
+    // Audio
+    alreadyCompressedMimeTypes.add("audio/mpeg");
+    alreadyCompressedMimeTypes.add("audio/mp3");
+    alreadyCompressedMimeTypes.add("audio/mp4");
+
+    // Image
+    alreadyCompressedMimeTypes.add("image/gif");
+    alreadyCompressedMimeTypes.add("image/jpeg");
+    alreadyCompressedMimeTypes.add("image/png");
+    alreadyCompressedMimeTypes.add("image/tiff");
+
+    // Video
+    alreadyCompressedMimeTypes.add("video/mpeg");
+    alreadyCompressedMimeTypes.add("video/mpeg4");
+    alreadyCompressedMimeTypes.add("video/mp4");
+  }
+
+  public boolean isCompressedWarcRecordRequested(String mimeType) {
+    return !alreadyCompressedMimeTypes.contains(mimeType) && isCompressionEnabled();
+  }
+
   /**
    * Returns a {@code boolean} indicating whether this WARC artifact data store compresses WARC
    * records.
@@ -1441,7 +1487,8 @@ public abstract class WarcArtifactDataStore implements ArtifactDataStore, WARCCo
       // ********************************
 
       // Get a temporary WARC from the temporary WARC pool
-      boolean compressWarcRecord = isCompressionEnabled();
+      String mimeType = getMimeTypeFromArtifactData(artifactData);
+      boolean compressWarcRecord = isCompressedWarcRecordRequested(mimeType);
       WarcFile tmpWarc = tmpWarcPool.checkoutWarcFileForWrite(compressWarcRecord);
       Path tmpWarcPath = tmpWarc.getPath();
 
@@ -1530,6 +1577,29 @@ public abstract class WarcArtifactDataStore implements ArtifactDataStore, WARCCo
       log.error("Could not add artifact data", e);
       throw e;
     }
+  }
+
+  String getMimeTypeFromArtifactData(ArtifactData ad) throws IOException {
+    ArtifactIdentifier aid = ad.getIdentifier();
+    HttpHeaders headers = ad.getHttpHeaders();
+
+    String contentType = headers.getFirst(HttpHeaders.CONTENT_TYPE);
+    String mimeType = HeaderUtil.getMimeTypeFromContentType(contentType);
+
+    if (contentType == null || mimeType == null) {
+      // Fallback to using the file extension
+      UriComponents uriComponents = UriComponentsBuilder.fromUriString(aid.getUri()).build();
+      String path = uriComponents.getPath();
+
+      if (path != null) {
+        int pos = path.lastIndexOf('.');
+        if (pos > 0) {
+          mimeType = MimeUtil.getMimeTypeFromExtension(path.substring(pos));
+        }
+      }
+    }
+
+    return mimeType;
   }
 
   /**
