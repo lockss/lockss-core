@@ -1232,7 +1232,6 @@ public abstract class AbstractWarcArtifactDataStoreTest<WADS extends WarcArtifac
     when(ds.getBasePaths()).thenReturn(basePaths);
 
     doCallRealMethod().when(ds).initPermanentWarcForAU(NS1, AUID1, useCompression, 1234L);
-    doCallRealMethod().when(ds).getWarcFileExtension();
     doCallRealMethod().when(ds).getDirectoryPathWithMaxFreeSpace(
         ArgumentMatchers.anyList(), ArgumentMatchers.anyLong());
 
@@ -1910,7 +1909,7 @@ public abstract class AbstractWarcArtifactDataStoreTest<WADS extends WarcArtifac
     spec.generateContent();
 
     //// Disable compression
-    store.setUseWarcCompression(false);
+    store.setDefaultUseWarcCompression(false);
 
     // Add two artifacts
     Artifact ref1 = addArtifactDataFromSpec(spec);
@@ -1926,7 +1925,7 @@ public abstract class AbstractWarcArtifactDataStoreTest<WADS extends WarcArtifac
     assertEquals(WARCConstants.WARC_FILE_EXTENSION, UriUtils.extractFileExtension(cref1.getStorageUrl()));
 
     //// Enable compression
-    store.setUseWarcCompression(true);
+    store.setDefaultUseWarcCompression(true);
 
     // Add two more artifacts
     Artifact ref3 = addArtifactDataFromSpec(spec);
@@ -1947,7 +1946,7 @@ public abstract class AbstractWarcArtifactDataStoreTest<WADS extends WarcArtifac
     assertEquals(WARCConstants.WARC_FILE_EXTENSION, UriUtils.extractFileExtension(cref2.getStorageUrl()));
 
     //// Disable compression
-    store.setUseWarcCompression(false);
+    store.setDefaultUseWarcCompression(false);
 
     // Add another (5th) artifact
     Artifact ref5 = addArtifactDataFromSpec(spec);
@@ -1959,7 +1958,7 @@ public abstract class AbstractWarcArtifactDataStoreTest<WADS extends WarcArtifac
     assertEquals(GZIP_FILE_EXTENSION, UriUtils.extractFileExtension(cref4.getStorageUrl()));
 
     //// Enable compression
-    store.setUseWarcCompression(true);
+    store.setDefaultUseWarcCompression(true);
 
     // Add another (6th) artifact
     Artifact ref6 = addArtifactDataFromSpec(spec);
@@ -1982,7 +1981,7 @@ public abstract class AbstractWarcArtifactDataStoreTest<WADS extends WarcArtifac
 
   public void runTestAddArtifactData(boolean useCompression) throws Exception {
     // Enable/disable compression
-    store.setUseWarcCompression(useCompression);
+    store.setDefaultUseWarcCompression(useCompression);
 
     // Create a new artifact specification
     ArtifactSpec spec = ArtifactSpec.forNsAuUrl(NS1, AUID1, URL1);
@@ -2539,7 +2538,7 @@ public abstract class AbstractWarcArtifactDataStoreTest<WADS extends WarcArtifac
 
     // Create data store with first index
     store = makeWarcArtifactDataStore(index1);
-    store.setUseWarcCompression(useCompression);
+    store.setDefaultUseWarcCompression(useCompression);
 
     // Setup mock BaseLockssRepository to pass repository state directory
     File repoStateDir = getTempDir();
@@ -2562,7 +2561,7 @@ public abstract class AbstractWarcArtifactDataStoreTest<WADS extends WarcArtifac
     //// Reindex into new artifact index
     store = makeWarcArtifactDataStore(index2, store);
 //    store.setArtifactIndex(index2);
-    store.setUseWarcCompression(useCompression);
+    store.setDefaultUseWarcCompression(useCompression);
 
     // Set BaseLockssRepository - used to indirectly pass repository state directory
     store.setLockssRepository(repo);

@@ -68,7 +68,7 @@ public class WarcFilePool {
    * Creates a new temporary WARC file under one of the temporary WARC directories configured
    * in the data store.
    */
-  protected WarcFile createWarcFile(boolean wantCompression) throws IOException {
+  protected WarcFile createWarcFile(boolean wantCompressedWarcFile) throws IOException {
     Path basePath = Arrays.stream(store.getBasePaths())
         .max((a, b) -> (int) (store.getFreeSpace(a) - store.getFreeSpace(b)))
         .orElse(null);
@@ -76,7 +76,7 @@ public class WarcFilePool {
     Path tmpWarcDir = basePath.resolve(WarcArtifactDataStore.TMP_WARCS_DIR);
 
     WarcFile warcFile =
-        new WarcFile(tmpWarcDir.resolve(generateTmpWarcFileName(wantCompression)), wantCompression);
+        new WarcFile(tmpWarcDir.resolve(generateTmpWarcFileName(wantCompressedWarcFile)), wantCompressedWarcFile);
 
     store.initWarc(warcFile.getPath());
 
@@ -85,25 +85,25 @@ public class WarcFilePool {
     return warcFile;
   }
 
-  protected String generateTmpWarcFileName(boolean wantCompression) {
-    return UUID.randomUUID() + WarcArtifactDataStore.getWarcFileExtension(wantCompression);
+  protected String generateTmpWarcFileName(boolean wantCompressedWarcFile) {
+    return UUID.randomUUID() + WarcArtifactDataStore.getWarcFileExtension(wantCompressedWarcFile);
   }
 
   /**
    * Checks out an existing WARC file from the pool or creates a new one.
    */
-  public WarcFile checkoutWarcFileForWrite(boolean wantCompression) throws IOException {
+  public WarcFile checkoutWarcFileForWrite(boolean wantCompressedWarcFile) throws IOException {
     synchronized (this) {
       Optional<WarcFile> optWarc = allWarcs.stream()
           .filter(warc -> warc.getStats().getArtifactsTotal() < store.getMaxArtifactsThreshold())
           // TODO: Implement separate thresholds for temp and permanent WARCs
           .filter(warc -> warc.getLength() < store.getThresholdWarcSize())
-          .filter(warc -> warc.isCompressed() == wantCompression)
+          .filter(warc -> warc.isCompressed() == wantCompressedWarcFile)
           .filter(warc -> !warc.isCheckedOut())
           .findAny();
 
       WarcFile warc = optWarc.isPresent() ?
-          optWarc.get() : createWarcFile(wantCompression);
+          optWarc.get() : createWarcFile(wantCompressedWarcFile);
 
       warc.setCheckedOut(true);
       return warc;

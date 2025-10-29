@@ -60,7 +60,7 @@ public class VolatileLockssRepository extends BaseLockssRepository {
     super(new VolatileArtifactIndex(), new VolatileWarcArtifactDataStore());
 
     // Set compression use
-    ((WarcArtifactDataStore)store).setUseWarcCompression(useWarcCompression);
+    ((WarcArtifactDataStore)store).setDefaultUseWarcCompression(useWarcCompression);
 
     // Create a temporary repository state directory
     File stateDir = FileUtil.createTempDir("repostate", null);

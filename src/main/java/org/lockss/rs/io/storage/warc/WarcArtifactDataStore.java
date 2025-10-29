@@ -716,15 +716,6 @@ public abstract class WarcArtifactDataStore implements ArtifactDataStore, WARCCo
     }
   }
 
-  /**
-   * Returns the WARC file extension based on whether compression is in use.
-   *
-   * @return A {@link String} containing the WARC file extension.
-   */
-  protected String getWarcFileExtension() {
-    return getWarcFileExtension(isCompressionEnabled());
-  }
-
   public static String getWarcFileExtension(boolean isCompressionEnabled) {
     return isCompressionEnabled ?
         WARCConstants.DOT_COMPRESSED_WARC_FILE_EXTENSION :
@@ -1297,7 +1288,7 @@ public abstract class WarcArtifactDataStore implements ArtifactDataStore, WARCCo
    *
    * @param useCompression A {@code boolean} indicating whether to compress WARC files.
    */
-  public void setUseWarcCompression(boolean useCompression) {
+  public void setDefaultUseWarcCompression(boolean useCompression) {
     log.trace("useCompression = {}", useCompression);
     this.useCompression = useCompression;
   }

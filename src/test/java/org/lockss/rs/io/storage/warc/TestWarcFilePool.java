@@ -76,11 +76,10 @@ class TestWarcFilePool extends LockssTestCase5 {
 
     WarcArtifactDataStore store = Mockito.spy(WarcArtifactDataStore.class);
     when(store.getBasePaths()).thenReturn(baseDirs);
-    doCallRealMethod().when(store).setUseWarcCompression(ArgumentMatchers.anyBoolean());
-    doCallRealMethod().when(store).getWarcFileExtension();
+    doCallRealMethod().when(store).setDefaultUseWarcCompression(ArgumentMatchers.anyBoolean());
     doCallRealMethod().when(store).isCompressionEnabled();
 
-    store.setUseWarcCompression(useCompression);
+    store.setDefaultUseWarcCompression(useCompression);
 
     when(store.getFreeSpace(baseDir1)).thenReturn(1L);
     when(store.getFreeSpace(baseDir2)).thenReturn(2L);
