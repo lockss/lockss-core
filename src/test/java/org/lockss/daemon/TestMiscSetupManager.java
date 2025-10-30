@@ -64,8 +64,8 @@ public class TestMiscSetupManager extends LockssTestCase5 {
   public void testInitializeJsonPath() throws Exception {
     com.jayway.jsonpath.Configuration jsonPathConfig = null;
     try {
+      // Tests for when json-smart and its dependencies are on the classpath (like in v2) 
       jsonPathConfig = com.jayway.jsonpath.Configuration.defaultConfiguration();
-      // Option 1: the default is json-smart
       assertEquals("com.jayway.jsonpath.spi.json.JsonSmartJsonProvider",
                    jsonPathConfig.jsonProvider().getClass().getName());
       assertEquals("com.jayway.jsonpath.spi.mapper.JsonSmartMappingProvider",
