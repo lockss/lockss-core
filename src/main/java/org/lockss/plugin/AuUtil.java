@@ -948,6 +948,13 @@ public class AuUtil {
     return matchUrlMimeMap(au.makeUrlMimeTypeMap(), url);
   }
 
+  /** Return true if the CachedUrl content is encoded (e.g., gzipped) */
+  public static boolean hasContentEncoding(CachedUrl cu) {
+    String enc = AuUtil.getContentEncoding(cu.getProperties());
+    return !StringUtil.isNullString(enc) &&
+      !enc.equalsIgnoreCase("identity");
+  }
+
   /** Return the Content-Encoding of a CachedUrl.  See {@link
    * AuUtil#getContentEncoding(String)} */
   public static String getContentEncoding(CachedUrl cu) {
