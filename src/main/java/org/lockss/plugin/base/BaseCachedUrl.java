@@ -41,6 +41,7 @@ import org.lockss.truezip.*;
 import org.lockss.repository.*;
 import org.lockss.util.*;
 import org.lockss.util.io.FileUtil;
+import org.lockss.util.rest.repo.model.IncludeContentEnum;
 import org.lockss.ws.entities.LockssWebServicesFault;
 import org.lockss.rewriter.*;
 import org.lockss.extractor.*;
@@ -99,11 +100,11 @@ public class BaseCachedUrl implements CachedUrl {
 
   public static final String DEFAULT_METADATA_CONTENT_TYPE = "text/html";
 
-  private static final EnumMap<NeedContent, LockssRepository.IncludeContent>
+  private static final EnumMap<NeedContent, IncludeContentEnum>
     NEED_INCLUDE_CONTENT_MAP =
-    new EnumMap<NeedContent, LockssRepository.IncludeContent>(MapUtil.map(NeedContent.YES, LockssRepository.IncludeContent.ALWAYS,
-			      NeedContent.NO, LockssRepository.IncludeContent.NEVER,
-			      NeedContent.UNSURE, LockssRepository.IncludeContent.IF_SMALL));
+    new EnumMap<NeedContent, IncludeContentEnum>(MapUtil.map(NeedContent.YES, IncludeContentEnum.ALWAYS,
+			      NeedContent.NO, IncludeContentEnum.NEVER,
+			      NeedContent.UNSURE, IncludeContentEnum.IF_SMALL));
 
   public BaseCachedUrl(ArchivalUnit owner, String url) {
     final String DEBUG_HEADER = "BaseCachedUrl(): ";
@@ -491,7 +492,7 @@ public class BaseCachedUrl implements CachedUrl {
   }
 
   ArtifactData getArtifactData(LockssRepository repo, Artifact art,
-			       LockssRepository.IncludeContent includeContent)
+			       IncludeContentEnum includeContent)
       throws IOException {
     return repo.getArtifactData(art, includeContent);
   }
