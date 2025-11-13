@@ -128,7 +128,6 @@ public abstract class WarcArtifactDataStore implements ArtifactDataStore, WARCCo
   public final static String REINDEXED_WARCS_FILE = DATASTORE_STATE_DIR + "/reindexed-warcs";
   public static String V0_STATE_FILE = "artifact_state" + WARCConstants.DOT_WARC_FILE_EXTENSION;
 
-
   @Override
   public ArtifactDataStoreVersion getDataStoreTargetVersion() {
     return new ArtifactDataStoreVersion()
@@ -187,6 +186,24 @@ public abstract class WarcArtifactDataStore implements ArtifactDataStore, WARCCo
   protected DataStoreState dataStoreState = DataStoreState.STOPPED;
 
   protected boolean useCompression;
+  private Set<String> compressedContentEncodings = DEFAULT_COMPRESSED_CONTENT_ENCODINGS;
+  private Set<String> compressedMimeTypes = DEFAULT_COMPRESSED_MIME_TYPES;
+
+  public final static Set<String> DEFAULT_COMPRESSED_CONTENT_ENCODINGS =
+      SetUtil.set("gzip", "compress", "deflate", "br", "zstd", "dcb", "dcz");
+
+  public final static String DEFAULT_COMPRESSED_CONTENT_TYPES_RESOURCE =
+      "org/lockss/rs/defaults/CompressedContentTypes.txt";
+
+  public final static Set<String> DEFAULT_COMPRESSED_MIME_TYPES;
+  static {
+    try {
+      InputStream stream = UrlUtil.getResourceAsStream(DEFAULT_COMPRESSED_CONTENT_TYPES_RESOURCE);
+      DEFAULT_COMPRESSED_MIME_TYPES = SetUtil.fromList(ListUtil.fromInputStream((stream)));
+    } catch (IOException e) {
+      throw new RuntimeException(e);
+    }
+  }
 
   protected FutureRecordingStripedExecutorService stripedExecutor;
 
@@ -1278,47 +1295,25 @@ public abstract class WarcArtifactDataStore implements ArtifactDataStore, WARCCo
   // * GETTERS AND SETTERS
   // *******************************************************************************************************************
 
-  static Set<String> alreadyCompressedMimeTypes = new HashSet<>();
-  static {
-    // Archive formats
-    alreadyCompressedMimeTypes.add("application/java-archive");
-    alreadyCompressedMimeTypes.add("application/zip");
-    alreadyCompressedMimeTypes.add("application/x-zip-compressed");
-    alreadyCompressedMimeTypes.add("application/zlib");
-    alreadyCompressedMimeTypes.add("application/zstd");
-    alreadyCompressedMimeTypes.add("application/gzip");
-    alreadyCompressedMimeTypes.add("application/x-gzip");
-    alreadyCompressedMimeTypes.add("application/x-bzip");
-    alreadyCompressedMimeTypes.add("application/x-bzip2");
-    alreadyCompressedMimeTypes.add("application/x-gtar");
-    alreadyCompressedMimeTypes.add("application/x-lzma");
-    alreadyCompressedMimeTypes.add("application/x-lzo");
-    alreadyCompressedMimeTypes.add("application/x-lzop");
-    alreadyCompressedMimeTypes.add("application/x-lzip");
-    alreadyCompressedMimeTypes.add("application/x-7z-compressed");
-    alreadyCompressedMimeTypes.add("application/x-compress");
-    alreadyCompressedMimeTypes.add("application/x-rar-compressed");
-    alreadyCompressedMimeTypes.add("application/x-brotli");
+   boolean isCompressedWarcRecordRequested(ArtifactData ad) throws IOException {
+     String mimeType = getMimeTypeFromArtifactData(ad);
+     String encoding = getContentEncodingFromArtifactData(ad);
 
-    // Audio
-    alreadyCompressedMimeTypes.add("audio/mpeg");
-    alreadyCompressedMimeTypes.add("audio/mp3");
-    alreadyCompressedMimeTypes.add("audio/mp4");
-
-    // Image
-    alreadyCompressedMimeTypes.add("image/gif");
-    alreadyCompressedMimeTypes.add("image/jpeg");
-    alreadyCompressedMimeTypes.add("image/png");
-    alreadyCompressedMimeTypes.add("image/tiff");
-
-    // Video
-    alreadyCompressedMimeTypes.add("video/mpeg");
-    alreadyCompressedMimeTypes.add("video/mpeg4");
-    alreadyCompressedMimeTypes.add("video/mp4");
+    return !isCompressedContentEncoding(encoding) &&
+           !isCompressedMimeType(mimeType) &&
+           isCompressionEnabled();
   }
 
-  public boolean isCompressedWarcRecordRequested(String mimeType) {
-    return !alreadyCompressedMimeTypes.contains(mimeType) && isCompressionEnabled();
+  boolean isCompressedContentEncoding(String encoding) {
+    return !StringUtil.isNullString(encoding) &&
+           compressedContentEncodings != null &&
+           compressedContentEncodings.contains(encoding);
+  }
+
+  boolean isCompressedMimeType(String mimeType) {
+    return !StringUtil.isNullString(mimeType) &&
+           compressedMimeTypes != null &&
+           compressedMimeTypes.contains(mimeType);
   }
 
   /**
@@ -1337,6 +1332,14 @@ public abstract class WarcArtifactDataStore implements ArtifactDataStore, WARCCo
   public void setDefaultUseWarcCompression(boolean useCompression) {
     log.trace("useCompression = {}", useCompression);
     this.useCompression = useCompression;
+  }
+
+  public void setCompressedMimeTypes(Set<String> mimeTypes) {
+    this.compressedMimeTypes = mimeTypes;
+  }
+
+  public void setCompressedContentEncodings(Set<String> encodings) {
+    this.compressedContentEncodings = encodings;
   }
 
   /**
@@ -1487,8 +1490,7 @@ public abstract class WarcArtifactDataStore implements ArtifactDataStore, WARCCo
       // ********************************
 
       // Get a temporary WARC from the temporary WARC pool
-      String mimeType = getMimeTypeFromArtifactData(artifactData);
-      boolean compressWarcRecord = isCompressedWarcRecordRequested(mimeType);
+      boolean compressWarcRecord = isCompressedWarcRecordRequested(artifactData);
       WarcFile tmpWarc = tmpWarcPool.checkoutWarcFileForWrite(compressWarcRecord);
       Path tmpWarcPath = tmpWarc.getPath();
 
@@ -1577,6 +1579,11 @@ public abstract class WarcArtifactDataStore implements ArtifactDataStore, WARCCo
       log.error("Could not add artifact data", e);
       throw e;
     }
+  }
+
+  String getContentEncodingFromArtifactData(ArtifactData ad) throws IOException {
+    HttpHeaders headers = ad.getHttpHeaders();
+    return headers.getFirst(HttpHeaders.CONTENT_ENCODING);
   }
 
   String getMimeTypeFromArtifactData(ArtifactData ad) throws IOException {
