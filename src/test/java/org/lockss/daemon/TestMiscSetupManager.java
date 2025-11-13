@@ -73,7 +73,7 @@ public class TestMiscSetupManager extends LockssTestCase5 {
       assertEquals(0, jsonPathConfig.getOptions().size());
     }
     catch (NoClassDefFoundError ncdfe) {
-      // Option 2: NoClassDefFoundError (json-smart is not on the classpath)
+      // Tests for when json-smart is on the classpath but not its dependencies (like in v1) 
       assertTrue(ncdfe.getMessage().endsWith("net/minidev/json/writer/JsonReaderI"),
                  "Expected NoClassDefFoundError on net.minidev.json.writer.JsonReaderI but got: " + ncdfe.getMessage());
     }
