@@ -40,8 +40,8 @@ import org.lockss.log.L4JLogger;
 import org.lockss.util.StringUtil;
 import org.lockss.util.rest.repo.model.Artifact;
 import org.lockss.util.rest.repo.model.ArtifactIdentifier;
-import org.lockss.util.rest.repo.model.ArtifactVersions;
 import org.lockss.util.rest.repo.model.AuSize;
+import org.lockss.util.rest.repo.model.VersionsEnum;
 import org.lockss.util.time.TimeBase;
 
 import java.lang.ref.Cleaner;
@@ -1794,7 +1794,7 @@ public class SQLArtifactIndexManagerSql {
   }
 
   public Iterable<Artifact> findArtifactsAllCommittedVersionsOfUrlAllAuidsInNamespace(
-      String namespace, String url, ArtifactVersions versions) throws DbException {
+      String namespace, String url, VersionsEnum versions) throws DbException {
 
     log.debug2("namespace = {}", namespace);
     log.debug2("url = {}", url);
@@ -1805,7 +1805,7 @@ public class SQLArtifactIndexManagerSql {
   }
 
   private Iterator<Artifact> findArtifactsAllCommittedVersionsOfUrlAllAuidsInNamespace(
-      Connection conn, String namespace, String url, ArtifactVersions versions) throws DbException {
+      Connection conn, String namespace, String url, VersionsEnum versions) throws DbException {
 
     PreparedStatement ps = null;
     ResultSet resultSet = null;
@@ -1814,11 +1814,11 @@ public class SQLArtifactIndexManagerSql {
     String sqlQuery = null;
 
     if (isLongUrl) {
-      sqlQuery = versions == ArtifactVersions.LATEST ?
+      sqlQuery = versions == VersionsEnum.LATEST ?
           LONG_URL_GET_LATEST_ARTIFACTS_WITH_NAMESPACE_AND_URL_QUERY :
           LONG_URL_GET_ARTIFACTS_WITH_NAMESPACE_AND_URL_QUERY;
     } else {
-      sqlQuery = versions == ArtifactVersions.LATEST ?
+      sqlQuery = versions == VersionsEnum.LATEST ?
           GET_LATEST_ARTIFACTS_WITH_NAMESPACE_AND_URL_QUERY :
           GET_ARTIFACTS_WITH_NAMESPACE_AND_URL_QUERY;
     }
@@ -1856,7 +1856,7 @@ public class SQLArtifactIndexManagerSql {
   }
 
   public Iterable<Artifact> findArtifactsAllCommittedVersionsOfUrlByPrefixAllAuidsInNamespace(
-      String namespace, String prefix, ArtifactVersions versions) throws DbException {
+      String namespace, String prefix, VersionsEnum versions) throws DbException {
 
     log.debug2("namespace = {}", namespace);
     log.debug2("prefix = {}", prefix);
@@ -1867,7 +1867,7 @@ public class SQLArtifactIndexManagerSql {
   }
 
   private Iterator<Artifact> findArtifactsAllCommittedVersionsOfUrlByPrefixAllAuidsInNamespace(
-      Connection conn, String namespace, String prefix, ArtifactVersions versions) throws DbException {
+      Connection conn, String namespace, String prefix, VersionsEnum versions) throws DbException {
 
     PreparedStatement ps = null;
     ResultSet resultSet = null;
@@ -1881,11 +1881,11 @@ public class SQLArtifactIndexManagerSql {
     String sqlQuery = null;
 
     if (isLongUrl) {
-      sqlQuery = versions == ArtifactVersions.LATEST ?
+      sqlQuery = versions == VersionsEnum.LATEST ?
           LONG_URL_GET_LATEST_ARTIFACTS_WITH_NAMESPACE_AND_URL_PREFIX_QUERY :
           LONG_URL_GET_ARTIFACTS_WITH_NAMESPACE_AND_URL_PREFIX_QUERY;
     } else {
-      sqlQuery = versions == ArtifactVersions.LATEST ?
+      sqlQuery = versions == VersionsEnum.LATEST ?
           GET_LATEST_ARTIFACTS_WITH_NAMESPACE_AND_URL_PREFIX_QUERY :
           GET_ARTIFACTS_WITH_NAMESPACE_AND_URL_PREFIX_QUERY;
     }
@@ -2822,7 +2822,7 @@ public class SQLArtifactIndexManagerSql {
     }
   }
 
-  public long getSizeOfArtifacts(String namespace, String auid, ArtifactVersions versions)
+  public long getSizeOfArtifacts(String namespace, String auid, VersionsEnum versions)
       throws DbException {
 
     log.debug2("namespace = {}", namespace);
@@ -2840,13 +2840,13 @@ public class SQLArtifactIndexManagerSql {
   }
 
   private long getSizeOfArtifacts(
-      Connection conn, String namespace, String auid, ArtifactVersions versions) throws DbException {
+      Connection conn, String namespace, String auid, VersionsEnum versions) throws DbException {
 
     PreparedStatement ps = null;
     ResultSet resultSet = null;
     String errorMessage = "Cannot get artifacts";
 
-    String sqlQuery = versions == ArtifactVersions.LATEST ?
+    String sqlQuery = versions == VersionsEnum.LATEST ?
         GET_SIZE_OF_LATEST_ARTIFACTS_QUERY :
         GET_SIZE_OF_ARTIFACTS_QUERY;
 

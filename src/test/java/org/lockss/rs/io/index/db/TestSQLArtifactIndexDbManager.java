@@ -40,7 +40,7 @@ import org.lockss.test.MockLockssDaemon;
 import org.lockss.test.TcpTestUtil;
 import org.lockss.util.Logger;
 import org.lockss.util.rest.repo.model.Artifact;
-import org.lockss.util.rest.repo.model.ArtifactVersions;
+import org.lockss.util.rest.repo.model.VersionsEnum;
 import org.lockss.util.rest.repo.util.ArtifactSpec;
 import org.lockss.util.time.TimeBase;
 import org.postgresql.ds.PGSimpleDataSource;
@@ -637,8 +637,8 @@ public class TestSQLArtifactIndexDbManager extends LockssTestCase4 {
     }
 
     // Assert empty results (no committed artifacts)
-    assertEmpty(idxdb.findArtifactsAllCommittedVersionsOfUrlAllAuidsInNamespace(ns1, url1, ArtifactVersions.ALL));
-    assertEmpty(idxdb.findArtifactsAllCommittedVersionsOfUrlAllAuidsInNamespace(ns1, url1, ArtifactVersions.LATEST));
+    assertEmpty(idxdb.findArtifactsAllCommittedVersionsOfUrlAllAuidsInNamespace(ns1, url1, VersionsEnum.ALL));
+    assertEmpty(idxdb.findArtifactsAllCommittedVersionsOfUrlAllAuidsInNamespace(ns1, url1, VersionsEnum.LATEST));
 
     // Commit artifacts
     commitSpecs(idxdb, specs, 0, 3, 4, 5);
@@ -647,7 +647,7 @@ public class TestSQLArtifactIndexDbManager extends LockssTestCase4 {
     {
       List<Artifact> expected = getArtifactsFromSpecs(specs[0], specs[3]);
       Iterable<Artifact> result =
-          idxdb.findArtifactsAllCommittedVersionsOfUrlAllAuidsInNamespace(ns1, url1, ArtifactVersions.ALL);
+          idxdb.findArtifactsAllCommittedVersionsOfUrlAllAuidsInNamespace(ns1, url1, VersionsEnum.ALL);
       assertIterableEquals(expected, result);
     }
 
@@ -658,7 +658,7 @@ public class TestSQLArtifactIndexDbManager extends LockssTestCase4 {
     {
       List<Artifact> expected = getArtifactsFromSpecs(specs[1], specs[3]);
       Iterable<Artifact> result =
-          idxdb.findArtifactsAllCommittedVersionsOfUrlAllAuidsInNamespace(ns1, url1, ArtifactVersions.LATEST);
+          idxdb.findArtifactsAllCommittedVersionsOfUrlAllAuidsInNamespace(ns1, url1, VersionsEnum.LATEST);
       assertIterableEquals(expected, result);
     }
   }
@@ -690,8 +690,8 @@ public class TestSQLArtifactIndexDbManager extends LockssTestCase4 {
     }
 
     // Assert empty results (no committed artifacts)
-    assertEmpty(idxdb.findArtifactsAllCommittedVersionsOfUrlByPrefixAllAuidsInNamespace(ns1, url1, ArtifactVersions.ALL));
-    assertEmpty(idxdb.findArtifactsAllCommittedVersionsOfUrlByPrefixAllAuidsInNamespace(ns1, url1, ArtifactVersions.LATEST));
+    assertEmpty(idxdb.findArtifactsAllCommittedVersionsOfUrlByPrefixAllAuidsInNamespace(ns1, url1, VersionsEnum.ALL));
+    assertEmpty(idxdb.findArtifactsAllCommittedVersionsOfUrlByPrefixAllAuidsInNamespace(ns1, url1, VersionsEnum.LATEST));
 
     // Commit artifacts
     commitSpecs(idxdb, specs, 0, 3, 4, 5);
@@ -700,7 +700,7 @@ public class TestSQLArtifactIndexDbManager extends LockssTestCase4 {
     {
       List<Artifact> expected = getArtifactsFromSpecs(specs[0], specs[3]);
       Iterable<Artifact> result =
-          idxdb.findArtifactsAllCommittedVersionsOfUrlByPrefixAllAuidsInNamespace(ns1, url1, ArtifactVersions.ALL);
+          idxdb.findArtifactsAllCommittedVersionsOfUrlByPrefixAllAuidsInNamespace(ns1, url1, VersionsEnum.ALL);
       assertIterableEquals(expected, result);
     }
 
@@ -711,7 +711,7 @@ public class TestSQLArtifactIndexDbManager extends LockssTestCase4 {
     {
       List<Artifact> expected = getArtifactsFromSpecs(specs[1], specs[3]);
       Iterable<Artifact> result =
-          idxdb.findArtifactsAllCommittedVersionsOfUrlByPrefixAllAuidsInNamespace(ns1, url1, ArtifactVersions.LATEST);
+          idxdb.findArtifactsAllCommittedVersionsOfUrlByPrefixAllAuidsInNamespace(ns1, url1, VersionsEnum.LATEST);
       assertIterableEquals(expected, result);
     }
   }
@@ -866,19 +866,19 @@ public class TestSQLArtifactIndexDbManager extends LockssTestCase4 {
       idxdb.addArtifact(spec.getArtifact());
     }
 
-    assertEquals(0, idxdb.getSizeOfArtifacts(ns1, auid1, ArtifactVersions.ALL));
-    assertEquals(0, idxdb.getSizeOfArtifacts(ns1, auid1, ArtifactVersions.LATEST));
+    assertEquals(0, idxdb.getSizeOfArtifacts(ns1, auid1, VersionsEnum.ALL));
+    assertEquals(0, idxdb.getSizeOfArtifacts(ns1, auid1, VersionsEnum.LATEST));
 
     commitSpecs(idxdb, specs, 0, 2);
-    assertEquals(2, idxdb.getSizeOfArtifacts(ns1, auid1, ArtifactVersions.ALL));
-    assertEquals(2, idxdb.getSizeOfArtifacts(ns1, auid1, ArtifactVersions.LATEST));
+    assertEquals(2, idxdb.getSizeOfArtifacts(ns1, auid1, VersionsEnum.ALL));
+    assertEquals(2, idxdb.getSizeOfArtifacts(ns1, auid1, VersionsEnum.LATEST));
 
     commitSpecs(idxdb, specs, 1);
-    assertEquals(3, idxdb.getSizeOfArtifacts(ns1, auid1, ArtifactVersions.ALL));
-    assertEquals(2, idxdb.getSizeOfArtifacts(ns1, auid1, ArtifactVersions.LATEST));
+    assertEquals(3, idxdb.getSizeOfArtifacts(ns1, auid1, VersionsEnum.ALL));
+    assertEquals(2, idxdb.getSizeOfArtifacts(ns1, auid1, VersionsEnum.LATEST));
 
     deleteSpecs(idxdb, specs, 0);
-    assertEquals(2, idxdb.getSizeOfArtifacts(ns1, auid1, ArtifactVersions.ALL));
-    assertEquals(2, idxdb.getSizeOfArtifacts(ns1, auid1, ArtifactVersions.LATEST));
+    assertEquals(2, idxdb.getSizeOfArtifacts(ns1, auid1, VersionsEnum.ALL));
+    assertEquals(2, idxdb.getSizeOfArtifacts(ns1, auid1, VersionsEnum.LATEST));
   }
 }

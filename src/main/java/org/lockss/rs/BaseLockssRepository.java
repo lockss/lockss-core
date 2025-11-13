@@ -840,14 +840,14 @@ public class BaseLockssRepository implements LockssRepository, JmsFactorySource 
    *
    * @param namespace A String with the namespace.
    * @param prefix     A String with the URL prefix.
-   * @param versions   A {@link ArtifactVersions} indicating whether to include all versions or only the latest
+   * @param versions   A {@link VersionsEnum} indicating whether to include all versions or only the latest
    *                   versions of an artifact.
    * @return An {@code Iterator<Artifact>} containing the committed artifacts of all versions of all URLs matching a
    * prefix.
    */
   @Override
   public Iterable<Artifact> getArtifactsWithUrlPrefixFromAllAus(String namespace, String prefix,
-                                                                ArtifactVersions versions) throws IOException {
+                                                                VersionsEnum versions) throws IOException {
 
     validateNamespace(namespace);
 
@@ -883,12 +883,12 @@ public class BaseLockssRepository implements LockssRepository, JmsFactorySource 
    *
    * @param namespace A {@code String} with the namespace.
    * @param url        A {@code String} with the URL to be matched.
-   * @param versions   A {@link ArtifactVersions} indicating whether to include all versions or only the latest
+   * @param versions   A {@link VersionsEnum} indicating whether to include all versions or only the latest
    *                   versions of an artifact.
    * @return An {@code Iterator<Artifact>} containing the committed artifacts of all versions of a given URL.
    */
   @Override
-  public Iterable<Artifact> getArtifactsWithUrlFromAllAus(String namespace, String url, ArtifactVersions versions)
+  public Iterable<Artifact> getArtifactsWithUrlFromAllAus(String namespace, String url, VersionsEnum versions)
       throws IOException {
 
     validateNamespace(namespace);

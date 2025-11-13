@@ -33,15 +33,12 @@ POSSIBILITY OF SUCH DAMAGE.
 package org.lockss.rs.io.index;
 
 import org.apache.commons.collections4.IteratorUtils;
-import org.apache.commons.collections4.MapIterator;
-import org.apache.commons.collections4.MultiValuedMap;
-import org.apache.commons.collections4.multimap.ArrayListValuedHashMap;
 import org.apache.commons.lang3.StringUtils;
 import org.lockss.log.L4JLogger;
 import org.lockss.util.rest.repo.model.Artifact;
 import org.lockss.util.rest.repo.model.ArtifactIdentifier;
-import org.lockss.util.rest.repo.model.ArtifactVersions;
 import org.lockss.util.rest.repo.model.AuSize;
+import org.lockss.util.rest.repo.model.VersionsEnum;
 import org.lockss.util.rest.repo.util.ArtifactComparators;
 import org.lockss.util.rest.repo.util.SemaphoreMap;
 import org.lockss.util.storage.StorageInfo;
@@ -517,17 +514,17 @@ public class VolatileArtifactIndex extends AbstractArtifactIndex {
      *          A String with the namespace.
      * @param urlPrefix
      *          A String with the URL prefix.
-     * @param versions   A {@link ArtifactVersions} indicating whether to include all versions or only the latest
+     * @param versions   A {@link VersionsEnum} indicating whether to include all versions or only the latest
      *                   versions of an artifact.
      * @return An {@code Iterator<Artifact>} containing the committed artifacts of all versions of all URLs matching a
      *         prefix.
      */
     @Override
     public Iterable<Artifact> getArtifactsWithUrlPrefixFromAllAus(String namespace, String urlPrefix,
-                                                                  ArtifactVersions versions) {
+                                                                  VersionsEnum versions) {
 
-      if (!(versions == ArtifactVersions.ALL ||
-            versions == ArtifactVersions.LATEST)) {
+      if (!(versions == VersionsEnum.ALL ||
+            versions == VersionsEnum.LATEST)) {
         throw new IllegalArgumentException("Versions must be ALL or LATEST");
       }
 
@@ -545,7 +542,7 @@ public class VolatileArtifactIndex extends AbstractArtifactIndex {
       // Apply predicates filter to Artifact stream
       Stream<Artifact> allVersions = indexedByUuid.values().stream().filter(query.build());
 
-      if (versions == ArtifactVersions.LATEST) {
+      if (versions == VersionsEnum.LATEST) {
         Stream<Artifact> latestVersions = allVersions
           // Group the Artifacts by URL then pick the Artifact with highest version from each group
           .collect(Collectors.groupingBy(artifact -> artifact.getIdentifier().getArtifactStem(),
@@ -604,14 +601,14 @@ public class VolatileArtifactIndex extends AbstractArtifactIndex {
      *          A {@code String} with the namespace.
      * @param url
      *          A {@code String} with the URL to be matched.
-     * @param versions   A {@link ArtifactVersions} indicating whether to include all versions or only the latest
+     * @param versions   A {@link VersionsEnum} indicating whether to include all versions or only the latest
      *                   versions of an artifact.
      * @return An {@code Iterator<Artifact>} containing the committed artifacts of all versions of a given URL.
      */
     @Override
-    public Iterable<Artifact> getArtifactsWithUrlFromAllAus(String namespace, String url, ArtifactVersions versions) {
-      if (!(versions == ArtifactVersions.ALL ||
-          versions == ArtifactVersions.LATEST)) {
+    public Iterable<Artifact> getArtifactsWithUrlFromAllAus(String namespace, String url, VersionsEnum versions) {
+      if (!(versions == VersionsEnum.ALL ||
+          versions == VersionsEnum.LATEST)) {
         throw new IllegalArgumentException("Versions must be ALL or LATEST");
       }
 
@@ -626,7 +623,7 @@ public class VolatileArtifactIndex extends AbstractArtifactIndex {
         // Apply predicates filter to Artifact stream
         Stream<Artifact> allVersions = getArtifactsWithUrl(url).stream().filter(query.build());
 
-        if (versions == ArtifactVersions.LATEST) {
+        if (versions == VersionsEnum.LATEST) {
           Stream<Artifact> latestVersions = allVersions
               // Group the Artifacts by URL then pick the Artifact with highest version from each group
               .collect(Collectors.groupingBy(artifact -> artifact.getIdentifier().getArtifactStem(),

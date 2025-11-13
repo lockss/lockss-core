@@ -1023,27 +1023,27 @@ public abstract class AbstractLockssRepositoryTest extends LockssCoreTestCase5 {
     // Illegal args
     assertThrowsMatch(IllegalArgumentException.class,
 		      "Invalid namespace",
-		      () -> {repository.getArtifactsWithUrlPrefixFromAllAus(null, null, ArtifactVersions.ALL);});
+		      () -> {repository.getArtifactsWithUrlPrefixFromAllAus(null, null, VersionsEnum.ALL);});
     assertThrowsMatch(IllegalArgumentException.class,
 		      "URL prefix",
-		      () -> {repository.getArtifactsWithUrlPrefixFromAllAus(NS1, null, ArtifactVersions.ALL);});
+		      () -> {repository.getArtifactsWithUrlPrefixFromAllAus(NS1, null, VersionsEnum.ALL);});
     assertThrowsMatch(IllegalArgumentException.class,
 		      "Invalid namespace",
-		      () -> {repository.getArtifactsWithUrlPrefixFromAllAus(null, PREFIX1, ArtifactVersions.ALL);});
+		      () -> {repository.getArtifactsWithUrlPrefixFromAllAus(null, PREFIX1, VersionsEnum.ALL);});
     assertThrowsMatch(IllegalArgumentException.class,
         "Versions must be ALL or LATEST",
         () -> {repository.getArtifactsWithUrlPrefixFromAllAus(NS1, PREFIX1, null);});
 
     // Non-existent namespace
-    assertEmpty(repository.getArtifactsWithUrlPrefixFromAllAus(NO_NS, PREFIX1, ArtifactVersions.ALL));
+    assertEmpty(repository.getArtifactsWithUrlPrefixFromAllAus(NO_NS, PREFIX1, VersionsEnum.ALL));
 
     // Compare with all URLs matching prefix
     for (String ns : variantState.activeNamespaces()) {
       ArtifactSpec.assertArtList(repository, (variantState.orderedAllNsAllAus(ns)
 		  .filter(spec -> spec.getUrl().startsWith(PREFIX1))),
-		  repository.getArtifactsWithUrlPrefixFromAllAus(ns, PREFIX1, ArtifactVersions.ALL));
+		  repository.getArtifactsWithUrlPrefixFromAllAus(ns, PREFIX1, VersionsEnum.ALL));
       assertEmpty(repository.getArtifactsWithUrlPrefixFromAllAus(ns,
-								     PREFIX1 + "notpath", ArtifactVersions.ALL));
+								     PREFIX1 + "notpath", VersionsEnum.ALL));
     }
   }
 
@@ -1053,19 +1053,19 @@ public abstract class AbstractLockssRepositoryTest extends LockssCoreTestCase5 {
     // Illegal args
     assertThrowsMatch(IllegalArgumentException.class,
         "Invalid namespace",
-        () -> {repository.getArtifactsWithUrlPrefixFromAllAus(null, null, ArtifactVersions.LATEST);});
+        () -> {repository.getArtifactsWithUrlPrefixFromAllAus(null, null, VersionsEnum.LATEST);});
     assertThrowsMatch(IllegalArgumentException.class,
         "URL prefix",
-        () -> {repository.getArtifactsWithUrlPrefixFromAllAus(NS1, null, ArtifactVersions.LATEST);});
+        () -> {repository.getArtifactsWithUrlPrefixFromAllAus(NS1, null, VersionsEnum.LATEST);});
     assertThrowsMatch(IllegalArgumentException.class,
         "Invalid namespace",
-        () -> {repository.getArtifactsWithUrlPrefixFromAllAus(null, PREFIX1, ArtifactVersions.LATEST);});
+        () -> {repository.getArtifactsWithUrlPrefixFromAllAus(null, PREFIX1, VersionsEnum.LATEST);});
     assertThrowsMatch(IllegalArgumentException.class,
         "Versions must be ALL or LATEST",
         () -> {repository.getArtifactsWithUrlPrefixFromAllAus(NS1, PREFIX1, null);});
 
     // Non-existent namespace
-    assertEmpty(repository.getArtifactsWithUrlPrefixFromAllAus(NO_NS, PREFIX1, ArtifactVersions.LATEST));
+    assertEmpty(repository.getArtifactsWithUrlPrefixFromAllAus(NO_NS, PREFIX1, VersionsEnum.LATEST));
 
     // Compare with all URLs matching prefix
     for (String ns : variantState.activeNamespaces()) {
@@ -1089,7 +1089,7 @@ public abstract class AbstractLockssRepositoryTest extends LockssCoreTestCase5 {
               )
           ),
           /* Actual */
-          repository.getArtifactsWithUrlPrefixFromAllAus(ns, PREFIX1, ArtifactVersions.LATEST));
+          repository.getArtifactsWithUrlPrefixFromAllAus(ns, PREFIX1, VersionsEnum.LATEST));
     }
   }
 
@@ -1134,20 +1134,20 @@ public abstract class AbstractLockssRepositoryTest extends LockssCoreTestCase5 {
     // Illegal args
     assertThrowsMatch(IllegalArgumentException.class,
 		      "Invalid namespace",
-		      () -> {repository.getArtifactsWithUrlFromAllAus(null, null, ArtifactVersions.ALL);});
+		      () -> {repository.getArtifactsWithUrlFromAllAus(null, null, VersionsEnum.ALL);});
     assertThrowsMatch(IllegalArgumentException.class,
 		      "URL",
-		      () -> {repository.getArtifactsWithUrlFromAllAus(NS1, null, ArtifactVersions.ALL);});
+		      () -> {repository.getArtifactsWithUrlFromAllAus(NS1, null, VersionsEnum.ALL);});
     assertThrowsMatch(IllegalArgumentException.class,
 		      "Invalid namespace",
-		      () -> {repository.getArtifactsWithUrlFromAllAus(null, URL1, ArtifactVersions.ALL);});
+		      () -> {repository.getArtifactsWithUrlFromAllAus(null, URL1, VersionsEnum.ALL);});
     assertThrowsMatch(IllegalArgumentException.class,
         "Versions must be ALL or LATEST",
         () -> {repository.getArtifactsWithUrlFromAllAus(NS1, URL1, null);});
 
     // Non-existent namespace or url
-    assertEmpty(repository.getArtifactsWithUrlFromAllAus(NO_NS, URL1, ArtifactVersions.ALL));
-    assertEmpty(repository.getArtifactsWithUrlFromAllAus(NS1, NO_URL, ArtifactVersions.ALL));
+    assertEmpty(repository.getArtifactsWithUrlFromAllAus(NO_NS, URL1, VersionsEnum.ALL));
+    assertEmpty(repository.getArtifactsWithUrlFromAllAus(NS1, NO_URL, VersionsEnum.ALL));
 
     // For each ArtButVer in the repository, enumerate all its versions and
     // compare with expected
@@ -1157,7 +1157,7 @@ public abstract class AbstractLockssRepositoryTest extends LockssCoreTestCase5 {
       ArtifactSpec.assertArtList(repository, variantState.orderedAllCommittedAllAus()
 		    .filter(spec -> spec.sameArtButVerAllAus(urlSpec)),
 		    repository.getArtifactsWithUrlFromAllAus(urlSpec.getNamespace(),
-						             urlSpec.getUrl(), ArtifactVersions.ALL));
+						             urlSpec.getUrl(), VersionsEnum.ALL));
     }
   }
 
@@ -1167,20 +1167,20 @@ public abstract class AbstractLockssRepositoryTest extends LockssCoreTestCase5 {
     // Illegal args
     assertThrowsMatch(IllegalArgumentException.class,
         "Invalid namespace",
-        () -> {repository.getArtifactsWithUrlFromAllAus(null, null, ArtifactVersions.LATEST);});
+        () -> {repository.getArtifactsWithUrlFromAllAus(null, null, VersionsEnum.LATEST);});
     assertThrowsMatch(IllegalArgumentException.class,
         "URL",
-        () -> {repository.getArtifactsWithUrlFromAllAus(NS1, null, ArtifactVersions.LATEST);});
+        () -> {repository.getArtifactsWithUrlFromAllAus(NS1, null, VersionsEnum.LATEST);});
     assertThrowsMatch(IllegalArgumentException.class,
         "Invalid namespace",
-        () -> {repository.getArtifactsWithUrlFromAllAus(null, URL1, ArtifactVersions.LATEST);});
+        () -> {repository.getArtifactsWithUrlFromAllAus(null, URL1, VersionsEnum.LATEST);});
     assertThrowsMatch(IllegalArgumentException.class,
         "Versions must be ALL or LATEST",
         () -> {repository.getArtifactsWithUrlFromAllAus(NS1, URL1, null);});
 
     // Non-existent namespace or url
-    assertEmpty(repository.getArtifactsWithUrlFromAllAus(NO_NS, URL1, ArtifactVersions.LATEST));
-    assertEmpty(repository.getArtifactsWithUrlFromAllAus(NS1, NO_URL, ArtifactVersions.LATEST));
+    assertEmpty(repository.getArtifactsWithUrlFromAllAus(NO_NS, URL1, VersionsEnum.LATEST));
+    assertEmpty(repository.getArtifactsWithUrlFromAllAus(NS1, NO_URL, VersionsEnum.LATEST));
 
     // Compare with all URLs matching prefix
     // For each ArtButVer in the repository, enumerate all its versions and
@@ -1208,7 +1208,7 @@ public abstract class AbstractLockssRepositoryTest extends LockssCoreTestCase5 {
               )
           ),
           /* Actual */
-          repository.getArtifactsWithUrlFromAllAus(urlSpec.getNamespace(), urlSpec.getUrl(), ArtifactVersions.LATEST));
+          repository.getArtifactsWithUrlFromAllAus(urlSpec.getNamespace(), urlSpec.getUrl(), VersionsEnum.LATEST));
     }
   }
 
