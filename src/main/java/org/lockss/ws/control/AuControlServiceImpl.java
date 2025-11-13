@@ -50,10 +50,7 @@ import org.lockss.state.SubstanceChecker;
 import org.lockss.util.Logger;
 import org.lockss.util.RateLimiter;
 import org.lockss.util.StringUtil;
-import org.lockss.util.rest.crawler.CrawlDesc;
-import org.lockss.util.rest.crawler.CrawlJob;
-import org.lockss.util.rest.crawler.JobStatus;
-import org.lockss.util.rest.crawler.RestCrawlerClient;
+import org.lockss.util.rest.crawler.*;
 import org.lockss.ws.cxf.AuthorizationInterceptor;
 import org.lockss.ws.entities.CheckSubstanceResult;
 import org.lockss.ws.entities.LockssWebServicesFault;
@@ -562,7 +559,7 @@ public class AuControlServiceImpl implements AuControlService {
             .auId(req.getAuId())
             .refetchDepth(req.getRefetchDepth())
             .priority(req.getPriority())
-            .crawlKind(CrawlDesc.CrawlKindEnum.NEWCONTENT);
+            .crawlKind(CrawlKindEnum.NEWCONTENT);
         CrawlJob crawlJob = client.callCrawl(desc);
 
         if (crawlJob.getJobStatus() == null) {
