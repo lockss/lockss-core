@@ -201,6 +201,7 @@ public abstract class WarcArtifactDataStore implements ArtifactDataStore, WARCCo
       InputStream stream = UrlUtil.getResourceAsStream(DEFAULT_COMPRESSED_CONTENT_TYPES_RESOURCE);
       DEFAULT_COMPRESSED_MIME_TYPES = SetUtil.fromList(ListUtil.fromInputStream((stream)));
     } catch (IOException e) {
+      log.fatal("Could not read compressed MIME types file", e);
       throw new RuntimeException(e);
     }
   }

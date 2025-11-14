@@ -1937,7 +1937,7 @@ public abstract class AbstractWarcArtifactDataStoreTest<WADS extends WarcArtifac
         store.getMimeTypeFromArtifactData(spec.getArtifactData(false)));
 
     Map<String, String> headers = new HashMap<>();
-    headers.put("Content-Type", "application/gzip");
+    headers.put("Content-Type", "application/gzip;charset=foo");
     spec.setHeaders(headers);
 
     // Assert MIME type derived from Content-Type header matches expected
