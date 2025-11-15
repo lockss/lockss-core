@@ -621,7 +621,7 @@ public class BaseLockssRepository implements LockssRepository, JmsFactorySource 
   }
 
   @Override
-  public ArtifactData getArtifactData(Artifact artifact, IncludeContentEnum includeContent) throws IOException {
+  public ArtifactData getArtifactData(Artifact artifact, IncludeContent includeContent) throws IOException {
     if (artifact == null) {
       throw new IllegalArgumentException("Null artifact");
     }
