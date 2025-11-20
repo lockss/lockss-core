@@ -64,9 +64,7 @@ import org.lockss.rs.io.ArtifactContainerStats;
 import org.lockss.rs.io.index.ArtifactIndex;
 import org.lockss.rs.io.storage.ArtifactDataStore;
 import org.lockss.rs.io.storage.ArtifactDataStoreVersion;
-import org.lockss.util.CloseCallbackInputStream;
-import org.lockss.util.Constants;
-import org.lockss.util.StringUtil;
+import org.lockss.util.*;
 import org.lockss.util.concurrent.stripedexecutor.StripedCallable;
 import org.lockss.util.concurrent.stripedexecutor.StripedExecutorService;
 import org.lockss.util.io.DeferredTempFileOutputStream;
@@ -85,12 +83,17 @@ import org.springframework.http.HttpHeaders;
 import org.springframework.util.LinkedMultiValueMap;
 import org.springframework.util.MultiValueMap;
 import org.springframework.util.StreamUtils;
+import org.springframework.web.util.UriComponents;
+import org.springframework.web.util.UriComponentsBuilder;
 
 import java.io.*;
 import java.net.URI;
 import java.net.URISyntaxException;
 import java.nio.charset.StandardCharsets;
-import java.nio.file.*;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
+import java.nio.file.StandardOpenOption;
 import java.time.Instant;
 import java.time.ZoneId;
 import java.time.ZoneOffset;
@@ -124,7 +127,6 @@ public abstract class WarcArtifactDataStore implements ArtifactDataStore, WARCCo
   public final static String DATASTORE_VERSION_FILE = DATASTORE_STATE_DIR + "/version";
   public final static String REINDEXED_WARCS_FILE = DATASTORE_STATE_DIR + "/reindexed-warcs";
   public static String V0_STATE_FILE = "artifact_state" + WARCConstants.DOT_WARC_FILE_EXTENSION;
-
 
   @Override
   public ArtifactDataStoreVersion getDataStoreTargetVersion() {
@@ -184,6 +186,25 @@ public abstract class WarcArtifactDataStore implements ArtifactDataStore, WARCCo
   protected DataStoreState dataStoreState = DataStoreState.STOPPED;
 
   protected boolean useCompression;
+  private Set<String> compressedContentEncodings = DEFAULT_COMPRESSED_CONTENT_ENCODINGS;
+  private Set<String> compressedMimeTypes = DEFAULT_COMPRESSED_MIME_TYPES;
+
+  public final static Set<String> DEFAULT_COMPRESSED_CONTENT_ENCODINGS =
+      SetUtil.set("gzip", "compress", "deflate", "br", "zstd", "dcb", "dcz");
+
+  public final static String DEFAULT_COMPRESSED_CONTENT_TYPES_RESOURCE =
+      "org/lockss/rs/defaults/CompressedContentTypes.txt";
+
+  public final static Set<String> DEFAULT_COMPRESSED_MIME_TYPES;
+  static {
+    try {
+      InputStream stream = UrlUtil.getResourceAsStream(DEFAULT_COMPRESSED_CONTENT_TYPES_RESOURCE);
+      DEFAULT_COMPRESSED_MIME_TYPES = SetUtil.fromList(ListUtil.fromInputStream((stream)));
+    } catch (IOException e) {
+      log.fatal("Could not read compressed MIME types file", e);
+      throw new RuntimeException(e);
+    }
+  }
 
   protected FutureRecordingStripedExecutorService stripedExecutor;
 
@@ -1275,6 +1296,27 @@ public abstract class WarcArtifactDataStore implements ArtifactDataStore, WARCCo
   // * GETTERS AND SETTERS
   // *******************************************************************************************************************
 
+   boolean isCompressedWarcRecordRequested(ArtifactData ad) throws IOException {
+     String mimeType = getMimeTypeFromArtifactData(ad);
+     String encoding = getContentEncodingFromArtifactData(ad);
+
+    return !isCompressedContentEncoding(encoding) &&
+           !isCompressedMimeType(mimeType) &&
+           isCompressionEnabled();
+  }
+
+  boolean isCompressedContentEncoding(String encoding) {
+    return !StringUtil.isNullString(encoding) &&
+           compressedContentEncodings != null &&
+           compressedContentEncodings.contains(encoding);
+  }
+
+  boolean isCompressedMimeType(String mimeType) {
+    return !StringUtil.isNullString(mimeType) &&
+           compressedMimeTypes != null &&
+           compressedMimeTypes.contains(mimeType);
+  }
+
   /**
    * Returns a {@code boolean} indicating whether this WARC artifact data store compresses WARC
    * records.
@@ -1291,6 +1333,14 @@ public abstract class WarcArtifactDataStore implements ArtifactDataStore, WARCCo
   public void setDefaultUseWarcCompression(boolean useCompression) {
     log.trace("useCompression = {}", useCompression);
     this.useCompression = useCompression;
+  }
+
+  public void setCompressedMimeTypes(Set<String> mimeTypes) {
+    this.compressedMimeTypes = mimeTypes;
+  }
+
+  public void setCompressedContentEncodings(Set<String> encodings) {
+    this.compressedContentEncodings = encodings;
   }
 
   /**
@@ -1441,7 +1491,7 @@ public abstract class WarcArtifactDataStore implements ArtifactDataStore, WARCCo
       // ********************************
 
       // Get a temporary WARC from the temporary WARC pool
-      boolean compressWarcRecord = isCompressionEnabled();
+      boolean compressWarcRecord = isCompressedWarcRecordRequested(artifactData);
       WarcFile tmpWarc = tmpWarcPool.checkoutWarcFileForWrite(compressWarcRecord);
       Path tmpWarcPath = tmpWarc.getPath();
 
@@ -1530,6 +1580,34 @@ public abstract class WarcArtifactDataStore implements ArtifactDataStore, WARCCo
       log.error("Could not add artifact data", e);
       throw e;
     }
+  }
+
+  String getContentEncodingFromArtifactData(ArtifactData ad) throws IOException {
+    HttpHeaders headers = ad.getHttpHeaders();
+    return headers.getFirst(HttpHeaders.CONTENT_ENCODING);
+  }
+
+  String getMimeTypeFromArtifactData(ArtifactData ad) throws IOException {
+    ArtifactIdentifier aid = ad.getIdentifier();
+    HttpHeaders headers = ad.getHttpHeaders();
+
+    String contentType = headers.getFirst(HttpHeaders.CONTENT_TYPE);
+    String mimeType = HeaderUtil.getMimeTypeFromContentType(contentType);
+
+    if (contentType == null || mimeType == null) {
+      // Fallback to using the file extension
+      UriComponents uriComponents = UriComponentsBuilder.fromUriString(aid.getUri()).build();
+      String path = uriComponents.getPath();
+
+      if (path != null) {
+        int pos = path.lastIndexOf('.');
+        if (pos > 0) {
+          mimeType = MimeUtil.getMimeTypeFromExtension(path.substring(pos));
+        }
+      }
+    }
+
+    return mimeType;
   }
 
   /**

@@ -49,7 +49,6 @@ import org.lockss.repository.*;
 import org.apache.commons.io.output.UnsynchronizedByteArrayOutputStream;
 import org.apache.http.*;
 import org.apache.http.message.*;
-import org.lockss.util.rest.repo.model.IncludeContentEnum;
 import org.springframework.http.HttpHeaders;
 import org.lockss.util.rest.repo.LockssNoSuchArtifactIdException;
 import org.lockss.util.rest.repo.LockssRepository;
@@ -162,7 +161,7 @@ public class TestV2BaseCachedUrl extends LockssTestCase {
   private static class InstrumentedBaseCachedUrl extends BaseCachedUrl {
     private List<ArtifactData> releasedAds = new ArrayList<>();
     private List<ArtifactData> obtainedAds = new ArrayList<>();
-    private List<IncludeContentEnum> includeArgs =
+    private List<LockssRepository.IncludeContent> includeArgs =
       new ArrayList<>();
 
     public InstrumentedBaseCachedUrl(ArchivalUnit au, String url) {
@@ -171,7 +170,7 @@ public class TestV2BaseCachedUrl extends LockssTestCase {
 
     @Override
     ArtifactData getArtifactData(LockssRepository repo, Artifact art,
-				 IncludeContentEnum includeContent)
+				 LockssRepository.IncludeContent includeContent)
 	throws IOException {
       includeArgs.add(includeContent);
       ArtifactData res = super.getArtifactData(repo, art, includeContent);
@@ -193,7 +192,7 @@ public class TestV2BaseCachedUrl extends LockssTestCase {
       return releasedAds;
     }
 
-    public List<IncludeContentEnum> getIncludeArgs() {
+    public List<LockssRepository.IncludeContent> getIncludeArgs() {
       return includeArgs;
     }
 
@@ -401,9 +400,9 @@ public class TestV2BaseCachedUrl extends LockssTestCase {
       u1i2.close();	     // close one explcitly, should change behavior
       cu1.release();
       assertEquals(ibcu1.getObtainedAds(), ibcu1.getReleasedAds());
-      assertEquals(ListUtil.list(IncludeContentEnum.ALWAYS,
-				 IncludeContentEnum.ALWAYS,
-				 IncludeContentEnum.ALWAYS),
+      assertEquals(ListUtil.list(LockssRepository.IncludeContent.ALWAYS,
+				 LockssRepository.IncludeContent.ALWAYS,
+				 LockssRepository.IncludeContent.ALWAYS),
 		   ibcu1.getIncludeArgs());
       // XXX would be better to check that InputStreams get closed but no
       // good way to get ahold of them.
@@ -1061,42 +1060,42 @@ public class TestV2BaseCachedUrl extends LockssTestCase {
 	(InstrumentedBaseCachedUrl)getTestCu(url1);
       assertEmpty(ibcu1.getIncludeArgs());
       ibcu1.getProperties();
-      assertEquals(ListUtil.list(IncludeContentEnum.IF_SMALL),
+      assertEquals(ListUtil.list(LockssRepository.IncludeContent.IF_SMALL),
 		   ibcu1.getIncludeArgs());
       ibcu1.getUnfilteredInputStream();
-      assertEquals(ListUtil.list(IncludeContentEnum.IF_SMALL),
+      assertEquals(ListUtil.list(LockssRepository.IncludeContent.IF_SMALL),
 		   ibcu1.getIncludeArgs());
       ibcu1.getUnfilteredInputStream();
-      assertEquals(ListUtil.list(IncludeContentEnum.IF_SMALL,
-				 IncludeContentEnum.ALWAYS),
+      assertEquals(ListUtil.list(LockssRepository.IncludeContent.IF_SMALL,
+				 LockssRepository.IncludeContent.ALWAYS),
 		   ibcu1.getIncludeArgs());
 
       InstrumentedBaseCachedUrl ibcu2 =
 	(InstrumentedBaseCachedUrl)getTestCu(url2);
       ibcu2.setNeedContent(CachedUrl.NeedContent.NO);
       ibcu2.getProperties();
-      assertEquals(ListUtil.list(IncludeContentEnum.NEVER),
+      assertEquals(ListUtil.list(LockssRepository.IncludeContent.NEVER),
 		   ibcu2.getIncludeArgs());
       ibcu2.getUnfilteredInputStream();
-      assertEquals(ListUtil.list(IncludeContentEnum.NEVER),
+      assertEquals(ListUtil.list(LockssRepository.IncludeContent.NEVER),
 		   ibcu2.getIncludeArgs());
       ibcu2.getUnfilteredInputStream();
-      assertEquals(ListUtil.list(IncludeContentEnum.NEVER,
-				 IncludeContentEnum.ALWAYS),
+      assertEquals(ListUtil.list(LockssRepository.IncludeContent.NEVER,
+				 LockssRepository.IncludeContent.ALWAYS),
 		   ibcu2.getIncludeArgs());
 
       InstrumentedBaseCachedUrl ibcu3 =
 	(InstrumentedBaseCachedUrl)getTestCu(url3);
       ibcu3.setNeedContent(CachedUrl.NeedContent.YES);
       ibcu3.getProperties();
-      assertEquals(ListUtil.list(IncludeContentEnum.ALWAYS),
+      assertEquals(ListUtil.list(LockssRepository.IncludeContent.ALWAYS),
 		   ibcu3.getIncludeArgs());
       ibcu3.getUnfilteredInputStream();
-      assertEquals(ListUtil.list(IncludeContentEnum.ALWAYS),
+      assertEquals(ListUtil.list(LockssRepository.IncludeContent.ALWAYS),
 		   ibcu3.getIncludeArgs());
       ibcu3.getUnfilteredInputStream();
-      assertEquals(ListUtil.list(IncludeContentEnum.ALWAYS,
-				 IncludeContentEnum.ALWAYS),
+      assertEquals(ListUtil.list(LockssRepository.IncludeContent.ALWAYS,
+				 LockssRepository.IncludeContent.ALWAYS),
 		   ibcu3.getIncludeArgs());
     }
 

@@ -36,8 +36,10 @@ import com.fasterxml.jackson.annotation.JsonAutoDetect;
 import com.fasterxml.jackson.databind.DeserializationFeature;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.apache.commons.codec.digest.DigestUtils;
-import org.apache.commons.collections4.*;
-import org.apache.commons.io.*;
+import org.apache.commons.collections4.IterableUtils;
+import org.apache.commons.collections4.IteratorUtils;
+import org.apache.commons.collections4.ListUtils;
+import org.apache.commons.io.FileUtils;
 import org.apache.commons.io.output.UnsynchronizedByteArrayOutputStream;
 import org.archive.format.warc.WARCConstants;
 import org.archive.io.ArchiveReader;
@@ -88,13 +90,14 @@ import java.time.ZoneOffset;
 import java.time.ZonedDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.*;
-import java.util.function.*;
-import java.util.stream.Stream;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
+import java.util.function.BiConsumer;
+import java.util.function.Function;
 import java.util.stream.Collectors;
+import java.util.stream.Stream;
 import java.util.stream.StreamSupport;
 import java.util.zip.GZIPOutputStream;
 
@@ -1900,6 +1903,148 @@ public abstract class AbstractWarcArtifactDataStoreTest<WADS extends WarcArtifac
   @Test
   public void testAddArtifactData_compressed() throws Exception {
     runTestAddArtifactData(true);
+  }
+
+  @Test
+  public void testGetContentEncodingFromArtifactData() throws Exception {
+    ArtifactSpec spec = ArtifactSpec.forNsAuUrl(NS1, AUID1, URL1)
+        .setCollectionDate(TimeBase.nowMs());
+
+    spec.generateContent();
+
+    assertEquals(null,
+        store.getContentEncodingFromArtifactData(spec.getArtifactData(false)));
+
+    Map<String, String> headers = new HashMap<>();
+    headers.put("Content-Encoding", "gzip");
+    spec.setHeaders(headers);
+
+    assertEquals("gzip",
+        store.getContentEncodingFromArtifactData(spec.getArtifactData(false)));
+  }
+
+  /**
+   * Test for {@link WarcArtifactDataStore#getMimeTypeFromArtifactData(ArtifactData)}.
+   */
+  @Test
+  public void testGetMimeTypeFromArtifactData() throws Exception {
+    String url = "http://www.example.com/test.jpg";
+    ArtifactSpec spec = ArtifactSpec.forNsAuUrl(NS1, AUID1, url);
+    spec.generateContent();
+
+    // Assert MIME type derived from URL matches expected
+    assertEquals("image/jpeg",
+        store.getMimeTypeFromArtifactData(spec.getArtifactData(false)));
+
+    Map<String, String> headers = new HashMap<>();
+    headers.put("Content-Type", "application/gzip;charset=foo");
+    spec.setHeaders(headers);
+
+    // Assert MIME type derived from Content-Type header matches expected
+    assertEquals("application/gzip",
+        store.getMimeTypeFromArtifactData(spec.getArtifactData(false)));
+  }
+
+  @Test
+  public void testIsCompressedContentEncoding() throws Exception {
+    assertFalse(store.isCompressedContentEncoding(null));
+    assertFalse(store.isCompressedContentEncoding(""));
+    assertFalse(store.isCompressedContentEncoding(" "));
+
+    assertFalse(store.isCompressedContentEncoding("foo"));
+    assertTrue(store.isCompressedContentEncoding("gzip"));
+
+    store.setCompressedContentEncodings(Collections.EMPTY_SET);
+    assertFalse(store.isCompressedContentEncoding("gzip"));
+
+    store.setCompressedContentEncodings(null);
+    assertFalse(store.isCompressedContentEncoding("gzip"));
+  }
+
+  @Test
+  public void testIsCompressedMimeType() throws Exception {
+    assertFalse(store.isCompressedMimeType(null));
+    assertFalse(store.isCompressedMimeType(""));
+    assertFalse(store.isCompressedMimeType(" "));
+
+    assertFalse(store.isCompressedMimeType("text/plain"));
+    assertTrue(store.isCompressedMimeType("application/gzip"));
+
+    store.setCompressedMimeTypes(Collections.EMPTY_SET);
+    assertFalse(store.isCompressedMimeType("application/gzip"));
+
+    store.setCompressedMimeTypes(null);
+    assertFalse(store.isCompressedMimeType("application/gzip"));
+  }
+
+  @Test
+  public void testIsCompressedWarcRecordRequested() throws Exception {
+    ArtifactSpec spec = ArtifactSpec.forNsAuUrl(NS1, AUID1, URL1)
+        .setCollectionDate(TimeBase.nowMs());
+
+    store.setDefaultUseWarcCompression(true);
+
+    {
+      Map<String, String> headers = new HashMap<>();
+      headers.put("Content-Type", "text/plain");
+      spec.setHeaders(headers);
+      assertTrue(store.isCompressedWarcRecordRequested(spec.getArtifactData()));
+    }
+
+    {
+      Map<String, String> headers = new HashMap<>();
+      headers.put("Content-Type", "text/plain");
+      headers.put("Content-Encoding", "gzip");
+      spec.setHeaders(headers);
+      assertFalse(store.isCompressedWarcRecordRequested(spec.getArtifactData()));
+    }
+
+    {
+      Map<String, String> headers = new HashMap<>();
+      headers.put("Content-Type", "application/gzip");
+      spec.setHeaders(headers);
+      assertFalse(store.isCompressedWarcRecordRequested(spec.getArtifactData()));
+    }
+
+    {
+      Map<String, String> headers = new HashMap<>();
+      headers.put("Content-Type", "image/jpeg");
+      headers.put("Content-Encoding", "gzip");
+      spec.setHeaders(headers);
+      assertFalse(store.isCompressedWarcRecordRequested(spec.getArtifactData()));
+    }
+
+    store.setDefaultUseWarcCompression(false);
+
+    {
+      Map<String, String> headers = new HashMap<>();
+      headers.put("Content-Type", "text/plain");
+      spec.setHeaders(headers);
+      assertFalse(store.isCompressedWarcRecordRequested(spec.getArtifactData()));
+    }
+
+    {
+      Map<String, String> headers = new HashMap<>();
+      headers.put("Content-Type", "text/plain");
+      headers.put("Content-Encoding", "gzip");
+      spec.setHeaders(headers);
+      assertFalse(store.isCompressedWarcRecordRequested(spec.getArtifactData()));
+    }
+
+    {
+      Map<String, String> headers = new HashMap<>();
+      headers.put("Content-Type", "application/gzip");
+      spec.setHeaders(headers);
+      assertFalse(store.isCompressedWarcRecordRequested(spec.getArtifactData()));
+    }
+
+    {
+      Map<String, String> headers = new HashMap<>();
+      headers.put("Content-Type", "image/jpeg");
+      headers.put("Content-Encoding", "gzip");
+      spec.setHeaders(headers);
+      assertFalse(store.isCompressedWarcRecordRequested(spec.getArtifactData()));
+    }
   }
 
   @Test
