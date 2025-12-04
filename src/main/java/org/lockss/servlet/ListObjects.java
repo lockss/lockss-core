@@ -33,7 +33,7 @@ import java.net.*;
 import java.util.*;
 import java.util.List;
 
-import javax.servlet.*;
+import jakarta.servlet.*;
 
 import org.lockss.daemon.*;
 import org.lockss.crawler.*;
@@ -231,7 +231,9 @@ public class ListObjects extends LockssServlet {
   protected void sendTextError(int respCode, String respMsg, String message)
       throws IOException {
     resp.setContentType("text/plain");
-    resp.setStatus(respCode, respMsg);
+    // Note: setStatus(int, String) was removed in Jakarta Servlet 6.0
+    // The reason phrase is now ignored per HTTP/2 spec
+    resp.setStatus(respCode);
     PrintWriter wrtr = resp.getWriter();
     wrtr.println(message);
     wrtr.close();

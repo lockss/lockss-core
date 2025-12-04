@@ -34,8 +34,8 @@ import java.util.*;
 import java.util.List;
 import java.security.Principal;
 
-import javax.servlet.*;
-import javax.servlet.http.*;
+import jakarta.servlet.*;
+import jakarta.servlet.http.*;
 
 import org.apache.commons.lang3.StringUtils;
 import org.apache.commons.collections4.*;
@@ -62,10 +62,11 @@ import org.xnap.commons.i18n.I18n;
 
 /** Abstract base class for LOCKSS servlets
  */
-// SingleThreadModel causes servlet instances to be assigned to only a
+// Note: SingleThreadModel was removed in Jakarta Servlet 6.0.
+// Thread safety must now be managed explicitly within the servlet implementation.
+// The original SingleThreadModel caused servlet instances to be assigned to only a
 // single thread (request) at a time.
-public abstract class LockssServlet extends HttpServlet
-  implements SingleThreadModel {
+public abstract class LockssServlet extends HttpServlet {
   
   private static final Logger log = Logger.getLogger();
 
