@@ -47,7 +47,7 @@ import java.io.*;
 import java.util.*;
 import java.security.Principal;
 
-import javax.servlet.http.*;
+import jakarta.servlet.http.*;
 import org.mortbay.http.*;
 import org.mortbay.util.*;
 import org.mortbay.jetty.servlet.*;

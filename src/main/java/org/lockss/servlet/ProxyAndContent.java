@@ -35,8 +35,8 @@ package org.lockss.servlet;
 import java.io.IOException;
 import java.util.*;
 import java.util.List;
-import javax.servlet.*;
-import javax.servlet.http.*;
+import jakarta.servlet.*;
+import jakarta.servlet.http.*;
 import org.mortbay.html.*;
 
 import org.apache.commons.collections4.iterators.ObjectArrayIterator;

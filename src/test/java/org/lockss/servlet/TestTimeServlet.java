@@ -7,7 +7,7 @@ import org.lockss.util.Logger;
 import org.lockss.util.UrlUtil;
 import org.lockss.util.time.TimeZoneUtil;
 
-import javax.servlet.ServletException;
+import jakarta.servlet.ServletException;
 import java.io.IOException;
 import java.text.SimpleDateFormat;
 import java.util.Date;

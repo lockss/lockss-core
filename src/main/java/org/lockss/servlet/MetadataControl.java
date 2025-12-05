@@ -29,8 +29,8 @@ package org.lockss.servlet;
 
 import static org.lockss.servlet.MetadataMonitor.*;
 import java.io.IOException;
-import javax.servlet.ServletConfig;
-import javax.servlet.ServletException;
+import jakarta.servlet.ServletConfig;
+import jakarta.servlet.ServletException;
 import org.lockss.db.DbException;
 import org.lockss.metadata.MetadataDbManager;
 import org.lockss.metadata.MetadataManager;

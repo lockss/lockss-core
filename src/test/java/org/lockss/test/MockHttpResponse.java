@@ -32,7 +32,7 @@ in this Software without prior written authorization from Stanford University.
 package org.lockss.test;
 
 import org.mortbay.http.*;
-import javax.servlet.http.*;
+import jakarta.servlet.http.*;
 
 public class MockHttpResponse extends HttpResponse {
 

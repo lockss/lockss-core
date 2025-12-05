@@ -32,7 +32,7 @@ import java.io.*;
 import java.text.*;
 import java.util.*;
 
-import javax.servlet.*;
+import jakarta.servlet.*;
 
 import org.apache.commons.lang3.time.FastDateFormat;
 import org.mortbay.html.*;

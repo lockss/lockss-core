@@ -37,8 +37,8 @@ import java.net.*;
 import java.util.*;
 import javax.net.ssl.KeyManagerFactory;
 
-import javax.servlet.*;
-import javax.servlet.http.*;
+import jakarta.servlet.*;
+import jakarta.servlet.http.*;
 
 import org.lockss.app.*;
 import org.lockss.config.Configuration;

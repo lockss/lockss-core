@@ -37,8 +37,8 @@ import org.lockss.plugin.CachedUrl;
 import org.lockss.servlet.CuTimeMap.CuMemento;
 import org.lockss.util.*;
 
-import javax.servlet.ServletException;
-import javax.servlet.http.HttpServletResponse;
+import jakarta.servlet.ServletException;
+import jakarta.servlet.http.HttpServletResponse;
 import java.io.IOException;
 import java.io.Writer;
 import java.net.MalformedURLException;

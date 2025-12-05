@@ -36,7 +36,7 @@ import java.io.IOException;
 import java.util.*;
 import java.util.List;
 
-import javax.servlet.*;
+import jakarta.servlet.*;
 
 import org.mortbay.html.*;
 

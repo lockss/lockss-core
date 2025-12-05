@@ -38,9 +38,9 @@ import org.lockss.util.CIProperties;
 import org.lockss.util.DateTimeUtil;
 import org.lockss.util.UrlUtil;
 
-import javax.servlet.ServletConfig;
-import javax.servlet.ServletException;
-import javax.servlet.http.HttpServletResponse;
+import jakarta.servlet.ServletConfig;
+import jakarta.servlet.ServletException;
+import jakarta.servlet.http.HttpServletResponse;
 import java.io.IOException;
 import java.text.ParseException;
 import java.util.Collection;

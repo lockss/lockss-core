@@ -263,4 +263,33 @@ dependencies {
     testImplementation(libs.xmlunit.core)
 }
 
+// Include non-Java resources from src/main/java and src/test/java
+// This matches Maven's resources and testResources configuration
+// Note: We use a separate task to copy these because modifying sourceSets.main.resources
+// with include patterns can interfere with the default src/main/resources processing
+val copyMainJavaResources by tasks.registering(Copy::class) {
+    from("src/main/java")
+    into(layout.buildDirectory.dir("resources/main"))
+    include(
+        "**/*.xml",           // mapping files in various dirs
+        "**/*.keystore",      // keystores
+        "**/*.dtd",           // DTDs
+        "**/errorpagetemplate.html",
+        "**/urlrewriter.js"   // IA/WERA javascript
+    )
+}
+
+tasks.named("processResources") {
+    dependsOn(copyMainJavaResources)
+}
+
+sourceSets {
+    test {
+        resources {
+            srcDir("src/test/java")
+            exclude("**/*.java", "**/*.tdb")
+        }
+    }
+}
+
 // Test artifacts configuration is provided by lockss-java-conventions plugin

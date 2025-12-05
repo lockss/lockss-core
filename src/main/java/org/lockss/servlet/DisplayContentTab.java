@@ -44,8 +44,8 @@ import org.lockss.util.time.Deadline;
 import org.lockss.util.time.TimeUtil;
 import org.mortbay.html.*;
 
-import javax.servlet.ServletConfig;
-import javax.servlet.ServletException;
+import jakarta.servlet.ServletConfig;
+import jakarta.servlet.ServletException;
 
 import java.io.IOException;
 import java.io.PrintWriter;

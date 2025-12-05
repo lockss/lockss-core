@@ -36,7 +36,7 @@ import java.io.*;
 import java.util.*;
 import java.util.List;
 import java.text.*;
-import javax.servlet.*;
+import jakarta.servlet.*;
 import java.lang.management.*;
 import org.mortbay.html.*;
 

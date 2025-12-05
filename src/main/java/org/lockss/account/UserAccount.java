@@ -52,7 +52,7 @@ import org.lockss.plugin.AuUtil;
 import org.lockss.state.StateManager;
 import org.mortbay.util.Credential;
 
-import javax.servlet.http.*;
+import jakarta.servlet.http.*;
 
 import org.lockss.config.*;
 import org.lockss.util.*;

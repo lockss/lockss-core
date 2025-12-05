@@ -35,7 +35,7 @@ package org.lockss.servlet;
 import java.io.IOException;
 import java.util.Properties;
 
-import javax.servlet.*;
+import jakarta.servlet.*;
 
 import org.mortbay.html.*;
 

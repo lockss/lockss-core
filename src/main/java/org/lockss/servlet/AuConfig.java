@@ -31,7 +31,7 @@ package org.lockss.servlet;
 import java.io.IOException;
 import java.util.*;
 import java.util.List;
-import javax.servlet.*;
+import jakarta.servlet.*;
 import org.apache.commons.lang3.mutable.MutableInt;
 import org.lockss.config.*;
 import org.lockss.daemon.*;

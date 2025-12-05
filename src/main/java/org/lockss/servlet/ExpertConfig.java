@@ -33,7 +33,7 @@ import java.util.*;
 import java.util.List;
 import java.util.regex.*;
 
-import javax.servlet.*;
+import jakarta.servlet.*;
 
 import org.mortbay.html.*;
 

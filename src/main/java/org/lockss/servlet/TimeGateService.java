@@ -42,9 +42,9 @@ import org.lockss.plugin.CachedUrl;
 import org.lockss.util.Logger;
 import org.lockss.util.UrlUtil;
 
-import javax.servlet.ServletException;
-import javax.servlet.http.HttpServletRequest;
-import javax.servlet.http.HttpServletResponse;
+import jakarta.servlet.ServletException;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
 
 /**
  * The TimeGateService servlet redirects Accept-Datetime GET requests to the most

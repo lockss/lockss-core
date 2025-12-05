@@ -35,7 +35,7 @@ package org.lockss.servlet;
 import java.io.*;
 import java.net.*;
 import java.util.*;
-import javax.servlet.http.*;
+import jakarta.servlet.http.*;
 import org.mortbay.http.*;
 import org.mortbay.jetty.servlet.*;
 import com.github.ziplet.filter.compression.*;

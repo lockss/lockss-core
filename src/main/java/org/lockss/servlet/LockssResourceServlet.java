@@ -35,8 +35,8 @@ package org.lockss.servlet;
 
 import java.io.*;
 import java.util.*;
-import javax.servlet.*;
-import javax.servlet.http.*;
+import jakarta.servlet.*;
+import jakarta.servlet.http.*;
 import org.mortbay.jetty.servlet.*;
 import org.mortbay.http.*;
 import org.mortbay.util.*;

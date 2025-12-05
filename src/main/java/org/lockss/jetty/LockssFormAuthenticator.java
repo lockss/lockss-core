@@ -38,7 +38,7 @@ package org.lockss.jetty;
 import java.io.*;
 import java.security.Principal;
 
-import javax.servlet.http.*;
+import jakarta.servlet.http.*;
 import org.mortbay.jetty.servlet.*;
 import org.mortbay.http.*;
 import org.mortbay.util.*;

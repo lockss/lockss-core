@@ -31,7 +31,7 @@ package org.lockss.servlet;
 import java.io.*;
 import java.util.*;
 
-import javax.servlet.*;
+import jakarta.servlet.*;
 
 import org.apache.commons.lang3.StringUtils;
 import org.lockss.app.LockssDaemon;

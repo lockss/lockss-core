@@ -34,7 +34,7 @@ package org.lockss.test;
 import java.util.*;
 import java.security.Principal;
 import org.mortbay.http.*;
-import javax.servlet.http.*;
+import jakarta.servlet.http.*;
 import org.mortbay.util.*;
 
 public class MockHttpRequest extends HttpRequest {

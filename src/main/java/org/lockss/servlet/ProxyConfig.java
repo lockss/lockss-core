@@ -36,8 +36,8 @@ import java.io.*;
 import java.net.UnknownHostException;
 import java.util.*;
 
-import javax.servlet.*;
-import javax.servlet.http.HttpServletResponse;
+import jakarta.servlet.*;
+import jakarta.servlet.http.HttpServletResponse;
 import org.mortbay.html.*;
 
 import org.lockss.daemon.ProxyInfo;
