@@ -1006,6 +1006,13 @@ public class SQLArtifactIndexManagerSql {
       + " AND a." + AUID_SEQ_COLUMN + " = auid." + AUID_SEQ_COLUMN
       + " AND a." + URL_SEQ_COLUMN + " = u." + URL_SEQ_COLUMN;
 
+  // Keyset pagination WHERE clause fragment.
+  // sortUri is a computed column: replace(concat(url, long_url), '/', '\t')
+  // Ordering is sortUri ASC, artifact_version DESC
+  // This clause selects rows AFTER the given (sortUri, version) position
+  private static final String KEYSET_WHERE_CLAUSE =
+      " AND (sortUri > ? OR (sortUri = ? AND " + ARTIFACT_VERSION_COLUMN + " < ?))";
+
   /**
    * Constructor.
    *
@@ -1635,125 +1642,201 @@ public class SQLArtifactIndexManagerSql {
     }
   }
 
-  public Iterable<Artifact> findLatestArtifactsOfAllUrlsWithNamespaceAndAuid(
-      String namespace, String auid, boolean includeUncommitted) throws DbException {
-    log.debug2("namespace = {}", namespace);
-    log.debug2("auid = {}", auid);
-    log.debug2("includeUncommitted = {}", includeUncommitted);
+  // =========================================================================
+  // Page fetch methods for PagingArtifactIterator
+  // These methods fetch a single page and close the connection immediately.
+  // =========================================================================
 
-    Connection conn = getConnection();
-    return IteratorUtils.asIterable(findLatestArtifactsOfAllUrlsWithNamespaceAndAuid(conn, namespace, auid, includeUncommitted));
-  }
+  /**
+   * Fetches a page of latest artifacts (one per URL) using keyset pagination.
+   * Connection is opened, used, and closed within this method.
+   *
+   * @param namespace The namespace
+   * @param auid The AUID
+   * @param includeUncommitted Whether to include uncommitted artifacts
+   * @param lastSortUri The sortUri from the last artifact of the previous page (null for first page)
+   * @param lastVersion The version from the last artifact of the previous page (null for first page)
+   * @param limit Maximum number of artifacts to return
+   * @return List of artifacts
+   * @throws DbException if database error occurs
+   */
+  List<Artifact> fetchLatestArtifactsPage(
+      String namespace, String auid, boolean includeUncommitted,
+      String lastSortUri, Integer lastVersion, int limit) throws DbException {
 
-  private Iterator<Artifact> findLatestArtifactsOfAllUrlsWithNamespaceAndAuid(
-      Connection conn, String namespace, String auid, boolean includeUncommitted) throws DbException {
+    log.debug2("namespace={}, auid={}, includeUncommitted={}, lastSortUri={}, lastVersion={}, limit={}",
+        namespace, auid, includeUncommitted, lastSortUri, lastVersion, limit);
 
+    Connection conn = null;
     PreparedStatement ps = null;
-    ResultSet resultSet = null;
-    String errorMessage = "Cannot get artifacts";
+    ResultSet rs = null;
 
     try {
+      conn = getConnection();
+
+      // Build base query
       String sqlQuery = GET_LATEST_ARTIFACTS_WITH_NAMESPACE_AND_AUID_QUERY;
       String latestVersionsQuery = MAX_VERSION_OF_URL_WITH_NAMESPACE_AND_AUID_QUERY;
 
-      // FIXME: These string replacements are pretty damn ugly and fragile
+      // Add committed status condition if needed
       latestVersionsQuery = latestVersionsQuery.replace("--CommittedStatusCondition--",
           !includeUncommitted ? ARTIFACT_COMMITTED_STATUS_CONDITION : EMPTY_STRING);
 
       sqlQuery = sqlQuery.replace("--MaxVersionAllUrlsWithNamespaceAndAuid--", latestVersionsQuery);
 
-      // Prepare the query
-      ps = idxDbManager.prepareStatement(conn, sqlQuery);
-
-      // Populate the query
-      ps.setString(1, namespace);
-      ps.setString(2, auid);
-      if (!includeUncommitted) {
-        ps.setBoolean(3, true);
+      // Add keyset WHERE clause if not first page
+      if (lastSortUri != null) {
+        sqlQuery += KEYSET_WHERE_CLAUSE;
       }
 
-      resultSet = idxDbManager.executeQuery(ps);
+      // Add LIMIT clause
+      sqlQuery += " LIMIT ?";
 
-      return new ArtifactResultSetIterator(conn, resultSet);
+      log.trace("SQL = '{}'", sqlQuery);
+
+      // Prepare statement
+      ps = idxDbManager.prepareStatement(conn, sqlQuery);
+
+      // Bind parameters
+      int paramIndex = 1;
+      ps.setString(paramIndex++, namespace);
+      ps.setString(paramIndex++, auid);
+      if (!includeUncommitted) {
+        ps.setBoolean(paramIndex++, true);
+      }
+
+      // Bind keyset parameters if not first page
+      if (lastSortUri != null) {
+        ps.setString(paramIndex++, lastSortUri);
+        ps.setString(paramIndex++, lastSortUri);
+        ps.setInt(paramIndex++, lastVersion);
+      }
+
+      ps.setInt(paramIndex++, limit);
+
+      // Execute query
+      rs = idxDbManager.executeQuery(ps);
+
+      // Collect results
+      List<Artifact> artifacts = new ArrayList<>(Math.min(limit, 1000));
+      while (rs.next()) {
+        artifacts.add(getArtifactFromCurrentRow(rs));
+      }
+
+      log.debug2("Returning {} artifacts", artifacts.size());
+      return artifacts;
+
     } catch (SQLException e) {
-      log.error(errorMessage, e);
-      log.error("SQL = '{}'.", GET_LATEST_ARTIFACTS_WITH_NAMESPACE_AND_AUID_QUERY);
-      log.error("namespace = {}", namespace);
-      log.error("auid = {}", auid);
-      log.error("includeUncommitted = {}", includeUncommitted);
-
-      DbManager.safeCloseResultSet(resultSet);
+      log.error("Cannot fetch artifact page", e);
+      log.error("namespace={}, auid={}", namespace, auid);
+      throw new DbException("Cannot fetch artifact page", e);
+    } finally {
+      DbManager.safeCloseResultSet(rs);
       DbManager.safeCloseStatement(ps);
-      DbManager.safeRollbackAndClose(conn);
-
-      throw new DbException(errorMessage, e);
+      DbManager.safeCloseConnection(conn);
     }
   }
 
-  public Iterable<Artifact> findArtifactsAllVersionsOfAllUrlsWithNamespaceAndAuid(String namespace, String auid, boolean includeUncommitted) throws DbException {
-    log.debug2("namespace = {}", namespace);
-    log.debug2("auid = {}", auid);
-    log.debug2("includeUncommitted = {}", includeUncommitted);
+  /**
+   * Fetches a page of all versions of all URLs using keyset pagination.
+   * Connection is opened, used, and closed within this method.
+   *
+   * @param namespace The namespace
+   * @param auid The AUID
+   * @param includeUncommitted Whether to include uncommitted artifacts
+   * @param lastSortUri The sortUri from the last artifact of the previous page (null for first page)
+   * @param lastVersion The version from the last artifact of the previous page (null for first page)
+   * @param limit Maximum number of artifacts to return
+   * @return List of artifacts
+   * @throws DbException if database error occurs
+   */
+  List<Artifact> fetchAllVersionsArtifactsPage(
+      String namespace, String auid, boolean includeUncommitted,
+      String lastSortUri, Integer lastVersion, int limit) throws DbException {
 
-    Connection conn = getConnection();
-    return IteratorUtils.asIterable(findArtifactsAllVersionsOfAllUrlsWithNamespaceAndAuid(conn, namespace, auid, includeUncommitted));
-  }
+    log.debug2("namespace={}, auid={}, includeUncommitted={}, lastSortUri={}, lastVersion={}, limit={}",
+        namespace, auid, includeUncommitted, lastSortUri, lastVersion, limit);
 
-  private Iterator<Artifact> findArtifactsAllVersionsOfAllUrlsWithNamespaceAndAuid(Connection conn, String namespace, String auid, boolean includeUncommitted)
-      throws DbException {
-
+    Connection conn = null;
     PreparedStatement ps = null;
-    ResultSet resultSet = null;
-    String errorMessage = "Cannot get artifacts";
+    ResultSet rs = null;
 
     try {
+      conn = getConnection();
+
       String sqlQuery = GET_ARTIFACTS_WITH_NAMESPACE_AND_AUID_QUERY;
 
       sqlQuery = sqlQuery.replace("--CommittedStatusCondition--",
           !includeUncommitted ? ARTIFACT_COMMITTED_STATUS_CONDITION_TRUE : EMPTY_STRING);
 
-      // Prepare the query
+      // Add keyset WHERE clause if not first page
+      if (lastSortUri != null) {
+        sqlQuery += KEYSET_WHERE_CLAUSE;
+      }
+
+      // Add LIMIT clause
+      sqlQuery += " LIMIT ?";
+
+      log.trace("SQL = '{}'", sqlQuery);
+
       ps = idxDbManager.prepareStatement(conn, sqlQuery);
 
-      // Populate the query
-      ps.setString(1, namespace);
-      ps.setString(2, auid);
+      int paramIndex = 1;
+      ps.setString(paramIndex++, namespace);
+      ps.setString(paramIndex++, auid);
 
-      resultSet = idxDbManager.executeQuery(ps);
+      if (lastSortUri != null) {
+        ps.setString(paramIndex++, lastSortUri);
+        ps.setString(paramIndex++, lastSortUri);
+        ps.setInt(paramIndex++, lastVersion);
+      }
 
-      return new ArtifactResultSetIterator(conn, resultSet);
+      ps.setInt(paramIndex++, limit);
+
+      rs = idxDbManager.executeQuery(ps);
+
+      List<Artifact> artifacts = new ArrayList<>(Math.min(limit, 1000));
+      while (rs.next()) {
+        artifacts.add(getArtifactFromCurrentRow(rs));
+      }
+
+      log.debug2("Returning {} artifacts", artifacts.size());
+      return artifacts;
+
     } catch (SQLException e) {
-      log.error(errorMessage, e);
-      log.error("SQL = '{}'.", GET_ARTIFACTS_WITH_NAMESPACE_AND_AUID_QUERY);
-      log.error("namespace = {}", namespace);
-      log.error("auid = {}", auid);
-      log.error("includeUncommitted = {}", includeUncommitted);
-
-      DbManager.safeCloseResultSet(resultSet);
+      log.error("Cannot fetch artifact page", e);
+      log.error("namespace={}, auid={}", namespace, auid);
+      throw new DbException("Cannot fetch artifact page", e);
+    } finally {
+      DbManager.safeCloseResultSet(rs);
       DbManager.safeCloseStatement(ps);
-      DbManager.safeRollbackAndClose(conn);
-
-      throw new DbException(errorMessage, e);
+      DbManager.safeCloseConnection(conn);
     }
   }
 
-  public Iterable<Artifact> findArtifactsAllCommittedVersionsOfUrlWithNamespaceAndAuid(String namespace, String auid, String url)
-      throws DbException {
+  /**
+   * Fetches a page of all committed versions of a specific URL using keyset pagination.
+   * Connection is opened, used, and closed within this method.
+   *
+   * @param namespace The namespace
+   * @param auid The AUID
+   * @param url The URL
+   * @param lastSortUri The sortUri from the last artifact of the previous page (null for first page)
+   * @param lastVersion The version from the last artifact of the previous page (null for first page)
+   * @param limit Maximum number of artifacts to return
+   * @return List of artifacts
+   * @throws DbException if database error occurs
+   */
+  List<Artifact> fetchArtifactsForUrlPage(
+      String namespace, String auid, String url,
+      String lastSortUri, Integer lastVersion, int limit) throws DbException {
 
-    log.debug2("namespace = {}", namespace);
-    log.debug2("auid = {}", auid);
-    log.debug2("url = {}", url);
+    log.debug2("namespace={}, auid={}, url={}, lastSortUri={}, lastVersion={}, limit={}",
+        namespace, auid, url, lastSortUri, lastVersion, limit);
 
-    Connection conn = getConnection();
-    return IteratorUtils.asIterable(findArtifactsAllCommittedVersionsOfUrlWithNamespaceAndAuid(conn, namespace, auid, url));
-  }
-
-  private Iterator<Artifact> findArtifactsAllCommittedVersionsOfUrlWithNamespaceAndAuid(
-      Connection conn, String namespace, String auid, String url) throws DbException {
-
+    Connection conn = null;
     PreparedStatement ps = null;
-    ResultSet resultSet = null;
-    String errorMessage = "Cannot get artifacts";
+    ResultSet rs = null;
     boolean isLongUrl = LONG_URL_THRESHOLD < url.length();
 
     String sqlQuery = isLongUrl ?
@@ -1761,57 +1844,85 @@ public class SQLArtifactIndexManagerSql {
         GET_COMMITTED_ARTIFACTS_WITH_NAMESPACE_AUID_URL_QUERY;
 
     try {
-      // Prepare the query
-      ps = idxDbManager.prepareStatement(conn, sqlQuery);
+      conn = getConnection();
 
-      // Populate the query
-      ps.setString(1, namespace);
-      ps.setString(2, auid);
-
-      if (isLongUrl) {
-        ps.setString(3, url.substring(0, LONG_URL_THRESHOLD));
-        ps.setString(4, url.substring(LONG_URL_THRESHOLD));
-      } else {
-        ps.setString(3, url);
+      // Add keyset WHERE clause if not first page
+      if (lastSortUri != null) {
+        sqlQuery += KEYSET_WHERE_CLAUSE;
       }
 
-      resultSet = idxDbManager.executeQuery(ps);
+      // Add LIMIT clause
+      sqlQuery += " LIMIT ?";
 
-      return new ArtifactResultSetIterator(conn, resultSet);
+      log.trace("SQL = '{}'", sqlQuery);
+
+      ps = idxDbManager.prepareStatement(conn, sqlQuery);
+
+      int paramIndex = 1;
+      ps.setString(paramIndex++, namespace);
+      ps.setString(paramIndex++, auid);
+
+      if (isLongUrl) {
+        ps.setString(paramIndex++, url.substring(0, LONG_URL_THRESHOLD));
+        ps.setString(paramIndex++, url.substring(LONG_URL_THRESHOLD));
+      } else {
+        ps.setString(paramIndex++, url);
+      }
+
+      if (lastSortUri != null) {
+        ps.setString(paramIndex++, lastSortUri);
+        ps.setString(paramIndex++, lastSortUri);
+        ps.setInt(paramIndex++, lastVersion);
+      }
+
+      ps.setInt(paramIndex++, limit);
+
+      rs = idxDbManager.executeQuery(ps);
+
+      List<Artifact> artifacts = new ArrayList<>(Math.min(limit, 1000));
+      while (rs.next()) {
+        artifacts.add(getArtifactFromCurrentRow(rs));
+      }
+
+      log.debug2("Returning {} artifacts", artifacts.size());
+      return artifacts;
+
     } catch (SQLException e) {
-      log.error(errorMessage, e);
-      log.error("SQL = '{}'.", sqlQuery);
-      log.error("namespace = {}", namespace);
-      log.error("auid = {}", auid);
-      log.error("url = {}", url);
-
-      DbManager.safeCloseResultSet(resultSet);
+      log.error("Cannot fetch artifact page", e);
+      log.error("namespace={}, auid={}, url={}", namespace, auid, url);
+      throw new DbException("Cannot fetch artifact page", e);
+    } finally {
+      DbManager.safeCloseResultSet(rs);
       DbManager.safeCloseStatement(ps);
-      DbManager.safeRollbackAndClose(conn);
-
-      throw new DbException(errorMessage, e);
+      DbManager.safeCloseConnection(conn);
     }
   }
 
-  public Iterable<Artifact> findArtifactsAllCommittedVersionsOfUrlAllAuidsInNamespace(
-      String namespace, String url, ArtifactVersions versions) throws DbException {
+  /**
+   * Fetches a page of artifacts for a URL across all AUIDs in a namespace using keyset pagination.
+   * Connection is opened, used, and closed within this method.
+   *
+   * @param namespace The namespace
+   * @param url The URL
+   * @param versions Whether to return all versions or only latest
+   * @param lastSortUri The sortUri from the last artifact of the previous page (null for first page)
+   * @param lastVersion The version from the last artifact of the previous page (null for first page)
+   * @param limit Maximum number of artifacts to return
+   * @return List of artifacts
+   * @throws DbException if database error occurs
+   */
+  List<Artifact> fetchArtifactsForUrlAllAuidsPage(
+      String namespace, String url, ArtifactVersions versions,
+      String lastSortUri, Integer lastVersion, int limit) throws DbException {
 
-    log.debug2("namespace = {}", namespace);
-    log.debug2("url = {}", url);
-    log.debug2("versions = {}", versions);
+    log.debug2("namespace={}, url={}, versions={}, lastSortUri={}, lastVersion={}, limit={}",
+        namespace, url, versions, lastSortUri, lastVersion, limit);
 
-    Connection conn = getConnection();
-    return IteratorUtils.asIterable(findArtifactsAllCommittedVersionsOfUrlAllAuidsInNamespace(conn, namespace, url, versions));
-  }
-
-  private Iterator<Artifact> findArtifactsAllCommittedVersionsOfUrlAllAuidsInNamespace(
-      Connection conn, String namespace, String url, ArtifactVersions versions) throws DbException {
-
+    Connection conn = null;
     PreparedStatement ps = null;
-    ResultSet resultSet = null;
-    String errorMessage = "Cannot get artifacts";
+    ResultSet rs = null;
     boolean isLongUrl = LONG_URL_THRESHOLD < url.length();
-    String sqlQuery = null;
+    String sqlQuery;
 
     if (isLongUrl) {
       sqlQuery = versions == ArtifactVersions.LATEST ?
@@ -1824,61 +1935,88 @@ public class SQLArtifactIndexManagerSql {
     }
 
     try {
-      // Prepare the query
-      ps = idxDbManager.prepareStatement(conn, sqlQuery);
+      conn = getConnection();
 
-      // Populate the query
-      ps.setString(1, namespace);
-
-      if (isLongUrl) {
-        ps.setString(2, url.substring(0, LONG_URL_THRESHOLD));
-        ps.setString(3, url.substring(LONG_URL_THRESHOLD));
-      } else {
-        ps.setString(2, url);
+      // Add keyset WHERE clause if not first page
+      if (lastSortUri != null) {
+        sqlQuery += KEYSET_WHERE_CLAUSE;
       }
 
-      resultSet = idxDbManager.executeQuery(ps);
+      // Add LIMIT clause
+      sqlQuery += " LIMIT ?";
 
-      return new ArtifactResultSetIterator(conn, resultSet);
+      log.trace("SQL = '{}'", sqlQuery);
+
+      ps = idxDbManager.prepareStatement(conn, sqlQuery);
+
+      int paramIndex = 1;
+      ps.setString(paramIndex++, namespace);
+
+      if (isLongUrl) {
+        ps.setString(paramIndex++, url.substring(0, LONG_URL_THRESHOLD));
+        ps.setString(paramIndex++, url.substring(LONG_URL_THRESHOLD));
+      } else {
+        ps.setString(paramIndex++, url);
+      }
+
+      if (lastSortUri != null) {
+        ps.setString(paramIndex++, lastSortUri);
+        ps.setString(paramIndex++, lastSortUri);
+        ps.setInt(paramIndex++, lastVersion);
+      }
+
+      ps.setInt(paramIndex++, limit);
+
+      rs = idxDbManager.executeQuery(ps);
+
+      List<Artifact> artifacts = new ArrayList<>(Math.min(limit, 1000));
+      while (rs.next()) {
+        artifacts.add(getArtifactFromCurrentRow(rs));
+      }
+
+      log.debug2("Returning {} artifacts", artifacts.size());
+      return artifacts;
+
     } catch (SQLException e) {
-      log.error(errorMessage, e);
-      log.error("SQL = '{}'.", sqlQuery);
-      log.error("namespace = {}", namespace);
-      log.error("url = {}", url);
-      log.error("versions = {}", versions);
-
-      DbManager.safeCloseResultSet(resultSet);
+      log.error("Cannot fetch artifact page", e);
+      log.error("namespace={}, url={}, versions={}", namespace, url, versions);
+      throw new DbException("Cannot fetch artifact page", e);
+    } finally {
+      DbManager.safeCloseResultSet(rs);
       DbManager.safeCloseStatement(ps);
-      DbManager.safeRollbackAndClose(conn);
-
-      throw new DbException(errorMessage, e);
+      DbManager.safeCloseConnection(conn);
     }
   }
 
-  public Iterable<Artifact> findArtifactsAllCommittedVersionsOfUrlByPrefixAllAuidsInNamespace(
-      String namespace, String prefix, ArtifactVersions versions) throws DbException {
+  /**
+   * Fetches a page of artifacts by URL prefix across all AUIDs in a namespace using keyset pagination.
+   * Connection is opened, used, and closed within this method.
+   *
+   * @param namespace The namespace
+   * @param prefix The URL prefix
+   * @param versions Whether to return all versions or only latest
+   * @param lastSortUri The sortUri from the last artifact of the previous page (null for first page)
+   * @param lastVersion The version from the last artifact of the previous page (null for first page)
+   * @param limit Maximum number of artifacts to return
+   * @return List of artifacts
+   * @throws DbException if database error occurs
+   */
+  List<Artifact> fetchArtifactsByPrefixAllAuidsPage(
+      String namespace, String prefix, ArtifactVersions versions,
+      String lastSortUri, Integer lastVersion, int limit) throws DbException {
 
-    log.debug2("namespace = {}", namespace);
-    log.debug2("prefix = {}", prefix);
-    log.debug2("versions = {}", versions);
-
-    Connection conn = getConnection();
-    return IteratorUtils.asIterable(findArtifactsAllCommittedVersionsOfUrlByPrefixAllAuidsInNamespace(conn, namespace, prefix, versions));
-  }
-
-  private Iterator<Artifact> findArtifactsAllCommittedVersionsOfUrlByPrefixAllAuidsInNamespace(
-      Connection conn, String namespace, String prefix, ArtifactVersions versions) throws DbException {
-
-    PreparedStatement ps = null;
-    ResultSet resultSet = null;
-    String errorMessage = "Cannot get artifacts";
+    log.debug2("namespace={}, prefix={}, versions={}, lastSortUri={}, lastVersion={}, limit={}",
+        namespace, prefix, versions, lastSortUri, lastVersion, limit);
 
     if (StringUtil.isNullString(prefix)) {
       prefix = EMPTY_STRING;
     }
 
+    Connection conn = null;
+    PreparedStatement ps = null;
+    ResultSet rs = null;
     boolean isLongUrl = LONG_URL_THRESHOLD < prefix.length();
-    String sqlQuery = null;
+    String sqlQuery;
 
     if (isLongUrl) {
       sqlQuery = versions == ArtifactVersions.LATEST ?
@@ -1891,37 +2029,312 @@ public class SQLArtifactIndexManagerSql {
     }
 
     try {
-      // Prepare the query
+      conn = getConnection();
+
+      // Add keyset WHERE clause if not first page
+      if (lastSortUri != null) {
+        sqlQuery += KEYSET_WHERE_CLAUSE;
+      }
+
+      // Add LIMIT clause
+      sqlQuery += " LIMIT ?";
+
+      log.trace("SQL = '{}'", sqlQuery);
+
       ps = idxDbManager.prepareStatement(conn, sqlQuery);
 
-      // Populate the query
-      ps.setString(1, namespace);
+      int paramIndex = 1;
+      ps.setString(paramIndex++, namespace);
 
       if (isLongUrl) {
         String pattern = prefix.substring(LONG_URL_THRESHOLD) + "%";
-        ps.setString(2, prefix.substring(0, LONG_URL_THRESHOLD));
-        ps.setString(3, pattern);
+        ps.setString(paramIndex++, prefix.substring(0, LONG_URL_THRESHOLD));
+        ps.setString(paramIndex++, pattern);
       } else {
         String pattern = prefix + "%";
-        ps.setString(2, pattern);
+        ps.setString(paramIndex++, pattern);
       }
 
-      resultSet = idxDbManager.executeQuery(ps);
+      if (lastSortUri != null) {
+        ps.setString(paramIndex++, lastSortUri);
+        ps.setString(paramIndex++, lastSortUri);
+        ps.setInt(paramIndex++, lastVersion);
+      }
 
-      return new ArtifactResultSetIterator(conn, resultSet);
+      ps.setInt(paramIndex++, limit);
+
+      rs = idxDbManager.executeQuery(ps);
+
+      List<Artifact> artifacts = new ArrayList<>(Math.min(limit, 1000));
+      while (rs.next()) {
+        artifacts.add(getArtifactFromCurrentRow(rs));
+      }
+
+      log.debug2("Returning {} artifacts", artifacts.size());
+      return artifacts;
+
     } catch (SQLException e) {
-      log.error(errorMessage, e);
-      log.error("SQL = '{}'.", sqlQuery);
-      log.error("namespace = {}", namespace);
-      log.error("prefix = {}", prefix);
-      log.error("versions = {}", versions);
-
-      DbManager.safeCloseResultSet(resultSet);
+      log.error("Cannot fetch artifact page", e);
+      log.error("namespace={}, prefix={}, versions={}", namespace, prefix, versions);
+      throw new DbException("Cannot fetch artifact page", e);
+    } finally {
+      DbManager.safeCloseResultSet(rs);
       DbManager.safeCloseStatement(ps);
-      DbManager.safeRollbackAndClose(conn);
-
-      throw new DbException(errorMessage, e);
+      DbManager.safeCloseConnection(conn);
     }
+  }
+
+  /**
+   * Fetches a page of latest versions of URLs matching a prefix using keyset pagination.
+   * Connection is opened, used, and closed within this method.
+   *
+   * @param namespace The namespace
+   * @param auid The AUID
+   * @param urlPrefix The URL prefix
+   * @param lastSortUri The sortUri from the last artifact of the previous page (null for first page)
+   * @param lastVersion The version from the last artifact of the previous page (null for first page)
+   * @param limit Maximum number of artifacts to return
+   * @return List of artifacts
+   * @throws DbException if database error occurs
+   */
+  List<Artifact> fetchLatestArtifactsWithPrefixPage(
+      String namespace, String auid, String urlPrefix,
+      String lastSortUri, Integer lastVersion, int limit) throws DbException {
+
+    log.debug2("namespace={}, auid={}, urlPrefix={}, lastSortUri={}, lastVersion={}, limit={}",
+        namespace, auid, urlPrefix, lastSortUri, lastVersion, limit);
+
+    if (StringUtil.isNullString(urlPrefix)) {
+      urlPrefix = EMPTY_STRING;
+    }
+
+    Connection conn = null;
+    PreparedStatement ps = null;
+    ResultSet rs = null;
+    boolean isLongUrl = LONG_URL_THRESHOLD < urlPrefix.length();
+
+    String sqlQuery = isLongUrl ?
+        LONG_URL_GET_LATEST_ARTIFACTS_WITH_NAMESPACE_AUID_URL_PREFIX_QUERY :
+        GET_LATEST_ARTIFACTS_WITH_NAMESPACE_AUID_URL_PREFIX_QUERY;
+
+    try {
+      conn = getConnection();
+
+      // Add keyset WHERE clause if not first page
+      if (lastSortUri != null) {
+        sqlQuery += KEYSET_WHERE_CLAUSE;
+      }
+
+      // Add LIMIT clause
+      sqlQuery += " LIMIT ?";
+
+      log.trace("SQL = '{}'", sqlQuery);
+
+      ps = idxDbManager.prepareStatement(conn, sqlQuery);
+
+      int paramIndex = 1;
+      ps.setString(paramIndex++, namespace);
+      ps.setString(paramIndex++, auid);
+
+      if (isLongUrl) {
+        String pattern = urlPrefix.substring(LONG_URL_THRESHOLD) + "%";
+        ps.setString(paramIndex++, urlPrefix.substring(0, LONG_URL_THRESHOLD));
+        ps.setString(paramIndex++, pattern);
+      } else {
+        String pattern = urlPrefix + "%";
+        ps.setString(paramIndex++, pattern);
+      }
+
+      if (lastSortUri != null) {
+        ps.setString(paramIndex++, lastSortUri);
+        ps.setString(paramIndex++, lastSortUri);
+        ps.setInt(paramIndex++, lastVersion);
+      }
+
+      ps.setInt(paramIndex++, limit);
+
+      rs = idxDbManager.executeQuery(ps);
+
+      List<Artifact> artifacts = new ArrayList<>(Math.min(limit, 1000));
+      while (rs.next()) {
+        artifacts.add(getArtifactFromCurrentRow(rs));
+      }
+
+      log.debug2("Returning {} artifacts", artifacts.size());
+      return artifacts;
+
+    } catch (SQLException e) {
+      log.error("Cannot fetch artifact page", e);
+      log.error("namespace={}, auid={}, urlPrefix={}", namespace, auid, urlPrefix);
+      throw new DbException("Cannot fetch artifact page", e);
+    } finally {
+      DbManager.safeCloseResultSet(rs);
+      DbManager.safeCloseStatement(ps);
+      DbManager.safeCloseConnection(conn);
+    }
+  }
+
+  /**
+   * Fetches a page of all versions of URLs matching a prefix using keyset pagination.
+   * Connection is opened, used, and closed within this method.
+   *
+   * @param namespace The namespace
+   * @param auid The AUID
+   * @param urlPrefix The URL prefix
+   * @param lastSortUri The sortUri from the last artifact of the previous page (null for first page)
+   * @param lastVersion The version from the last artifact of the previous page (null for first page)
+   * @param limit Maximum number of artifacts to return
+   * @return List of artifacts
+   * @throws DbException if database error occurs
+   */
+  List<Artifact> fetchAllVersionsArtifactsWithPrefixPage(
+      String namespace, String auid, String urlPrefix,
+      String lastSortUri, Integer lastVersion, int limit) throws DbException {
+
+    log.debug2("namespace={}, auid={}, urlPrefix={}, lastSortUri={}, lastVersion={}, limit={}",
+        namespace, auid, urlPrefix, lastSortUri, lastVersion, limit);
+
+    if (StringUtil.isNullString(urlPrefix)) {
+      urlPrefix = EMPTY_STRING;
+    }
+
+    Connection conn = null;
+    PreparedStatement ps = null;
+    ResultSet rs = null;
+    boolean isLongUrl = LONG_URL_THRESHOLD < urlPrefix.length();
+
+    String sqlQuery = isLongUrl ?
+        LONG_URL_GET_ARTIFACTS_WITH_NAMESPACE_AUID_URL_PREFIX_QUERY :
+        GET_ARTIFACTS_WITH_NAMESPACE_AUID_URL_PREFIX_QUERY;
+
+    try {
+      conn = getConnection();
+
+      // Add keyset WHERE clause if not first page
+      if (lastSortUri != null) {
+        sqlQuery += KEYSET_WHERE_CLAUSE;
+      }
+
+      // Add LIMIT clause
+      sqlQuery += " LIMIT ?";
+
+      log.trace("SQL = '{}'", sqlQuery);
+
+      ps = idxDbManager.prepareStatement(conn, sqlQuery);
+
+      int paramIndex = 1;
+      ps.setString(paramIndex++, namespace);
+      ps.setString(paramIndex++, auid);
+
+      if (isLongUrl) {
+        String pattern = urlPrefix.substring(LONG_URL_THRESHOLD) + "%";
+        ps.setString(paramIndex++, urlPrefix.substring(0, LONG_URL_THRESHOLD));
+        ps.setString(paramIndex++, pattern);
+        ps.setBoolean(paramIndex++, true);
+      } else {
+        String pattern = urlPrefix + "%";
+        ps.setString(paramIndex++, pattern);
+        ps.setBoolean(paramIndex++, true);
+      }
+
+      if (lastSortUri != null) {
+        ps.setString(paramIndex++, lastSortUri);
+        ps.setString(paramIndex++, lastSortUri);
+        ps.setInt(paramIndex++, lastVersion);
+      }
+
+      ps.setInt(paramIndex++, limit);
+
+      rs = idxDbManager.executeQuery(ps);
+
+      List<Artifact> artifacts = new ArrayList<>(Math.min(limit, 1000));
+      while (rs.next()) {
+        artifacts.add(getArtifactFromCurrentRow(rs));
+      }
+
+      log.debug2("Returning {} artifacts", artifacts.size());
+      return artifacts;
+
+    } catch (SQLException e) {
+      log.error("Cannot fetch artifact page", e);
+      log.error("namespace={}, auid={}, urlPrefix={}", namespace, auid, urlPrefix);
+      throw new DbException("Cannot fetch artifact page", e);
+    } finally {
+      DbManager.safeCloseResultSet(rs);
+      DbManager.safeCloseStatement(ps);
+      DbManager.safeCloseConnection(conn);
+    }
+  }
+
+  // =========================================================================
+  // End of page fetch methods
+  // =========================================================================
+
+  public Iterable<Artifact> findLatestArtifactsOfAllUrlsWithNamespaceAndAuid(
+      String namespace, String auid, boolean includeUncommitted) throws DbException {
+    log.debug2("namespace = {}", namespace);
+    log.debug2("auid = {}", auid);
+    log.debug2("includeUncommitted = {}", includeUncommitted);
+
+    // Create a page fetcher that captures the query parameters
+    PagingArtifactIterator.PageFetcher fetcher = (lastSortUri, lastVersion, limit) ->
+        fetchLatestArtifactsPage(namespace, auid, includeUncommitted, lastSortUri, lastVersion, limit);
+
+    return IteratorUtils.asIterable(new PagingArtifactIterator(fetcher));
+  }
+
+  public Iterable<Artifact> findArtifactsAllVersionsOfAllUrlsWithNamespaceAndAuid(String namespace, String auid, boolean includeUncommitted) throws DbException {
+    log.debug2("namespace = {}", namespace);
+    log.debug2("auid = {}", auid);
+    log.debug2("includeUncommitted = {}", includeUncommitted);
+
+    // Create a page fetcher that captures the query parameters
+    PagingArtifactIterator.PageFetcher fetcher = (lastSortUri, lastVersion, limit) ->
+        fetchAllVersionsArtifactsPage(namespace, auid, includeUncommitted, lastSortUri, lastVersion, limit);
+
+    return IteratorUtils.asIterable(new PagingArtifactIterator(fetcher));
+  }
+
+  public Iterable<Artifact> findArtifactsAllCommittedVersionsOfUrlWithNamespaceAndAuid(String namespace, String auid, String url)
+      throws DbException {
+
+    log.debug2("namespace = {}", namespace);
+    log.debug2("auid = {}", auid);
+    log.debug2("url = {}", url);
+
+    // Create a page fetcher that captures the query parameters
+    PagingArtifactIterator.PageFetcher fetcher = (lastSortUri, lastVersion, limit) ->
+        fetchArtifactsForUrlPage(namespace, auid, url, lastSortUri, lastVersion, limit);
+
+    return IteratorUtils.asIterable(new PagingArtifactIterator(fetcher));
+  }
+
+  public Iterable<Artifact> findArtifactsAllCommittedVersionsOfUrlAllAuidsInNamespace(
+      String namespace, String url, ArtifactVersions versions) throws DbException {
+
+    log.debug2("namespace = {}", namespace);
+    log.debug2("url = {}", url);
+    log.debug2("versions = {}", versions);
+
+    // Create a page fetcher that captures the query parameters
+    PagingArtifactIterator.PageFetcher fetcher = (lastSortUri, lastVersion, limit) ->
+        fetchArtifactsForUrlAllAuidsPage(namespace, url, versions, lastSortUri, lastVersion, limit);
+
+    return IteratorUtils.asIterable(new PagingArtifactIterator(fetcher));
+  }
+
+  public Iterable<Artifact> findArtifactsAllCommittedVersionsOfUrlByPrefixAllAuidsInNamespace(
+      String namespace, String prefix, ArtifactVersions versions) throws DbException {
+
+    log.debug2("namespace = {}", namespace);
+    log.debug2("prefix = {}", prefix);
+    log.debug2("versions = {}", versions);
+
+    // Create a page fetcher that captures the query parameters
+    PagingArtifactIterator.PageFetcher fetcher = (lastSortUri, lastVersion, limit) ->
+        fetchArtifactsByPrefixAllAuidsPage(namespace, prefix, versions, lastSortUri, lastVersion, limit);
+
+    return IteratorUtils.asIterable(new PagingArtifactIterator(fetcher));
   }
 
   public Iterable<Artifact> findArtifactsLatestCommittedVersionsOfAllUrlsMatchingPrefixWithNamespaceAndAuid(
@@ -1931,60 +2344,11 @@ public class SQLArtifactIndexManagerSql {
     log.debug2("auid = {}", auid);
     log.debug2("urlPrefix = {}", urlPrefix);
 
-    Connection conn = getConnection();
-    return IteratorUtils.asIterable(findArtifactsLatestCommittedVersionsOfAllUrlsMatchingPrefixWithNamespaceAndAuid(conn, namespace, auid, urlPrefix));
-  }
+    // Create a page fetcher that captures the query parameters
+    PagingArtifactIterator.PageFetcher fetcher = (lastSortUri, lastVersion, limit) ->
+        fetchLatestArtifactsWithPrefixPage(namespace, auid, urlPrefix, lastSortUri, lastVersion, limit);
 
-  private Iterator<Artifact> findArtifactsLatestCommittedVersionsOfAllUrlsMatchingPrefixWithNamespaceAndAuid(
-      Connection conn, String namespace, String auid, String urlPrefix) throws DbException {
-
-    PreparedStatement ps = null;
-    ResultSet resultSet = null;
-    String errorMessage = "Cannot get artifacts";
-
-    if (StringUtil.isNullString(urlPrefix)) {
-      urlPrefix = EMPTY_STRING;
-    }
-
-    boolean isLongUrl = LONG_URL_THRESHOLD < urlPrefix.length();
-
-    String sqlQuery = isLongUrl ?
-        LONG_URL_GET_LATEST_ARTIFACTS_WITH_NAMESPACE_AUID_URL_PREFIX_QUERY :
-        GET_LATEST_ARTIFACTS_WITH_NAMESPACE_AUID_URL_PREFIX_QUERY;
-
-    try {
-      // Prepare the query
-      ps = idxDbManager.prepareStatement(conn, sqlQuery);
-
-      // Populate the query
-      ps.setString(1, namespace);
-      ps.setString(2, auid);
-
-      if (isLongUrl) {
-        String pattern = urlPrefix.substring(LONG_URL_THRESHOLD) + "%";
-        ps.setString(3, urlPrefix.substring(0, LONG_URL_THRESHOLD));
-        ps.setString(4, pattern);
-      } else {
-        String pattern = urlPrefix + "%";
-        ps.setString(3, pattern);
-      }
-
-      resultSet = idxDbManager.executeQuery(ps);
-
-      return new ArtifactResultSetIterator(conn, resultSet);
-    } catch (SQLException e) {
-      log.error(errorMessage, e);
-      log.error("SQL = '{}'.", sqlQuery);
-      log.error("namespace = {}", namespace);
-      log.error("auid = {}", auid);
-      log.error("urlPrefix = {}", urlPrefix);
-
-      DbManager.safeCloseResultSet(resultSet);
-      DbManager.safeCloseStatement(ps);
-      DbManager.safeRollbackAndClose(conn);
-
-      throw new DbException(errorMessage, e);
-    }
+    return IteratorUtils.asIterable(new PagingArtifactIterator(fetcher));
   }
 
   public Iterable<Artifact> findArtifactsAllCommittedVersionsOfAllUrlsMatchingPrefixWithNamespaceAndAuid(
@@ -1994,62 +2358,11 @@ public class SQLArtifactIndexManagerSql {
     log.debug2("auid = {}", auid);
     log.debug2("urlPrefix = {}", urlPrefix);
 
-    Connection conn = getConnection();
-    return IteratorUtils.asIterable(findArtifactsAllCommittedVersionsOfAllUrlsMatchingPrefixWithNamespaceAndAuid(conn, namespace, auid, urlPrefix));
-  }
+    // Create a page fetcher that captures the query parameters
+    PagingArtifactIterator.PageFetcher fetcher = (lastSortUri, lastVersion, limit) ->
+        fetchAllVersionsArtifactsWithPrefixPage(namespace, auid, urlPrefix, lastSortUri, lastVersion, limit);
 
-  private Iterator<Artifact> findArtifactsAllCommittedVersionsOfAllUrlsMatchingPrefixWithNamespaceAndAuid(
-      Connection conn, String namespace, String auid, String urlPrefix) throws DbException {
-
-    PreparedStatement ps = null;
-    ResultSet resultSet = null;
-    String errorMessage = "Cannot get artifacts";
-
-    if (StringUtil.isNullString(urlPrefix)) {
-      urlPrefix = EMPTY_STRING;
-    }
-
-    boolean isLongUrl = LONG_URL_THRESHOLD < urlPrefix.length();
-
-    String sqlQuery = isLongUrl ?
-        LONG_URL_GET_ARTIFACTS_WITH_NAMESPACE_AUID_URL_PREFIX_QUERY :
-        GET_ARTIFACTS_WITH_NAMESPACE_AUID_URL_PREFIX_QUERY;
-
-    try {
-      // Prepare the query
-      ps = idxDbManager.prepareStatement(conn, sqlQuery);
-
-      // Populate the query
-      ps.setString(1, namespace);
-      ps.setString(2, auid);
-
-      if (isLongUrl) {
-        String pattern = urlPrefix.substring(LONG_URL_THRESHOLD) + "%";
-        ps.setString(3, urlPrefix.substring(0, LONG_URL_THRESHOLD));
-        ps.setString(4, pattern);
-        ps.setBoolean(5, true);
-      } else {
-        String pattern = urlPrefix + "%";
-        ps.setString(3, pattern);
-        ps.setBoolean(4, true);
-      }
-
-      resultSet = idxDbManager.executeQuery(ps);
-
-      return new ArtifactResultSetIterator(conn, resultSet);
-    } catch (SQLException e) {
-      log.error(errorMessage, e);
-      log.error("SQL = '{}'.", sqlQuery);
-      log.error("namespace = {}", namespace);
-      log.error("auid = {}", auid);
-      log.error("urlPrefix = {}", urlPrefix);
-
-      DbManager.safeCloseResultSet(resultSet);
-      DbManager.safeCloseStatement(ps);
-      DbManager.safeRollbackAndClose(conn);
-
-      throw new DbException(errorMessage, e);
-    }
+    return IteratorUtils.asIterable(new PagingArtifactIterator(fetcher));
   }
 
   private static class ArtifactIteratorCleaner implements Runnable {
