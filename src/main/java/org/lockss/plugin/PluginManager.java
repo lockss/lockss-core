@@ -1664,6 +1664,9 @@ public class PluginManager
   public ArchivalUnit getAuFromIdIfExists(String auId) {
     final String DEBUG_HEADER = "getAuFromIdIfExists(): ";
     if (log.isDebug3()) log.debug3(DEBUG_HEADER + "auId = " + auId);
+    if (auId == null) {
+      return null;
+    }
     return auMap.get(auId);
   }
 
@@ -1680,6 +1683,9 @@ public class PluginManager
   public ArchivalUnit getAuFromId(String auId) {
     final String DEBUG_HEADER = "getAuFromId(): ";
     if (log.isDebug2()) log.debug2(DEBUG_HEADER + "auId = " + auId);
+    if (auId == null) {
+      return null;
+    }
 
     ArchivalUnit au = auMap.get(auId);
     if (log.isDebug3()) log.debug3(DEBUG_HEADER + "au = " + au);
