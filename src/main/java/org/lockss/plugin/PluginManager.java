@@ -2987,6 +2987,7 @@ public class PluginManager
 	  log.debug3("cache hit " + rcu.cu.toString() + ", " + rcu.contentReq);
 	}
 	recentCuHits++;
+        // Unlike V1, it's ok to return the same CU instance multiple times
  	return rcu.cu;
       } else {
 	log.debug3("cache miss for " + url);

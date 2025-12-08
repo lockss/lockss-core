@@ -376,7 +376,9 @@ public class TestV2BaseCachedUrl extends LockssTestCase {
 
     }
 
-    // Ensure all resources (multiple InputStreams) are released
+    // Ensure single BaseCachedUrl instance can return multiple
+    // InputStreams, and that all resources (multiple InputStreams)
+    // are released
 
     // Currently runs only in highest-version variants, as there's no
     // mechanism to create a custom subclass of BaseCachedUrl.Version.
