@@ -4,7 +4,7 @@
 
 /*
 
-Copyright (c) 2000-2003 Board of Trustees of Leland Stanford Jr. University,
+Copyright (c) 2000-2025 Board of Trustees of Leland Stanford Jr. University,
 all rights reserved.
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
@@ -147,11 +147,17 @@ public class TestDaemonVersion extends LockssTestCase {
     DaemonVersion b = new DaemonVersion("2.6.3");
     DaemonVersion c = new DaemonVersion("3.0.1");
     DaemonVersion e = new DaemonVersion("2.5.3-test"); // should equal a
+    DaemonVersion f = new DaemonVersion("2.0.84-beta1");
+    DaemonVersion g = new DaemonVersion("2.0.90-beta2");
 
     assertTrue(a.compareTo(a) == 0);
     assertTrue(a.compareTo(e) == 0);
     assertTrue(a.compareTo(b) == -1);
     assertTrue(b.compareTo(a) == 1);
+    // The 2.x comparision needed by migrator
+    assertTrue(g.compareTo(f) >= 0);
+    assertTrue(g.compareTo(g) >= 0);
+    assertFalse(f.compareTo(g) >= 0);
   }
 
 }
