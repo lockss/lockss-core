@@ -97,6 +97,16 @@ public class ServeContent extends LockssServlet {
   /** Prefix for this server's config tree */
   public static final String PREFIX = Configuration.PREFIX + "serveContent.";
 
+  /** Map from REs matching stem ServeContent would normally use in
+   * abs rewritten URLs, to replacement stem, to handle cases where
+   * ServeContent is behind a proxy that has a different stem.  Map is
+   * used so different instances of ServeContent (e.g., Admin UI &
+   * Content Server) can be configured individually.  E.g., to affect
+   * just the content server, not the Admin UI, it could be
+   * "8082,http://front.end/" */
+  public static final String PARAM_REWRITE_FOR_STEM_MAP =
+      PREFIX + "rewriteForStemMap";
+
   /** Determines action taken when a requested file is not cached locally,
    * and it's not available from the publisher.  "Not available" means any
    * of:
@@ -316,6 +326,7 @@ public class ServeContent extends LockssServlet {
   private static String candidates404Msg = DEFAULT_404_CANDIDATES_MSG;
   private static int loginCheckerBufSize =
     BaseUrlFetcher.DEFAULT_LOGIN_CHECKER_MARK_LIMIT;
+  private static PatternStringMap rewriteForStemMap = PatternStringMap.EMPTY;
 
 
   private ArchivalUnit au;
@@ -338,6 +349,7 @@ public class ServeContent extends LockssServlet {
   private PluginManager pluginMgr;
   private ProxyManager proxyMgr;
   private OpenUrlResolver openUrlResolver;
+  private String rewriteForStem = null;
 
   // don't hold onto objects after request finished
   protected void resetLocals() {
@@ -351,6 +363,7 @@ public class ServeContent extends LockssServlet {
     au = null;
     explicitAu = null;
     isCuEncoded = false;
+    rewriteForStem = null;
     super.resetLocals();
   }
 
@@ -423,11 +436,30 @@ public class ServeContent extends LockssServlet {
       processForms = config.getBoolean(PARAM_PROCESS_FORMS,
           DEFAULT_PROCESS_FORMS);
     }
+    if (diffs.contains(PARAM_REWRITE_FOR_STEM_MAP)) {
+      installRewriteForStemMap(config.getList(PARAM_REWRITE_FOR_STEM_MAP, null));
+    }
     // XXX this is an inconsistent use of this param
     loginCheckerBufSize =
       config.getInt(BaseUrlFetcher.PARAM_LOGIN_CHECKER_MARK_LIMIT,
 		    BaseUrlFetcher.DEFAULT_LOGIN_CHECKER_MARK_LIMIT);
 
+  }
+
+  /** Set up pattern map from our real stem to replacement rewrite stem. */
+  static void installRewriteForStemMap(List<String> patternPairs) {
+    if (patternPairs == null) {
+      log.debug("Installing empty rewriteForStemMap");
+      rewriteForStemMap = PatternStringMap.EMPTY;
+    } else {
+      try {
+        rewriteForStemMap = PatternStringMap.fromSpec(patternPairs);
+        log.debug("Installing rewriteForStemMap: " + rewriteForStemMap);
+      } catch (IllegalArgumentException e) {
+        log.error("Illegal rewriteForStemMap, ignoring", e);
+        log.error("rewriteForStemMap unchanged, still: " + rewriteForStemMap);
+      }
+    }
   }
 
   protected boolean isInCache() {
@@ -513,6 +545,14 @@ public class ServeContent extends LockssServlet {
       displayNotStarted();
       return;
     }
+    if (absoluteLinks && !rewriteForStemMap.isEmpty()) {
+      String mystem = srvAbsURL(myServletDescr());
+      rewriteForStem = rewriteForStemMap.getMatch(mystem);
+      if (rewriteForStem != null && log.isDebug2()) {
+        log.debug2("Rewriting abs links " + mystem + " -> " + rewriteForStem);
+      }
+    }
+
     accessLogInfo = null;
 
     enabledPluginsOnly =
@@ -1101,7 +1141,7 @@ public class ServeContent extends LockssServlet {
       String suffix = sb.toString();
 
       String srvUrl = absoluteLinks
-                      ? srvAbsURL(myServletDescr(), suffix)
+                      ? proxyableSrvAbsURL(myServletDescr(), suffix)
                       : srvURL(myServletDescr(), suffix);
 
       Page p = new Page();
@@ -1957,9 +1997,8 @@ public class ServeContent extends LockssServlet {
       return new ServletUtil.LinkTransform() {
 	public String rewrite(String url) {
 	  if (absoluteLinks) {
-	    return useRewriteForStem ?
-                srvURLFromStem(rewriteForStem, myServletDescr(), "url=" + url) :
-                srvAbsURL(myServletDescr(), "url=" + url);
+	    return proxyableSrvAbsURL(myServletDescr(),
+                                      "url=" + url);
 	  } else {
 	    return srvURL(myServletDescr(), "url=" + url);
 	  }
@@ -1969,9 +2008,7 @@ public class ServeContent extends LockssServlet {
       return new ServletUtil.LinkTransform() {
 	public String rewrite(String url) {
 	  if (absoluteLinks) {
-	    return useRewriteForStem ?
-                srvURLFromStem(rewriteForStem, myServletDescr(), "url=" + url) :
-                srvAbsURL(myServletDescr()) + "/" + url;
+	    return proxyableSrvAbsURL(myServletDescr()) + "/" + url;
 	  } else {
 	    return srvURL(myServletDescr()) + "/" + url;
 	  }
@@ -1980,6 +2017,18 @@ public class ServeContent extends LockssServlet {
     }
   }
 
+
+  private String proxyableSrvAbsURL(ServletDescr d) {
+    return proxyableSrvAbsURL(d, null);
+  }
+
+  private String proxyableSrvAbsURL(ServletDescr d, String params) {
+    if (!StringUtil.isNullString(rewriteForStem)) {
+      return srvURLFromStem(rewriteForStem, myServletDescr(), params);
+    } else {
+      return srvAbsURL(d, params);
+    }
+  }
 
   private void setContentLength(long length) {
     if (length >= 0) {
