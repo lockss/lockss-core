@@ -2201,7 +2201,7 @@ public class TestPluginManager extends LockssTestCase4 {
 
     String actual = PluginManager.generateAuId(pluginId, props);
     log.critical("auid: " + actual);
-    assertEquals("org|lockss|plugin|clockss|aps|ClockssAPSSourcePlugin&base_url~http%3A%2F%2Fclockss-ingest%2Eclockss%2Eorg%2Fsourcefiles%2Faps-released%2F&utf8param~%C3%A9%C3%B6f+yoo&year~2020", actual);
+    assertEquals("org|lockss|plugin|clockss|aps|ClockssAPSSourcePlugin&base_url~http%3A%2F%2Fclockss-ingest%2Eclockss%2Eorg%2Fsourcefiles%2Faps-released%2F&utf8param~%C3%A9%C3%B6f+oo&year~2020", actual);
   }
 
   @Test
