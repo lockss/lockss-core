@@ -1,6 +1,6 @@
 /*
 
-Copyright (c) 2000-2024, Board of Trustees of Leland Stanford Jr. University
+Copyright (c) 2000-2025, Board of Trustees of Leland Stanford Jr. University
 
 Redistribution and use in source and binary forms, with or without
 modification, are permitted provided that the following conditions are met:
@@ -48,10 +48,17 @@ import java.util.NoSuchElementException;
  * <p>This follows the same pattern as {@code SolrQueryArtifactIterator} but for SQL databases,
  * using keyset pagination instead of cursor marks.</p>
  *
- * <p>Keyset pagination uses the last artifact's sort key (sortUri, version) to efficiently
+ * <p>Keyset pagination uses the last artifact's sort key to efficiently
  * fetch the next page without using OFFSET, which degrades as O(n) for large result sets.</p>
  *
+ * <p>The cursor contents depend on the query type:
+ * <ul>
+ *   <li>Single-AUID queries: cursor contains (sortUri, version)</li>
+ *   <li>All-AUIDs queries: cursor contains (sortUri, version, auid)</li>
+ * </ul>
+ *
  * @see <a href="https://use-the-index-luke.com/no-offset">Why keyset pagination?</a>
+ * @see PagingCursor
  */
 public class PagingArtifactIterator implements Iterator<Artifact> {
   private static final L4JLogger log = L4JLogger.getLogger();
@@ -59,17 +66,33 @@ public class PagingArtifactIterator implements Iterator<Artifact> {
   /** Default page size - number of artifacts to fetch per page */
   public static final int DEFAULT_PAGE_SIZE = 1000;
 
+  /** Default cursor extractor for single-AUID queries (sortUri, version) */
+  public static final CursorExtractor DEFAULT_CURSOR_EXTRACTOR = artifact ->
+      PagingCursor.of(
+          artifact.getUri().replace("/", "\t"),
+          artifact.getVersion()
+      );
+
+  /** Cursor extractor for all-AUIDs queries (sortUri, version, auid) */
+  public static final CursorExtractor ALL_AUIDS_CURSOR_EXTRACTOR = artifact ->
+      PagingCursor.of(
+          artifact.getUri().replace("/", "\t"),
+          artifact.getVersion(),
+          artifact.getAuid()
+      );
+
   // Page fetcher function - supplied by SQLArtifactIndexManagerSql
   private final PageFetcher pageFetcher;
+
+  // Cursor extractor - extracts cursor from last artifact
+  private final CursorExtractor cursorExtractor;
 
   // Current page buffer
   private List<Artifact> pageBuffer;
   private Iterator<Artifact> pageBufferIterator;
 
   // Cursor state for keyset pagination
-  // sortUri format: URL with '/' replaced by '\t' (matches SQL: replace(concat(url, long_url), '/', '\t'))
-  private String lastSortUri;
-  private Integer lastVersion;
+  private PagingCursor lastCursor;
 
   // Pagination state
   private final int pageSize;
@@ -86,36 +109,64 @@ public class PagingArtifactIterator implements Iterator<Artifact> {
     /**
      * Fetches a page of artifacts starting after the given cursor position.
      *
-     * @param lastSortUri The sortUri of the last artifact from the previous page,
-     *                    or null for the first page
-     * @param lastVersion The version of the last artifact from the previous page,
-     *                    or null for the first page
+     * @param cursor The cursor from the last artifact of the previous page,
+     *               or null for the first page
      * @param limit Maximum number of artifacts to fetch
      * @return List of artifacts (empty list if no more results)
      * @throws DbException if a database error occurs
      */
-    List<Artifact> fetchPage(String lastSortUri, Integer lastVersion, int limit) throws DbException;
+    List<Artifact> fetchPage(PagingCursor cursor, int limit) throws DbException;
   }
 
   /**
-   * Creates a new paging iterator with default page size.
+   * Functional interface for extracting a cursor from an artifact.
+   * Different query types may extract different cursor fields.
+   */
+  @FunctionalInterface
+  public interface CursorExtractor {
+    /**
+     * Extracts a cursor from the given artifact.
+     *
+     * @param artifact the artifact to extract cursor from
+     * @return the cursor representing this artifact's position
+     */
+    PagingCursor extractCursor(Artifact artifact);
+  }
+
+  /**
+   * Creates a new paging iterator with default page size and cursor extractor.
    *
    * @param pageFetcher Function to fetch pages from the database
    */
   public PagingArtifactIterator(PageFetcher pageFetcher) {
-    this(pageFetcher, DEFAULT_PAGE_SIZE);
+    this(pageFetcher, DEFAULT_PAGE_SIZE, DEFAULT_CURSOR_EXTRACTOR);
   }
 
   /**
-   * Creates a new paging iterator with specified page size.
+   * Creates a new paging iterator with specified page size and default cursor extractor.
    *
    * @param pageFetcher Function to fetch pages from the database
    * @param pageSize Number of artifacts to fetch per page (must be at least 1)
    * @throws IllegalArgumentException if pageFetcher is null or pageSize < 1
    */
   public PagingArtifactIterator(PageFetcher pageFetcher, int pageSize) {
+    this(pageFetcher, pageSize, DEFAULT_CURSOR_EXTRACTOR);
+  }
+
+  /**
+   * Creates a new paging iterator with specified page size and cursor extractor.
+   *
+   * @param pageFetcher Function to fetch pages from the database
+   * @param pageSize Number of artifacts to fetch per page (must be at least 1)
+   * @param cursorExtractor Function to extract cursor from artifacts
+   * @throws IllegalArgumentException if pageFetcher is null, cursorExtractor is null, or pageSize < 1
+   */
+  public PagingArtifactIterator(PageFetcher pageFetcher, int pageSize, CursorExtractor cursorExtractor) {
     if (pageFetcher == null) {
       throw new IllegalArgumentException("PageFetcher cannot be null");
+    }
+    if (cursorExtractor == null) {
+      throw new IllegalArgumentException("CursorExtractor cannot be null");
     }
     if (pageSize < 1) {
       throw new IllegalArgumentException("Page size must be at least 1");
@@ -123,6 +174,7 @@ public class PagingArtifactIterator implements Iterator<Artifact> {
 
     this.pageFetcher = pageFetcher;
     this.pageSize = pageSize;
+    this.cursorExtractor = cursorExtractor;
     this.pageBuffer = new ArrayList<>(0);
     this.pageBufferIterator = pageBuffer.iterator();
   }
@@ -182,14 +234,11 @@ public class PagingArtifactIterator implements Iterator<Artifact> {
    * Connection is opened and closed within the pageFetcher call.
    */
   private void fetchNextPage() throws DbException {
-    log.debug2("Fetching next page, lastSortUri={}, lastVersion={}", lastSortUri, lastVersion);
+    log.debug2("Fetching next page, cursor={}", lastCursor);
 
     // Fetch one extra to detect if there are more pages
-    List<Artifact> results = pageFetcher.fetchPage(
-        isFirstFetch ? null : lastSortUri,
-        isFirstFetch ? null : lastVersion,
-        pageSize + 1
-    );
+    PagingCursor cursorToUse = isFirstFetch ? PagingCursor.INITIAL : lastCursor;
+    List<Artifact> results = pageFetcher.fetchPage(cursorToUse, pageSize + 1);
 
     isFirstFetch = false;
 
@@ -206,9 +255,7 @@ public class PagingArtifactIterator implements Iterator<Artifact> {
     // Update cursor for next page
     if (!pageBuffer.isEmpty()) {
       Artifact lastArtifact = pageBuffer.get(pageBuffer.size() - 1);
-      // sortUri format matches SQL: replace(concat(url, long_url), '/', '\t')
-      lastSortUri = lastArtifact.getUri().replace("/", "\t");
-      lastVersion = lastArtifact.getVersion();
+      lastCursor = cursorExtractor.extractCursor(lastArtifact);
     }
 
     pageBufferIterator = pageBuffer.iterator();

@@ -1,6 +1,6 @@
 /*
 
-Copyright (c) 2000-2024, Board of Trustees of Leland Stanford Jr. University
+Copyright (c) 2000-2025, Board of Trustees of Leland Stanford Jr. University
 
 Redistribution and use in source and binary forms, with or without
 modification, are permitted provided that the following conditions are met:
@@ -57,6 +57,9 @@ public class SQLArtifactIndexManagerSql {
   private static final L4JLogger log = L4JLogger.getLogger();
 
   protected final SQLArtifactIndexDbManager idxDbManager;
+
+  /** Page size for PagingArtifactIterator. Default is PagingArtifactIterator.DEFAULT_PAGE_SIZE. */
+  private int pagingPageSize = PagingArtifactIterator.DEFAULT_PAGE_SIZE;
 
   private static final String EMPTY_STRING = "";
 
@@ -346,6 +349,7 @@ public class SQLArtifactIndexManagerSql {
       + " WHERE  a." + NAMESPACE_SEQ_COLUMN + " = ns." + NAMESPACE_SEQ_COLUMN
       + " AND a." + AUID_SEQ_COLUMN + " = auid." + AUID_SEQ_COLUMN
       + " AND a." + URL_SEQ_COLUMN + " = u." + URL_SEQ_COLUMN
+      + " --KeysetCondition-- "
       + " ORDER BY "
 //      + "u." + URL_COLUMN + " COLLATE \"C\","
       + " sortUri ASC,"
@@ -374,6 +378,7 @@ public class SQLArtifactIndexManagerSql {
       + " AND ns." + NAMESPACE_COLUMN + " = ?"
       + " AND auid." + AUID_COLUMN + " = ?"
       + " --CommittedStatusCondition-- "
+      + " --KeysetCondition-- "
       + " ORDER BY "
 //      + "u." + URL_COLUMN + " ASC,"
       + " sortUri ASC,"
@@ -402,6 +407,7 @@ public class SQLArtifactIndexManagerSql {
       + " AND auid." + AUID_COLUMN + " = ?"
       + " AND u." + URL_COLUMN + " = ?"
       + ARTIFACT_COMMITTED_STATUS_CONDITION_TRUE
+      + " --KeysetCondition-- "
       + " ORDER BY "
 //      + "u." + URL_COLUMN + " ASC,"
       + " sortUri ASC,"
@@ -432,6 +438,7 @@ public class SQLArtifactIndexManagerSql {
       + " AND u." + URL_COLUMN + " = ?"
       + " AND lu." + LONG_URL_COLUMN + " = ?"
       + ARTIFACT_COMMITTED_STATUS_CONDITION_TRUE
+      + " --KeysetCondition-- "
       + " ORDER BY "
 //      + "u." + URL_COLUMN + " ASC,"
       + " sortUri ASC,"
@@ -539,6 +546,7 @@ public class SQLArtifactIndexManagerSql {
       + " AND ns." + NAMESPACE_COLUMN + " = ?"
       + " AND u." + URL_COLUMN + " = ?"
       + ARTIFACT_COMMITTED_STATUS_CONDITION_TRUE
+      + " --KeysetCondition-- "
       + " ORDER BY "
 //      + " u." + URL_COLUMN + " ASC,"
       + " sortUri ASC,"
@@ -569,6 +577,7 @@ public class SQLArtifactIndexManagerSql {
       + " AND u." + URL_COLUMN + " = ?"
       + " AND lu." + LONG_URL_COLUMN + " = ?"
       + ARTIFACT_COMMITTED_STATUS_CONDITION_TRUE
+      + " --KeysetCondition-- "
       + " ORDER BY "
 //      + " u." + URL_COLUMN + " ASC,"
       + " sortUri ASC,"
@@ -598,6 +607,7 @@ public class SQLArtifactIndexManagerSql {
       + " AND ns." + NAMESPACE_COLUMN + " = ?"
       + " AND u." + URL_COLUMN + " LIKE ?"
       + ARTIFACT_COMMITTED_STATUS_CONDITION_TRUE
+      + " --KeysetCondition-- "
       + " ORDER BY "
 //          + " u." + URL_COLUMN + " ASC,"
       + " sortUri ASC,"
@@ -628,6 +638,7 @@ public class SQLArtifactIndexManagerSql {
       + " AND u." + URL_COLUMN + " = ?"
       + " AND lu." + LONG_URL_COLUMN + " LIKE ?"
       + ARTIFACT_COMMITTED_STATUS_CONDITION_TRUE
+      + " --KeysetCondition-- "
       + " ORDER BY "
       + " sortUri ASC,"
       + " auid." + AUID_COLUMN + " ASC,"
@@ -657,6 +668,7 @@ public class SQLArtifactIndexManagerSql {
       + " WHERE  a." + NAMESPACE_SEQ_COLUMN + " = ns." + NAMESPACE_SEQ_COLUMN
       + " AND a." + AUID_SEQ_COLUMN + " = auid." + AUID_SEQ_COLUMN
       + " AND a." + URL_SEQ_COLUMN + " = u." + URL_SEQ_COLUMN
+      + " --KeysetCondition-- "
       + " ORDER BY "
 //          + " u." + URL_COLUMN + " ASC,"
       + " sortUri ASC,"
@@ -688,6 +700,7 @@ public class SQLArtifactIndexManagerSql {
       + " WHERE  a." + NAMESPACE_SEQ_COLUMN + " = ns." + NAMESPACE_SEQ_COLUMN
       + " AND a." + AUID_SEQ_COLUMN + " = auid." + AUID_SEQ_COLUMN
       + " AND a." + URL_SEQ_COLUMN + " = u." + URL_SEQ_COLUMN
+      + " --KeysetCondition-- "
       + " ORDER BY "
 //          + " u." + URL_COLUMN + " ASC,"
       + " sortUri ASC,"
@@ -719,6 +732,7 @@ public class SQLArtifactIndexManagerSql {
       + " WHERE  a." + NAMESPACE_SEQ_COLUMN + " = ns." + NAMESPACE_SEQ_COLUMN
       + " AND a." + AUID_SEQ_COLUMN + " = auid." + AUID_SEQ_COLUMN
       + " AND a." + URL_SEQ_COLUMN + " = u." + URL_SEQ_COLUMN
+      + " --KeysetCondition-- "
       + " ORDER BY "
 //          + " u." + URL_COLUMN + " ASC,"
       + " sortUri ASC,"
@@ -750,6 +764,7 @@ public class SQLArtifactIndexManagerSql {
       + " WHERE  a." + NAMESPACE_SEQ_COLUMN + " = ns." + NAMESPACE_SEQ_COLUMN
       + " AND a." + AUID_SEQ_COLUMN + " = auid." + AUID_SEQ_COLUMN
       + " AND a." + URL_SEQ_COLUMN + " = u." + URL_SEQ_COLUMN
+      + " --KeysetCondition-- "
       + " ORDER BY "
       + " sortUri ASC,"
       + " auid." + AUID_COLUMN + " ASC,"
@@ -779,6 +794,7 @@ public class SQLArtifactIndexManagerSql {
       + " AND auid." + AUID_COLUMN + " = ?"
       + " AND u." + URL_COLUMN + " LIKE ?"
       + ARTIFACT_COMMITTED_STATUS_CONDITION
+      + " --KeysetCondition-- "
       + " ORDER BY "
       + " sortUri ASC,"
       + ARTIFACT_VERSION_COLUMN + " DESC";
@@ -808,6 +824,7 @@ public class SQLArtifactIndexManagerSql {
       + " AND u." + URL_COLUMN + " = ?"
       + " AND lu." + LONG_URL_COLUMN + " LIKE ?"
       + ARTIFACT_COMMITTED_STATUS_CONDITION
+      + " --KeysetCondition-- "
       + " ORDER BY "
       + " sortUri ASC,"
       + ARTIFACT_VERSION_COLUMN + " DESC";
@@ -881,6 +898,7 @@ public class SQLArtifactIndexManagerSql {
       + " WHERE  a." + NAMESPACE_SEQ_COLUMN + " = ns." + NAMESPACE_SEQ_COLUMN
       + " AND a." + AUID_SEQ_COLUMN + " = auid." + AUID_SEQ_COLUMN
       + " AND a." + URL_SEQ_COLUMN + " = u." + URL_SEQ_COLUMN
+      + " --KeysetCondition-- "
       + " ORDER BY "
 //      + "u." + URL_COLUMN + " ASC,"
       + " sortUri ASC,"
@@ -911,6 +929,7 @@ public class SQLArtifactIndexManagerSql {
       + " WHERE  a." + NAMESPACE_SEQ_COLUMN + " = ns." + NAMESPACE_SEQ_COLUMN
       + " AND a." + AUID_SEQ_COLUMN + " = auid." + AUID_SEQ_COLUMN
       + " AND a." + URL_SEQ_COLUMN + " = u." + URL_SEQ_COLUMN
+      + " --KeysetCondition-- "
       + " ORDER BY "
 //      + "u." + URL_COLUMN + " ASC,"
       + " sortUri ASC,"
@@ -1007,11 +1026,28 @@ public class SQLArtifactIndexManagerSql {
       + " AND a." + URL_SEQ_COLUMN + " = u." + URL_SEQ_COLUMN;
 
   // Keyset pagination WHERE clause fragment.
-  // sortUri is a computed column: replace(concat(url, long_url), '/', '\t')
+  /// sortUri is a computed column: replace(concat(url, long_url), '/', '\t')
   // Ordering is sortUri ASC, artifact_version DESC
   // This clause selects rows AFTER the given (sortUri, version) position
+  // Note: --SortUriExpr-- is a placeholder that must be replaced with the actual expression
+  // because PostgreSQL doesn't allow column aliases in WHERE clauses
   private static final String KEYSET_WHERE_CLAUSE =
-      " AND (sortUri > ? OR (sortUri = ? AND " + ARTIFACT_VERSION_COLUMN + " < ?))";
+      " AND (--SortUriExpr-- > ? OR (--SortUriExpr-- = ? AND " + ARTIFACT_VERSION_COLUMN + " < ?))";
+
+  // Extended keyset clause for all-AUIDs queries where ordering is: sortUri ASC, auid ASC, version DESC
+  // This provides unique cursor positioning across multiple AUIDs with the same URL and version
+  private static final String KEYSET_WHERE_CLAUSE_ALL_AUIDS =
+      " AND (--SortUriExpr-- > ?"
+      + " OR (--SortUriExpr-- = ? AND auid." + AUID_COLUMN + " > ?)"
+      + " OR (--SortUriExpr-- = ? AND auid." + AUID_COLUMN + " = ? AND " + ARTIFACT_VERSION_COLUMN + " < ?))";
+
+  // sortUri expression for queries using long URLs (with LEFT JOIN to long_url table)
+  private static final String SORT_URI_EXPR_LONG_URL =
+      "replace(concat(u." + URL_COLUMN + ", " + LONG_URL_COLUMN + "), '/', '\u0009')";
+
+  // sortUri expression for queries using short URLs only
+  private static final String SORT_URI_EXPR_SHORT_URL =
+      "replace(u." + URL_COLUMN + ", '/', '\u0009')";
 
   /**
    * Constructor.
@@ -1020,6 +1056,29 @@ public class SQLArtifactIndexManagerSql {
    */
   public SQLArtifactIndexManagerSql(SQLArtifactIndexDbManager idxDbManager) {
     this.idxDbManager = idxDbManager;
+  }
+
+  /**
+   * Sets the page size used by paging artifact iterators.
+   * Primarily useful for testing with smaller page sizes.
+   *
+   * @param pageSize the page size (must be at least 1)
+   * @throws IllegalArgumentException if pageSize < 1
+   */
+  public void setPagingPageSize(int pageSize) {
+    if (pageSize < 1) {
+      throw new IllegalArgumentException("Page size must be at least 1");
+    }
+    this.pagingPageSize = pageSize;
+  }
+
+  /**
+   * Returns the current page size used by paging artifact iterators.
+   *
+   * @return the page size
+   */
+  public int getPagingPageSize() {
+    return pagingPageSize;
   }
 
   /**
@@ -1654,22 +1713,22 @@ public class SQLArtifactIndexManagerSql {
    * @param namespace The namespace
    * @param auid The AUID
    * @param includeUncommitted Whether to include uncommitted artifacts
-   * @param lastSortUri The sortUri from the last artifact of the previous page (null for first page)
-   * @param lastVersion The version from the last artifact of the previous page (null for first page)
+   * @param cursor The cursor from the last artifact of the previous page (null for first page)
    * @param limit Maximum number of artifacts to return
    * @return List of artifacts
    * @throws DbException if database error occurs
    */
   List<Artifact> fetchLatestArtifactsPage(
       String namespace, String auid, boolean includeUncommitted,
-      String lastSortUri, Integer lastVersion, int limit) throws DbException {
+      PagingCursor cursor, int limit) throws DbException {
 
-    log.debug2("namespace={}, auid={}, includeUncommitted={}, lastSortUri={}, lastVersion={}, limit={}",
-        namespace, auid, includeUncommitted, lastSortUri, lastVersion, limit);
+    log.debug2("namespace={}, auid={}, includeUncommitted={}, cursor={}, limit={}",
+        namespace, auid, includeUncommitted, cursor, limit);
 
     Connection conn = null;
     PreparedStatement ps = null;
     ResultSet rs = null;
+    boolean hasCursor = !cursor.isInitial();
 
     try {
       conn = getConnection();
@@ -1685,9 +1744,9 @@ public class SQLArtifactIndexManagerSql {
       sqlQuery = sqlQuery.replace("--MaxVersionAllUrlsWithNamespaceAndAuid--", latestVersionsQuery);
 
       // Add keyset WHERE clause if not first page
-      if (lastSortUri != null) {
-        sqlQuery += KEYSET_WHERE_CLAUSE;
-      }
+      String keysetClause = hasCursor ?
+          KEYSET_WHERE_CLAUSE.replace("--SortUriExpr--", SORT_URI_EXPR_LONG_URL) : EMPTY_STRING;
+      sqlQuery = sqlQuery.replace("--KeysetCondition--", keysetClause);
 
       // Add LIMIT clause
       sqlQuery += " LIMIT ?";
@@ -1706,10 +1765,10 @@ public class SQLArtifactIndexManagerSql {
       }
 
       // Bind keyset parameters if not first page
-      if (lastSortUri != null) {
-        ps.setString(paramIndex++, lastSortUri);
-        ps.setString(paramIndex++, lastSortUri);
-        ps.setInt(paramIndex++, lastVersion);
+      if (hasCursor) {
+        ps.setString(paramIndex++, cursor.getSortUri());
+        ps.setString(paramIndex++, cursor.getSortUri());
+        ps.setInt(paramIndex++, cursor.getVersion());
       }
 
       ps.setInt(paramIndex++, limit);
@@ -1744,22 +1803,22 @@ public class SQLArtifactIndexManagerSql {
    * @param namespace The namespace
    * @param auid The AUID
    * @param includeUncommitted Whether to include uncommitted artifacts
-   * @param lastSortUri The sortUri from the last artifact of the previous page (null for first page)
-   * @param lastVersion The version from the last artifact of the previous page (null for first page)
+   * @param cursor The cursor from the last artifact of the previous page (null for first page)
    * @param limit Maximum number of artifacts to return
    * @return List of artifacts
    * @throws DbException if database error occurs
    */
   List<Artifact> fetchAllVersionsArtifactsPage(
       String namespace, String auid, boolean includeUncommitted,
-      String lastSortUri, Integer lastVersion, int limit) throws DbException {
+      PagingCursor cursor, int limit) throws DbException {
 
-    log.debug2("namespace={}, auid={}, includeUncommitted={}, lastSortUri={}, lastVersion={}, limit={}",
-        namespace, auid, includeUncommitted, lastSortUri, lastVersion, limit);
+    log.debug2("namespace={}, auid={}, includeUncommitted={}, cursor={}, limit={}",
+        namespace, auid, includeUncommitted, cursor, limit);
 
     Connection conn = null;
     PreparedStatement ps = null;
     ResultSet rs = null;
+    boolean hasCursor = !cursor.isInitial();
 
     try {
       conn = getConnection();
@@ -1770,9 +1829,9 @@ public class SQLArtifactIndexManagerSql {
           !includeUncommitted ? ARTIFACT_COMMITTED_STATUS_CONDITION_TRUE : EMPTY_STRING);
 
       // Add keyset WHERE clause if not first page
-      if (lastSortUri != null) {
-        sqlQuery += KEYSET_WHERE_CLAUSE;
-      }
+      String keysetClause = hasCursor ?
+          KEYSET_WHERE_CLAUSE.replace("--SortUriExpr--", SORT_URI_EXPR_LONG_URL) : EMPTY_STRING;
+      sqlQuery = sqlQuery.replace("--KeysetCondition--", keysetClause);
 
       // Add LIMIT clause
       sqlQuery += " LIMIT ?";
@@ -1785,10 +1844,10 @@ public class SQLArtifactIndexManagerSql {
       ps.setString(paramIndex++, namespace);
       ps.setString(paramIndex++, auid);
 
-      if (lastSortUri != null) {
-        ps.setString(paramIndex++, lastSortUri);
-        ps.setString(paramIndex++, lastSortUri);
-        ps.setInt(paramIndex++, lastVersion);
+      if (hasCursor) {
+        ps.setString(paramIndex++, cursor.getSortUri());
+        ps.setString(paramIndex++, cursor.getSortUri());
+        ps.setInt(paramIndex++, cursor.getVersion());
       }
 
       ps.setInt(paramIndex++, limit);
@@ -1821,23 +1880,23 @@ public class SQLArtifactIndexManagerSql {
    * @param namespace The namespace
    * @param auid The AUID
    * @param url The URL
-   * @param lastSortUri The sortUri from the last artifact of the previous page (null for first page)
-   * @param lastVersion The version from the last artifact of the previous page (null for first page)
+   * @param cursor The cursor from the last artifact of the previous page (null for first page)
    * @param limit Maximum number of artifacts to return
    * @return List of artifacts
    * @throws DbException if database error occurs
    */
   List<Artifact> fetchArtifactsForUrlPage(
       String namespace, String auid, String url,
-      String lastSortUri, Integer lastVersion, int limit) throws DbException {
+      PagingCursor cursor, int limit) throws DbException {
 
-    log.debug2("namespace={}, auid={}, url={}, lastSortUri={}, lastVersion={}, limit={}",
-        namespace, auid, url, lastSortUri, lastVersion, limit);
+    log.debug2("namespace={}, auid={}, url={}, cursor={}, limit={}",
+        namespace, auid, url, cursor, limit);
 
     Connection conn = null;
     PreparedStatement ps = null;
     ResultSet rs = null;
     boolean isLongUrl = LONG_URL_THRESHOLD < url.length();
+    boolean hasCursor = !cursor.isInitial();
 
     String sqlQuery = isLongUrl ?
         LONG_URL_GET_COMMITTED_ARTIFACTS_WITH_NAMESPACE_AUID_URL_QUERY :
@@ -1847,9 +1906,10 @@ public class SQLArtifactIndexManagerSql {
       conn = getConnection();
 
       // Add keyset WHERE clause if not first page
-      if (lastSortUri != null) {
-        sqlQuery += KEYSET_WHERE_CLAUSE;
-      }
+      String sortUriExpr = isLongUrl ? SORT_URI_EXPR_LONG_URL : SORT_URI_EXPR_SHORT_URL;
+      String keysetClause = hasCursor ?
+          KEYSET_WHERE_CLAUSE.replace("--SortUriExpr--", sortUriExpr) : EMPTY_STRING;
+      sqlQuery = sqlQuery.replace("--KeysetCondition--", keysetClause);
 
       // Add LIMIT clause
       sqlQuery += " LIMIT ?";
@@ -1869,10 +1929,10 @@ public class SQLArtifactIndexManagerSql {
         ps.setString(paramIndex++, url);
       }
 
-      if (lastSortUri != null) {
-        ps.setString(paramIndex++, lastSortUri);
-        ps.setString(paramIndex++, lastSortUri);
-        ps.setInt(paramIndex++, lastVersion);
+      if (hasCursor) {
+        ps.setString(paramIndex++, cursor.getSortUri());
+        ps.setString(paramIndex++, cursor.getSortUri());
+        ps.setInt(paramIndex++, cursor.getVersion());
       }
 
       ps.setInt(paramIndex++, limit);
@@ -1902,26 +1962,29 @@ public class SQLArtifactIndexManagerSql {
    * Fetches a page of artifacts for a URL across all AUIDs in a namespace using keyset pagination.
    * Connection is opened, used, and closed within this method.
    *
+   * <p>Uses the extended keyset clause (sortUri, auid, version) because the same URL
+   * can exist in multiple AUIDs with the same version number.</p>
+   *
    * @param namespace The namespace
    * @param url The URL
    * @param versions Whether to return all versions or only latest
-   * @param lastSortUri The sortUri from the last artifact of the previous page (null for first page)
-   * @param lastVersion The version from the last artifact of the previous page (null for first page)
+   * @param cursor The cursor from the last artifact of the previous page (null for first page)
    * @param limit Maximum number of artifacts to return
    * @return List of artifacts
    * @throws DbException if database error occurs
    */
   List<Artifact> fetchArtifactsForUrlAllAuidsPage(
       String namespace, String url, ArtifactVersions versions,
-      String lastSortUri, Integer lastVersion, int limit) throws DbException {
+      PagingCursor cursor, int limit) throws DbException {
 
-    log.debug2("namespace={}, url={}, versions={}, lastSortUri={}, lastVersion={}, limit={}",
-        namespace, url, versions, lastSortUri, lastVersion, limit);
+    log.debug2("namespace={}, url={}, versions={}, cursor={}, limit={}",
+        namespace, url, versions, cursor, limit);
 
     Connection conn = null;
     PreparedStatement ps = null;
     ResultSet rs = null;
     boolean isLongUrl = LONG_URL_THRESHOLD < url.length();
+    boolean hasCursor = !cursor.isInitial();
     String sqlQuery;
 
     if (isLongUrl) {
@@ -1938,9 +2001,11 @@ public class SQLArtifactIndexManagerSql {
       conn = getConnection();
 
       // Add keyset WHERE clause if not first page
-      if (lastSortUri != null) {
-        sqlQuery += KEYSET_WHERE_CLAUSE;
-      }
+      // Use extended clause with auid because same URL can exist across multiple AUIDs
+      String sortUriExpr = isLongUrl ? SORT_URI_EXPR_LONG_URL : SORT_URI_EXPR_SHORT_URL;
+      String keysetClause = hasCursor ?
+          KEYSET_WHERE_CLAUSE_ALL_AUIDS.replace("--SortUriExpr--", sortUriExpr) : EMPTY_STRING;
+      sqlQuery = sqlQuery.replace("--KeysetCondition--", keysetClause);
 
       // Add LIMIT clause
       sqlQuery += " LIMIT ?";
@@ -1959,10 +2024,14 @@ public class SQLArtifactIndexManagerSql {
         ps.setString(paramIndex++, url);
       }
 
-      if (lastSortUri != null) {
-        ps.setString(paramIndex++, lastSortUri);
-        ps.setString(paramIndex++, lastSortUri);
-        ps.setInt(paramIndex++, lastVersion);
+      if (hasCursor) {
+        // Extended keyset: (sortUri > ?) OR (sortUri = ? AND auid > ?) OR (sortUri = ? AND auid = ? AND version < ?)
+        ps.setString(paramIndex++, cursor.getSortUri());
+        ps.setString(paramIndex++, cursor.getSortUri());
+        ps.setString(paramIndex++, cursor.getAuid());
+        ps.setString(paramIndex++, cursor.getSortUri());
+        ps.setString(paramIndex++, cursor.getAuid());
+        ps.setInt(paramIndex++, cursor.getVersion());
       }
 
       ps.setInt(paramIndex++, limit);
@@ -1992,21 +2061,23 @@ public class SQLArtifactIndexManagerSql {
    * Fetches a page of artifacts by URL prefix across all AUIDs in a namespace using keyset pagination.
    * Connection is opened, used, and closed within this method.
    *
+   * <p>Uses the extended keyset clause (sortUri, auid, version) because the same URL
+   * can exist in multiple AUIDs with the same version number.</p>
+   *
    * @param namespace The namespace
    * @param prefix The URL prefix
    * @param versions Whether to return all versions or only latest
-   * @param lastSortUri The sortUri from the last artifact of the previous page (null for first page)
-   * @param lastVersion The version from the last artifact of the previous page (null for first page)
+   * @param cursor The cursor from the last artifact of the previous page (null for first page)
    * @param limit Maximum number of artifacts to return
    * @return List of artifacts
    * @throws DbException if database error occurs
    */
   List<Artifact> fetchArtifactsByPrefixAllAuidsPage(
       String namespace, String prefix, ArtifactVersions versions,
-      String lastSortUri, Integer lastVersion, int limit) throws DbException {
+      PagingCursor cursor, int limit) throws DbException {
 
-    log.debug2("namespace={}, prefix={}, versions={}, lastSortUri={}, lastVersion={}, limit={}",
-        namespace, prefix, versions, lastSortUri, lastVersion, limit);
+    log.debug2("namespace={}, prefix={}, versions={}, cursor={}, limit={}",
+        namespace, prefix, versions, cursor, limit);
 
     if (StringUtil.isNullString(prefix)) {
       prefix = EMPTY_STRING;
@@ -2016,6 +2087,7 @@ public class SQLArtifactIndexManagerSql {
     PreparedStatement ps = null;
     ResultSet rs = null;
     boolean isLongUrl = LONG_URL_THRESHOLD < prefix.length();
+    boolean hasCursor = !cursor.isInitial();
     String sqlQuery;
 
     if (isLongUrl) {
@@ -2032,9 +2104,11 @@ public class SQLArtifactIndexManagerSql {
       conn = getConnection();
 
       // Add keyset WHERE clause if not first page
-      if (lastSortUri != null) {
-        sqlQuery += KEYSET_WHERE_CLAUSE;
-      }
+      // Use extended clause with auid because same URL can exist across multiple AUIDs
+      // All prefix queries use long URL expression (they use LEFT JOIN to long_url table)
+      String keysetClause = hasCursor ?
+          KEYSET_WHERE_CLAUSE_ALL_AUIDS.replace("--SortUriExpr--", SORT_URI_EXPR_LONG_URL) : EMPTY_STRING;
+      sqlQuery = sqlQuery.replace("--KeysetCondition--", keysetClause);
 
       // Add LIMIT clause
       sqlQuery += " LIMIT ?";
@@ -2055,10 +2129,14 @@ public class SQLArtifactIndexManagerSql {
         ps.setString(paramIndex++, pattern);
       }
 
-      if (lastSortUri != null) {
-        ps.setString(paramIndex++, lastSortUri);
-        ps.setString(paramIndex++, lastSortUri);
-        ps.setInt(paramIndex++, lastVersion);
+      if (hasCursor) {
+        // Extended keyset: (sortUri > ?) OR (sortUri = ? AND auid > ?) OR (sortUri = ? AND auid = ? AND version < ?)
+        ps.setString(paramIndex++, cursor.getSortUri());
+        ps.setString(paramIndex++, cursor.getSortUri());
+        ps.setString(paramIndex++, cursor.getAuid());
+        ps.setString(paramIndex++, cursor.getSortUri());
+        ps.setString(paramIndex++, cursor.getAuid());
+        ps.setInt(paramIndex++, cursor.getVersion());
       }
 
       ps.setInt(paramIndex++, limit);
@@ -2091,18 +2169,17 @@ public class SQLArtifactIndexManagerSql {
    * @param namespace The namespace
    * @param auid The AUID
    * @param urlPrefix The URL prefix
-   * @param lastSortUri The sortUri from the last artifact of the previous page (null for first page)
-   * @param lastVersion The version from the last artifact of the previous page (null for first page)
+   * @param cursor The cursor from the last artifact of the previous page (null for first page)
    * @param limit Maximum number of artifacts to return
    * @return List of artifacts
    * @throws DbException if database error occurs
    */
   List<Artifact> fetchLatestArtifactsWithPrefixPage(
       String namespace, String auid, String urlPrefix,
-      String lastSortUri, Integer lastVersion, int limit) throws DbException {
+      PagingCursor cursor, int limit) throws DbException {
 
-    log.debug2("namespace={}, auid={}, urlPrefix={}, lastSortUri={}, lastVersion={}, limit={}",
-        namespace, auid, urlPrefix, lastSortUri, lastVersion, limit);
+    log.debug2("namespace={}, auid={}, urlPrefix={}, cursor={}, limit={}",
+        namespace, auid, urlPrefix, cursor, limit);
 
     if (StringUtil.isNullString(urlPrefix)) {
       urlPrefix = EMPTY_STRING;
@@ -2112,6 +2189,7 @@ public class SQLArtifactIndexManagerSql {
     PreparedStatement ps = null;
     ResultSet rs = null;
     boolean isLongUrl = LONG_URL_THRESHOLD < urlPrefix.length();
+    boolean hasCursor = !cursor.isInitial();
 
     String sqlQuery = isLongUrl ?
         LONG_URL_GET_LATEST_ARTIFACTS_WITH_NAMESPACE_AUID_URL_PREFIX_QUERY :
@@ -2121,9 +2199,10 @@ public class SQLArtifactIndexManagerSql {
       conn = getConnection();
 
       // Add keyset WHERE clause if not first page
-      if (lastSortUri != null) {
-        sqlQuery += KEYSET_WHERE_CLAUSE;
-      }
+      // All prefix queries use long URL expression (they use LEFT JOIN to long_url table)
+      String keysetClause = hasCursor ?
+          KEYSET_WHERE_CLAUSE.replace("--SortUriExpr--", SORT_URI_EXPR_LONG_URL) : EMPTY_STRING;
+      sqlQuery = sqlQuery.replace("--KeysetCondition--", keysetClause);
 
       // Add LIMIT clause
       sqlQuery += " LIMIT ?";
@@ -2145,10 +2224,10 @@ public class SQLArtifactIndexManagerSql {
         ps.setString(paramIndex++, pattern);
       }
 
-      if (lastSortUri != null) {
-        ps.setString(paramIndex++, lastSortUri);
-        ps.setString(paramIndex++, lastSortUri);
-        ps.setInt(paramIndex++, lastVersion);
+      if (hasCursor) {
+        ps.setString(paramIndex++, cursor.getSortUri());
+        ps.setString(paramIndex++, cursor.getSortUri());
+        ps.setInt(paramIndex++, cursor.getVersion());
       }
 
       ps.setInt(paramIndex++, limit);
@@ -2181,18 +2260,17 @@ public class SQLArtifactIndexManagerSql {
    * @param namespace The namespace
    * @param auid The AUID
    * @param urlPrefix The URL prefix
-   * @param lastSortUri The sortUri from the last artifact of the previous page (null for first page)
-   * @param lastVersion The version from the last artifact of the previous page (null for first page)
+   * @param cursor The cursor from the last artifact of the previous page (null for first page)
    * @param limit Maximum number of artifacts to return
    * @return List of artifacts
    * @throws DbException if database error occurs
    */
   List<Artifact> fetchAllVersionsArtifactsWithPrefixPage(
       String namespace, String auid, String urlPrefix,
-      String lastSortUri, Integer lastVersion, int limit) throws DbException {
+      PagingCursor cursor, int limit) throws DbException {
 
-    log.debug2("namespace={}, auid={}, urlPrefix={}, lastSortUri={}, lastVersion={}, limit={}",
-        namespace, auid, urlPrefix, lastSortUri, lastVersion, limit);
+    log.debug2("namespace={}, auid={}, urlPrefix={}, cursor={}, limit={}",
+        namespace, auid, urlPrefix, cursor, limit);
 
     if (StringUtil.isNullString(urlPrefix)) {
       urlPrefix = EMPTY_STRING;
@@ -2202,6 +2280,7 @@ public class SQLArtifactIndexManagerSql {
     PreparedStatement ps = null;
     ResultSet rs = null;
     boolean isLongUrl = LONG_URL_THRESHOLD < urlPrefix.length();
+    boolean hasCursor = !cursor.isInitial();
 
     String sqlQuery = isLongUrl ?
         LONG_URL_GET_ARTIFACTS_WITH_NAMESPACE_AUID_URL_PREFIX_QUERY :
@@ -2211,9 +2290,10 @@ public class SQLArtifactIndexManagerSql {
       conn = getConnection();
 
       // Add keyset WHERE clause if not first page
-      if (lastSortUri != null) {
-        sqlQuery += KEYSET_WHERE_CLAUSE;
-      }
+      // All prefix queries use long URL expression (they use LEFT JOIN to long_url table)
+      String keysetClause = hasCursor ?
+          KEYSET_WHERE_CLAUSE.replace("--SortUriExpr--", SORT_URI_EXPR_LONG_URL) : EMPTY_STRING;
+      sqlQuery = sqlQuery.replace("--KeysetCondition--", keysetClause);
 
       // Add LIMIT clause
       sqlQuery += " LIMIT ?";
@@ -2237,10 +2317,10 @@ public class SQLArtifactIndexManagerSql {
         ps.setBoolean(paramIndex++, true);
       }
 
-      if (lastSortUri != null) {
-        ps.setString(paramIndex++, lastSortUri);
-        ps.setString(paramIndex++, lastSortUri);
-        ps.setInt(paramIndex++, lastVersion);
+      if (hasCursor) {
+        ps.setString(paramIndex++, cursor.getSortUri());
+        ps.setString(paramIndex++, cursor.getSortUri());
+        ps.setInt(paramIndex++, cursor.getVersion());
       }
 
       ps.setInt(paramIndex++, limit);
@@ -2277,10 +2357,10 @@ public class SQLArtifactIndexManagerSql {
     log.debug2("includeUncommitted = {}", includeUncommitted);
 
     // Create a page fetcher that captures the query parameters
-    PagingArtifactIterator.PageFetcher fetcher = (lastSortUri, lastVersion, limit) ->
-        fetchLatestArtifactsPage(namespace, auid, includeUncommitted, lastSortUri, lastVersion, limit);
+    PagingArtifactIterator.PageFetcher fetcher = (cursor, limit) ->
+        fetchLatestArtifactsPage(namespace, auid, includeUncommitted, cursor, limit);
 
-    return IteratorUtils.asIterable(new PagingArtifactIterator(fetcher));
+    return IteratorUtils.asIterable(new PagingArtifactIterator(fetcher, pagingPageSize));
   }
 
   public Iterable<Artifact> findArtifactsAllVersionsOfAllUrlsWithNamespaceAndAuid(String namespace, String auid, boolean includeUncommitted) throws DbException {
@@ -2289,10 +2369,10 @@ public class SQLArtifactIndexManagerSql {
     log.debug2("includeUncommitted = {}", includeUncommitted);
 
     // Create a page fetcher that captures the query parameters
-    PagingArtifactIterator.PageFetcher fetcher = (lastSortUri, lastVersion, limit) ->
-        fetchAllVersionsArtifactsPage(namespace, auid, includeUncommitted, lastSortUri, lastVersion, limit);
+    PagingArtifactIterator.PageFetcher fetcher = (cursor, limit) ->
+        fetchAllVersionsArtifactsPage(namespace, auid, includeUncommitted, cursor, limit);
 
-    return IteratorUtils.asIterable(new PagingArtifactIterator(fetcher));
+    return IteratorUtils.asIterable(new PagingArtifactIterator(fetcher, pagingPageSize));
   }
 
   public Iterable<Artifact> findArtifactsAllCommittedVersionsOfUrlWithNamespaceAndAuid(String namespace, String auid, String url)
@@ -2303,10 +2383,10 @@ public class SQLArtifactIndexManagerSql {
     log.debug2("url = {}", url);
 
     // Create a page fetcher that captures the query parameters
-    PagingArtifactIterator.PageFetcher fetcher = (lastSortUri, lastVersion, limit) ->
-        fetchArtifactsForUrlPage(namespace, auid, url, lastSortUri, lastVersion, limit);
+    PagingArtifactIterator.PageFetcher fetcher = (cursor, limit) ->
+        fetchArtifactsForUrlPage(namespace, auid, url, cursor, limit);
 
-    return IteratorUtils.asIterable(new PagingArtifactIterator(fetcher));
+    return IteratorUtils.asIterable(new PagingArtifactIterator(fetcher, pagingPageSize));
   }
 
   public Iterable<Artifact> findArtifactsAllCommittedVersionsOfUrlAllAuidsInNamespace(
@@ -2317,10 +2397,12 @@ public class SQLArtifactIndexManagerSql {
     log.debug2("versions = {}", versions);
 
     // Create a page fetcher that captures the query parameters
-    PagingArtifactIterator.PageFetcher fetcher = (lastSortUri, lastVersion, limit) ->
-        fetchArtifactsForUrlAllAuidsPage(namespace, url, versions, lastSortUri, lastVersion, limit);
+    // Use ALL_AUIDS cursor extractor because same URL can exist across multiple AUIDs
+    PagingArtifactIterator.PageFetcher fetcher = (cursor, limit) ->
+        fetchArtifactsForUrlAllAuidsPage(namespace, url, versions, cursor, limit);
 
-    return IteratorUtils.asIterable(new PagingArtifactIterator(fetcher));
+    return IteratorUtils.asIterable(new PagingArtifactIterator(fetcher, pagingPageSize,
+        PagingArtifactIterator.ALL_AUIDS_CURSOR_EXTRACTOR));
   }
 
   public Iterable<Artifact> findArtifactsAllCommittedVersionsOfUrlByPrefixAllAuidsInNamespace(
@@ -2331,10 +2413,12 @@ public class SQLArtifactIndexManagerSql {
     log.debug2("versions = {}", versions);
 
     // Create a page fetcher that captures the query parameters
-    PagingArtifactIterator.PageFetcher fetcher = (lastSortUri, lastVersion, limit) ->
-        fetchArtifactsByPrefixAllAuidsPage(namespace, prefix, versions, lastSortUri, lastVersion, limit);
+    // Use ALL_AUIDS cursor extractor because same URL can exist across multiple AUIDs
+    PagingArtifactIterator.PageFetcher fetcher = (cursor, limit) ->
+        fetchArtifactsByPrefixAllAuidsPage(namespace, prefix, versions, cursor, limit);
 
-    return IteratorUtils.asIterable(new PagingArtifactIterator(fetcher));
+    return IteratorUtils.asIterable(new PagingArtifactIterator(fetcher, pagingPageSize,
+        PagingArtifactIterator.ALL_AUIDS_CURSOR_EXTRACTOR));
   }
 
   public Iterable<Artifact> findArtifactsLatestCommittedVersionsOfAllUrlsMatchingPrefixWithNamespaceAndAuid(
@@ -2345,10 +2429,10 @@ public class SQLArtifactIndexManagerSql {
     log.debug2("urlPrefix = {}", urlPrefix);
 
     // Create a page fetcher that captures the query parameters
-    PagingArtifactIterator.PageFetcher fetcher = (lastSortUri, lastVersion, limit) ->
-        fetchLatestArtifactsWithPrefixPage(namespace, auid, urlPrefix, lastSortUri, lastVersion, limit);
+    PagingArtifactIterator.PageFetcher fetcher = (cursor, limit) ->
+        fetchLatestArtifactsWithPrefixPage(namespace, auid, urlPrefix, cursor, limit);
 
-    return IteratorUtils.asIterable(new PagingArtifactIterator(fetcher));
+    return IteratorUtils.asIterable(new PagingArtifactIterator(fetcher, pagingPageSize));
   }
 
   public Iterable<Artifact> findArtifactsAllCommittedVersionsOfAllUrlsMatchingPrefixWithNamespaceAndAuid(
@@ -2359,10 +2443,10 @@ public class SQLArtifactIndexManagerSql {
     log.debug2("urlPrefix = {}", urlPrefix);
 
     // Create a page fetcher that captures the query parameters
-    PagingArtifactIterator.PageFetcher fetcher = (lastSortUri, lastVersion, limit) ->
-        fetchAllVersionsArtifactsWithPrefixPage(namespace, auid, urlPrefix, lastSortUri, lastVersion, limit);
+    PagingArtifactIterator.PageFetcher fetcher = (cursor, limit) ->
+        fetchAllVersionsArtifactsWithPrefixPage(namespace, auid, urlPrefix, cursor, limit);
 
-    return IteratorUtils.asIterable(new PagingArtifactIterator(fetcher));
+    return IteratorUtils.asIterable(new PagingArtifactIterator(fetcher, pagingPageSize));
   }
 
   private static class ArtifactIteratorCleaner implements Runnable {
