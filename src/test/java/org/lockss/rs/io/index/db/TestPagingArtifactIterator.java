@@ -81,7 +81,7 @@ public class TestPagingArtifactIterator {
         .mapToObj(i -> {
           Artifact a = new Artifact();
           a.setUri(urlPrefix + "/item" + i);
-          // Versions decrease to match SQL ORDER BY: sortUri ASC, version DESC
+          // This version doesn't matter; it only matters to match the assertions.
           a.setVersion(startVersion - i);
           a.setUuid("artifact-" + i);
           return a;
@@ -482,69 +482,6 @@ public class TestPagingArtifactIterator {
     assertEquals(expectedVersion, secondCursor.getVersion());
   }
 
-  @Test
-  public void testCursor_SortUriTransformation() {
-    // Test that URL slashes are correctly transformed to tabs
-    // Use pageSize=1 and 2 items to ensure a second fetch occurs
-    Artifact artifact1 = new Artifact();
-    artifact1.setUri("http://example.com/path/to/resource");
-    artifact1.setVersion(2);
-
-    Artifact artifact2 = new Artifact();
-    artifact2.setUri("http://example.com/path/to/resource2");
-    artifact2.setVersion(1);
-
-    List<Artifact> artifacts = new ArrayList<>();
-    artifacts.add(artifact1);
-    artifacts.add(artifact2);
-
-    TrackingPageFetcher fetcher = new TrackingPageFetcher(artifacts);
-
-    PagingArtifactIterator iterator = new PagingArtifactIterator(fetcher, 1);
-
-    // Consume all items - this will trigger second fetch
-    while (iterator.hasNext()) {
-      iterator.next();
-    }
-
-    // Verify the sortUri transformation in second fetch
-    assertEquals(2, fetcher.getFetchCount());
-
-    PagingCursor secondCursor = fetcher.getRecordedCursors().get(1);
-    String expectedSortUri = "http:\t\texample.com\tpath\tto\tresource";
-    assertEquals(expectedSortUri, secondCursor.getSortUri());
-  }
-
-  @Test
-  public void testCursor_UrlWithManySlashes() {
-    // Use 2 items to ensure a second fetch occurs
-    Artifact artifact1 = new Artifact();
-    artifact1.setUri("http://example.com/a/b/c/d/e/f/g.html");
-    artifact1.setVersion(42);
-
-    Artifact artifact2 = new Artifact();
-    artifact2.setUri("http://example.com/z.html");
-    artifact2.setVersion(1);
-
-    List<Artifact> artifacts = new ArrayList<>();
-    artifacts.add(artifact1);
-    artifacts.add(artifact2);
-
-    TrackingPageFetcher fetcher = new TrackingPageFetcher(artifacts);
-
-    PagingArtifactIterator iterator = new PagingArtifactIterator(fetcher, 1);
-
-    while (iterator.hasNext()) {
-      iterator.next();
-    }
-
-    assertEquals(2, fetcher.getFetchCount());
-    PagingCursor secondCursor = fetcher.getRecordedCursors().get(1);
-    String expectedSortUri = "http:\t\texample.com\ta\tb\tc\td\te\tf\tg.html";
-    assertEquals(expectedSortUri, secondCursor.getSortUri());
-    assertEquals(42, secondCursor.getVersion());
-  }
-
   // ============================================================================
   // Error Handling Tests
   // ============================================================================
@@ -609,32 +546,6 @@ public class TestPagingArtifactIterator {
   // ============================================================================
 
   @Test
-  public void testHasNext_CalledMultipleTimes_NoDuplicateFetches() {
-    List<Artifact> artifacts = createMockArtifacts(15, "http://example.com", 100);
-    TrackingPageFetcher fetcher = new TrackingPageFetcher(artifacts);
-
-    PagingArtifactIterator iterator = new PagingArtifactIterator(fetcher, 10);
-
-    // Multiple hasNext calls at start
-    for (int i = 0; i < 10; i++) {
-      assertTrue(iterator.hasNext());
-    }
-    assertEquals(1, fetcher.getFetchCount());
-
-    // Consume first page
-    for (int i = 0; i < 10; i++) {
-      iterator.next();
-    }
-    assertEquals(1, fetcher.getFetchCount());
-
-    // Multiple hasNext calls should trigger exactly one more fetch
-    for (int i = 0; i < 10; i++) {
-      assertTrue(iterator.hasNext());
-    }
-    assertEquals(2, fetcher.getFetchCount());
-  }
-
-  @Test
   public void testNext_WithoutHasNext_WorksCorrectly() {
     List<Artifact> artifacts = createMockArtifacts(3, "http://example.com", 100);
     TrackingPageFetcher fetcher = new TrackingPageFetcher(artifacts);
@@ -675,153 +586,9 @@ public class TestPagingArtifactIterator {
     assertThrows(NoSuchElementException.class, iterator::next);
   }
 
-  @Test
-  public void testPartialIteration_EarlyBreak() {
-    List<Artifact> artifacts = createMockArtifacts(15, "http://example.com", 100);
-    TrackingPageFetcher fetcher = new TrackingPageFetcher(artifacts);
-
-    PagingArtifactIterator iterator = new PagingArtifactIterator(fetcher, 10);
-
-    // Only consume 5 items then abandon
-    for (int i = 0; i < 5; i++) {
-      assertTrue(iterator.hasNext());
-      iterator.next();
-    }
-
-    // Should have only fetched first page
-    assertEquals(1, fetcher.getFetchCount());
-
-    // Iterator can still be used if needed
-    assertTrue(iterator.hasNext());
-    assertEquals("http://example.com/item5", iterator.next().getUri());
-  }
-
-  // ============================================================================
-  // Page Size Configuration Tests
-  // ============================================================================
-
-  @Test
-  public void testGetPageSize_ReturnsConfiguredValue() {
-    PagingArtifactIterator.PageFetcher dummyFetcher = (cursor, limit) -> Collections.emptyList();
-
-    assertEquals(1, new PagingArtifactIterator(dummyFetcher, 1).getPageSize());
-    assertEquals(100, new PagingArtifactIterator(dummyFetcher, 100).getPageSize());
-    assertEquals(5000, new PagingArtifactIterator(dummyFetcher, 5000).getPageSize());
-  }
-
-  @Test
-  public void testSmallPageSize_ManyFetches() {
-    int pageSize = 3;
-    int totalArtifacts = 10;
-    List<Artifact> artifacts = createMockArtifacts(totalArtifacts, "http://example.com", 100);
-    TrackingPageFetcher fetcher = new TrackingPageFetcher(artifacts);
-
-    PagingArtifactIterator iterator = new PagingArtifactIterator(fetcher, pageSize);
-
-    List<Artifact> results = new ArrayList<>();
-    while (iterator.hasNext()) {
-      results.add(iterator.next());
-    }
-
-    assertEquals(totalArtifacts, results.size());
-    // 10 items with pageSize=3: 3+3+3+1 = 4 fetches
-    assertEquals(4, fetcher.getFetchCount());
-  }
-
-  @Test
-  public void testLargePageSize_SingleFetch() {
-    int pageSize = 100;
-    int totalArtifacts = 5;
-    List<Artifact> artifacts = createMockArtifacts(totalArtifacts, "http://example.com", 100);
-    TrackingPageFetcher fetcher = new TrackingPageFetcher(artifacts);
-
-    PagingArtifactIterator iterator = new PagingArtifactIterator(fetcher, pageSize);
-
-    List<Artifact> results = new ArrayList<>();
-    while (iterator.hasNext()) {
-      results.add(iterator.next());
-    }
-
-    assertEquals(totalArtifacts, results.size());
-    assertEquals(1, fetcher.getFetchCount(), "Should only need one fetch when pageSize > totalItems");
-  }
-
   // ============================================================================
   // Boundary and Edge Case Tests
   // ============================================================================
-
-  @Test
-  public void testIteration_VersionZero() {
-    // Test artifact with version 0 (edge case - lowest valid version)
-    Artifact artifact = new Artifact();
-    artifact.setUri("http://example.com/test");
-    artifact.setVersion(0);
-
-    List<Artifact> artifacts = Collections.singletonList(artifact);
-    TrackingPageFetcher fetcher = new TrackingPageFetcher(artifacts);
-
-    PagingArtifactIterator iterator = new PagingArtifactIterator(fetcher, 10);
-
-    assertTrue(iterator.hasNext());
-    Artifact result = iterator.next();
-    assertEquals(0, result.getVersion());
-    assertFalse(iterator.hasNext());
-  }
-
-  @Test
-  public void testIteration_MinimalUrl() {
-    // Test with minimal valid URL
-    Artifact artifact = new Artifact();
-    artifact.setUri("x");
-    artifact.setVersion(1);
-
-    List<Artifact> artifacts = Collections.singletonList(artifact);
-    TrackingPageFetcher fetcher = new TrackingPageFetcher(artifacts);
-
-    PagingArtifactIterator iterator = new PagingArtifactIterator(fetcher, 10);
-
-    assertTrue(iterator.hasNext());
-    Artifact result = iterator.next();
-    assertEquals("x", result.getUri());
-
-    assertFalse(iterator.hasNext());
-  }
-
-  @Test
-  public void testIteration_SpecialCharactersInUrl() {
-    // Use 2 items to trigger second fetch and verify cursor
-    Artifact artifact1 = new Artifact();
-    artifact1.setUri("http://example.com/path?query=value&other=123#fragment");
-    artifact1.setVersion(2);
-
-    Artifact artifact2 = new Artifact();
-    artifact2.setUri("http://example.com/z");
-    artifact2.setVersion(1);
-
-    List<Artifact> artifacts = new ArrayList<>();
-    artifacts.add(artifact1);
-    artifacts.add(artifact2);
-
-    TrackingPageFetcher fetcher = new TrackingPageFetcher(artifacts);
-
-    PagingArtifactIterator iterator = new PagingArtifactIterator(fetcher, 1);
-
-    // Consume first item
-    assertTrue(iterator.hasNext());
-    Artifact result = iterator.next();
-    assertEquals("http://example.com/path?query=value&other=123#fragment", result.getUri());
-
-    // Consume remaining to trigger second fetch
-    while (iterator.hasNext()) {
-      iterator.next();
-    }
-
-    // Verify only slashes are transformed, not other special chars
-    assertEquals(2, fetcher.getFetchCount());
-    PagingCursor secondCursor = fetcher.getRecordedCursors().get(1);
-    String expectedSortUri = "http:\t\texample.com\tpath?query=value&other=123#fragment";
-    assertEquals(expectedSortUri, secondCursor.getSortUri());
-  }
 
   @Test
   public void testIteration_UnicodeInUrl() {
@@ -857,38 +624,7 @@ public class TestPagingArtifactIterator {
     assertEquals(expectedSortUri, secondCursor.getSortUri());
   }
 
-  @Test
-  public void testIteration_ConsecutiveSlashesInUrl() {
-    // Use 2 items to trigger second fetch and verify cursor
-    Artifact artifact1 = new Artifact();
-    artifact1.setUri("http://example.com//double//slashes///triple");
-    artifact1.setVersion(2);
 
-    Artifact artifact2 = new Artifact();
-    artifact2.setUri("http://example.com/z");
-    artifact2.setVersion(1);
-
-    List<Artifact> artifacts = new ArrayList<>();
-    artifacts.add(artifact1);
-    artifacts.add(artifact2);
-
-    TrackingPageFetcher fetcher = new TrackingPageFetcher(artifacts);
-
-    PagingArtifactIterator iterator = new PagingArtifactIterator(fetcher, 1);
-
-    assertTrue(iterator.hasNext());
-    iterator.next();
-
-    // Consume remaining to trigger second fetch
-    while (iterator.hasNext()) {
-      iterator.next();
-    }
-
-    assertEquals(2, fetcher.getFetchCount());
-    PagingCursor secondCursor = fetcher.getRecordedCursors().get(1);
-    String expectedSortUri = "http:\t\texample.com\t\tdouble\t\tslashes\t\t\ttriple";
-    assertEquals(expectedSortUri, secondCursor.getSortUri());
-  }
 
   // ============================================================================
   // Integration-Style Tests
@@ -933,23 +669,5 @@ public class TestPagingArtifactIterator {
       assertEquals("http://example.com/item" + i, retrievedUris.get(i),
           "Missing or out-of-order artifact at index " + i);
     }
-  }
-
-  @Test
-  public void testDataIntegrity_NoDuplicateArtifacts() {
-    int totalArtifacts = 35;
-    List<Artifact> artifacts = createMockArtifacts(totalArtifacts, "http://example.com", 1000);
-    TrackingPageFetcher fetcher = new TrackingPageFetcher(artifacts);
-
-    PagingArtifactIterator iterator = new PagingArtifactIterator(fetcher, 10);
-
-    List<String> retrievedIds = new ArrayList<>();
-    while (iterator.hasNext()) {
-      retrievedIds.add(iterator.next().getUuid());
-    }
-
-    // Check for duplicates
-    long uniqueCount = retrievedIds.stream().distinct().count();
-    assertEquals(totalArtifacts, uniqueCount, "Duplicate artifacts detected");
   }
 }

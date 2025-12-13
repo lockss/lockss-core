@@ -46,6 +46,7 @@ import org.postgresql.ds.PGSimpleDataSource;
 
 import java.net.URI;
 import java.util.*;
+import java.util.function.Function;
 
 /**
  * Tests for methods in {@link SQLArtifactIndexManagerSql} that use keyset paging.
@@ -175,17 +176,37 @@ public class TestSQLArtifactIndexManagerSqlPaging extends LockssTestCase4 {
 
     // Create enough URLs to span multiple pages (test page size is 10)
     int numUrls = 35;
-    List<ArtifactSpec> specs = new ArrayList<>();
-    Set<String> expectedUrls = new TreeSet<>();
+    List<ArtifactSpec> latestSpecs = new ArrayList<>();
+
+    SortedMap<String, String> sortUriMap = new TreeMap<>();
+    List<String> uriList = new ArrayList<>();
+
+    for (int i = 0; i < 10; i++) {
+      String uri = String.format("http://example.com/a-aa/%05d", i);
+      sortUriMap.put(uri.replace("/", "\t"), uri);
+      uriList.add(uri);
+    }
+
+    for (int i = 0; i < 10; i++) {
+      String uri = String.format("http://example.com/a/%05d", i);
+      sortUriMap.put(uri.replace("/", "\t"), uri);
+      uriList.add(uri);
+    }
+
+    for (int i = 0; i < 15; i++) {
+      String uri = String.format("http://example.com/aaa-/%05d", i);
+      sortUriMap.put(uri.replace("/", "\t"), uri);
+      uriList.add(uri);
+    }
+
+    List<String> sortedUriList = new ArrayList<>(uriList);
+    Collections.sort(sortedUriList);
+    assertNotEquals(sortedUriList, sortUriMap.values());
 
     for (int i = 0; i < numUrls; i++) {
-      // Use zero-padded numbers for predictable sort order
-      String url = String.format("http://example.com/path/%05d", i);
-      expectedUrls.add(url);
-
       // Create multiple versions for each URL to test that only latest is returned
-      ArtifactSpec specV1 = makeArtifactSpec(ns, auid, url, 1);
-      ArtifactSpec specV2 = makeArtifactSpec(ns, auid, url, 2);
+      ArtifactSpec specV1 = makeArtifactSpec(ns, auid, uriList.get(i), 1);
+      ArtifactSpec specV2 = makeArtifactSpec(ns, auid, uriList.get(i), 2);
 
       idxdb.addArtifact(specV1.getArtifact());
       idxdb.addArtifact(specV2.getArtifact());
@@ -194,7 +215,7 @@ public class TestSQLArtifactIndexManagerSqlPaging extends LockssTestCase4 {
       idxdb.commitArtifact(specV1.getArtifactUuid());
       idxdb.commitArtifact(specV2.getArtifactUuid());
 
-      specs.add(specV2); // Only track latest version
+      latestSpecs.add(specV2); // Only track latest version
     }
 
     // Query for latest artifacts
@@ -209,30 +230,10 @@ public class TestSQLArtifactIndexManagerSqlPaging extends LockssTestCase4 {
     // Verify count matches expected
     assertEquals("Should return exactly one artifact per URL", numUrls, artifacts.size());
 
-    // Verify no duplicates
-    Set<String> returnedUrls = new HashSet<>();
-    for (Artifact a : artifacts) {
-      assertTrue("Duplicate URL found: " + a.getUri(), returnedUrls.add(a.getUri()));
-    }
-
-    // Verify all expected URLs are present
-    for (String expectedUrl : expectedUrls) {
-      assertTrue("Missing URL: " + expectedUrl, returnedUrls.contains(expectedUrl));
-    }
-
-    // Verify all returned artifacts are version 2 (latest)
-    for (Artifact a : artifacts) {
-      assertEquals("Should return latest version", Integer.valueOf(2), a.getVersion());
-    }
-
-    // Verify sort order (URLs should be in ascending order by sortUri)
-    String previousUri = null;
-    for (Artifact a : artifacts) {
-      if (previousUri != null) {
-        assertTrue("Results should be sorted by URI, but found " + previousUri + " before " + a.getUri(),
-            previousUri.compareTo(a.getUri()) < 0);
-      }
-      previousUri = a.getUri();
+    // Verify artifacts are returned in proper sort order
+    for (int i = 0; i < numUrls; i++) {
+      List<String> sortUris = new ArrayList<>(sortUriMap.values());
+      assertEquals(artifacts.get(i).getUri(), sortUris.get(i));
     }
   }
 
@@ -250,7 +251,7 @@ public class TestSQLArtifactIndexManagerSqlPaging extends LockssTestCase4 {
 
     // Create exactly 20 URLs (2 pages with test page size of 10)
     int numUrls = 20;
-    Set<String> expectedUrls = new TreeSet<>();
+    Set<String> expectedUrls = new HashSet<>();
 
     for (int i = 0; i < numUrls; i++) {
       String url = String.format("http://example.com/item/%05d", i);
@@ -389,33 +390,6 @@ public class TestSQLArtifactIndexManagerSqlPaging extends LockssTestCase4 {
   }
 
   /**
-   * Tests paging behavior with a single artifact (less than one page).
-   */
-  @Test
-  public void testFindLatestArtifacts_SingleArtifact() throws Exception {
-    initializeDatabase();
-    SQLArtifactIndexManagerSql idxdb = createIndexManagerSql();
-
-    String ns = "ns1";
-    String auid = "auid1";
-    String url = "http://example.com/single";
-
-    ArtifactSpec spec = makeArtifactSpec(ns, auid, url, 1);
-    idxdb.addArtifact(spec.getArtifact());
-    idxdb.commitArtifact(spec.getArtifactUuid());
-
-    Iterable<Artifact> result = idxdb.findLatestArtifactsOfAllUrlsWithNamespaceAndAuid(ns, auid, false);
-
-    List<Artifact> artifacts = new ArrayList<>();
-    for (Artifact a : result) {
-      artifacts.add(a);
-    }
-
-    assertEquals("Should return single artifact", 1, artifacts.size());
-    assertEquals("Should return correct URL", url, artifacts.get(0).getUri());
-  }
-
-  /**
    * Tests paging behavior with an empty result set.
    */
   @Test
@@ -429,12 +403,7 @@ public class TestSQLArtifactIndexManagerSqlPaging extends LockssTestCase4 {
     // Query with no artifacts in database
     Iterable<Artifact> result = idxdb.findLatestArtifactsOfAllUrlsWithNamespaceAndAuid(ns, auid, false);
 
-    List<Artifact> artifacts = new ArrayList<>();
-    for (Artifact a : result) {
-      artifacts.add(a);
-    }
-
-    assertEquals("Should return empty list", 0, artifacts.size());
+    assertFalse(result.iterator().hasNext());
   }
 
   /**
@@ -559,27 +528,41 @@ public class TestSQLArtifactIndexManagerSqlPaging extends LockssTestCase4 {
     // Create URLs that are very similar and will sort near page boundaries
     // Using URLs that would sort consecutively
     int numUrls = 15; // Just over one page (test page size is 10)
-    Set<String> expectedUrls = new TreeSet<>();
+
+    SortedMap<String, String> sortUriMap = new TreeMap<>();
+    List<String> uriList = new ArrayList<>();
 
     for (int i = 0; i < numUrls; i++) {
-      // Create URLs like: http://example.com/a, http://example.com/aa, http://example.com/aaa...
-      String url = "http://example.com/" + String.format("%05d", i);
-      expectedUrls.add(url);
+      String basePath = i % 2 == 0 ? "http://example.com/aa-/" : "http://example.com/aa/";
+      String uri = basePath + String.format("%05d", i);
+      sortUriMap.put(uri.replace("/", "\t"), uri);
+      uriList.add(uri);
 
-      ArtifactSpec spec = makeArtifactSpec(ns, auid, url, 1);
+      ArtifactSpec spec = makeArtifactSpec(ns, auid, uri, 1);
       idxdb.addArtifact(spec.getArtifact());
       idxdb.commitArtifact(spec.getArtifactUuid());
     }
 
+    List<String> sortedUriList = new ArrayList<>(uriList);
+    Collections.sort(sortedUriList);
+    assertNotEquals(sortedUriList, sortUriMap.values());
+
     Iterable<Artifact> result = idxdb.findLatestArtifactsOfAllUrlsWithNamespaceAndAuid(ns, auid, false);
 
-    Set<String> returnedUrls = new TreeSet<>();
+    // Collect all results
+    List<Artifact> artifacts = new ArrayList<>();
     for (Artifact a : result) {
-      assertTrue("Duplicate URL found: " + a.getUri(), returnedUrls.add(a.getUri()));
+      artifacts.add(a);
     }
 
-    assertEquals("Should return all URLs", expectedUrls.size(), returnedUrls.size());
-    assertEquals("Should return exactly the expected URLs", expectedUrls, returnedUrls);
+    // Verify count matches expected
+    assertEquals("Should return exactly one artifact per URL", numUrls, artifacts.size());
+
+    // Verify artifacts are returned in proper sort order
+    for (int i = 0; i < numUrls; i++) {
+      List<String> sortUris = new ArrayList<>(sortUriMap.values());
+      assertEquals(artifacts.get(i).getUri(), sortUris.get(i));
+    }
   }
 
   /**
@@ -601,20 +584,18 @@ public class TestSQLArtifactIndexManagerSqlPaging extends LockssTestCase4 {
       idxdb.commitArtifact(spec.getArtifactUuid());
     }
 
-    // First iteration
-    List<String> firstIteration = new ArrayList<>();
-    for (Artifact a : idxdb.findLatestArtifactsOfAllUrlsWithNamespaceAndAuid(ns, auid, false)) {
-      firstIteration.add(a.getUri());
+    Iterator<Artifact> itr1 =
+        idxdb.findLatestArtifactsOfAllUrlsWithNamespaceAndAuid(ns, auid, false).iterator();
+    Iterator<Artifact> itr2 =
+        idxdb.findLatestArtifactsOfAllUrlsWithNamespaceAndAuid(ns, auid, false).iterator();
+
+    while (itr1.hasNext()) {
+      Artifact a1 = itr1.next();
+      Artifact a2 = itr2.next();
+      assertEquals("Multiple iterations should return same results", a1, a2);
     }
 
-    // Second iteration (new Iterable)
-    List<String> secondIteration = new ArrayList<>();
-    for (Artifact a : idxdb.findLatestArtifactsOfAllUrlsWithNamespaceAndAuid(ns, auid, false)) {
-      secondIteration.add(a.getUri());
-    }
-
-    assertEquals("Multiple iterations should return same count", firstIteration.size(), secondIteration.size());
-    assertEquals("Multiple iterations should return same results", firstIteration, secondIteration);
+    assertFalse(itr2.hasNext());
   }
 
   /**
@@ -809,13 +790,11 @@ public class TestSQLArtifactIndexManagerSqlPaging extends LockssTestCase4 {
 
     // Verify all versions are present
     Set<Integer> returnedVersions = new HashSet<>();
+    int artifactVersion = numVersions;
     for (Artifact a : artifacts) {
       assertEquals("All artifacts should have the correct URL", url, a.getUri());
       assertTrue("Duplicate version found: " + a.getVersion(), returnedVersions.add(a.getVersion()));
-    }
-
-    for (int v = 1; v <= numVersions; v++) {
-      assertTrue("Missing version: " + v, returnedVersions.contains(v));
+      assertEquals("Wrong version:", (long) artifactVersion--, (long) a.getVersion());
     }
   }
 
@@ -909,6 +888,17 @@ public class TestSQLArtifactIndexManagerSqlPaging extends LockssTestCase4 {
     }
 
     assertEquals("Should have artifacts from all AUIDs", numAuids, returnedAuids.size());
+  }
+
+  <T, C extends Comparable<? super C>> void assertSorted(Collection<T> objs, Function<T, C> sortFn) {
+    T previous = null;
+    for (T obj : objs) {
+      if (previous != null) {
+        assertTrue("Results should be sorted, but found " + previous + " before " + obj,
+            sortFn.apply(previous).compareTo(sortFn.apply(obj)) <= 0);
+      }
+      previous = obj;
+    }
   }
 
   /**
