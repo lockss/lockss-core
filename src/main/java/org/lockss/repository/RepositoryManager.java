@@ -694,7 +694,7 @@ public class RepositoryManager
    * version of each matching Artifact in each AU.
    */
   public List<Artifact> findArtifactsByUrl(String normUrl) {
-    return findArtifactsByUrl(normUrl, ArtifactVersions.LATEST);
+    return findArtifactsByUrl(normUrl, VersionsEnum.LATEST);
   }
 
   /** Search all repositories and AUs for Artifacts with the given URL
@@ -704,7 +704,7 @@ public class RepositoryManager
    * @return List of Artifacts with that URL
    */
   public List<Artifact> findArtifactsByUrl(String normUrl,
-                                           ArtifactVersions versions) {
+                                           VersionsEnum versions) {
     List<Artifact> res = new ArrayList<>();
     for (RepoSpec spec : getRepositorySpecList()) {
       LockssRepository repo = spec.getRepository();

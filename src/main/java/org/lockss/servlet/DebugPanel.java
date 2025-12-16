@@ -32,10 +32,7 @@ import javax.servlet.*;
 import java.io.*;
 import java.util.*;
 
-import org.lockss.util.rest.crawler.CrawlDesc;
-import org.lockss.util.rest.crawler.CrawlJob;
-import org.lockss.util.rest.crawler.JobStatus;
-import org.lockss.util.rest.crawler.RestCrawlerClient;
+import org.lockss.util.rest.crawler.*;
 import org.lockss.util.rest.repo.LockssRepository;
 import org.lockss.util.rest.repo.model.Artifact;
 import org.mortbay.html.*;
@@ -423,7 +420,7 @@ public class DebugPanel extends LockssServlet {
             .auId(req.getAuId())
             .refetchDepth(req.getRefetchDepth())
             .priority(req.getPriority())
-            .crawlKind(CrawlDesc.CrawlKindEnum.NEWCONTENT);
+            .crawlKind(CrawlKindEnum.NEWCONTENT);
         CrawlJob crawlJob = client.callCrawl(desc);
 
         if (crawlJob == null || crawlJob.getJobStatus() == null) {

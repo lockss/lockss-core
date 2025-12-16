@@ -78,7 +78,8 @@ public class PropKeyEncoder {
     int maxBytesPerChar = 10;
     StringBuffer out = new StringBuffer(s.length());
     UnsynchronizedByteArrayOutputStream buf = new UnsynchronizedByteArrayOutputStream(maxBytesPerChar);
-    OutputStreamWriter writer = new OutputStreamWriter(buf);
+    OutputStreamWriter writer = new OutputStreamWriter(buf,
+                                                       CharsetUtil.CHARSET_UTF8);
 
     for (int i = 0, len = s.length(); i < len; i++) {
       int c = (int)s.charAt(i);

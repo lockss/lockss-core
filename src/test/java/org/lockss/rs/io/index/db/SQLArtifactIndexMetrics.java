@@ -47,7 +47,7 @@ import org.lockss.util.io.FileUtil;
 import org.lockss.util.io.ZipUtil;
 import org.lockss.util.os.PlatformUtil;
 import org.lockss.util.rest.repo.model.Artifact;
-import org.lockss.util.rest.repo.model.ArtifactVersions;
+import org.lockss.util.rest.repo.model.VersionsEnum;
 import org.lockss.util.rest.repo.util.ArtifactSpec;
 import org.lockss.util.time.TimeBase;
 import org.postgresql.ds.PGSimpleDataSource;
@@ -563,10 +563,10 @@ public class SQLArtifactIndexMetrics extends LockssTestCase {
         new ArtifactSpecGenerator(10, 10, 100);
 
     runMetric(specs, "findArtifactsAllCommittedVersionsOfUrlAllAuidsInNamespace(ALL)", (spec) ->
-        idxdb.findArtifactsAllCommittedVersionsOfUrlAllAuidsInNamespace(spec.getNamespace(), spec.getUrl(), ArtifactVersions.ALL));
+        idxdb.findArtifactsAllCommittedVersionsOfUrlAllAuidsInNamespace(spec.getNamespace(), spec.getUrl(), VersionsEnum.ALL));
 
     runMetric(specs, "findArtifactsAllCommittedVersionsOfUrlAllAuidsInNamespace(LATEST)", (spec) ->
-        idxdb.findArtifactsAllCommittedVersionsOfUrlAllAuidsInNamespace(spec.getNamespace(), spec.getUrl(), ArtifactVersions.LATEST));
+        idxdb.findArtifactsAllCommittedVersionsOfUrlAllAuidsInNamespace(spec.getNamespace(), spec.getUrl(), VersionsEnum.LATEST));
   }
 
    @Metric("findArtifactsAllCommittedVersionsOfUrlByPrefixAllAuidsInNamespace") // REALLY SLOW!
@@ -575,10 +575,10 @@ public class SQLArtifactIndexMetrics extends LockssTestCase {
         new ArtifactSpecGenerator(1, 1, 1);
 
     runMetric(specs, "findArtifactsAllCommittedVersionsOfUrlByPrefixAllAuidsInNamespace(ALL)", (spec) ->
-        idxdb.findArtifactsAllCommittedVersionsOfUrlByPrefixAllAuidsInNamespace(spec.getNamespace(), spec.getUrl(), ArtifactVersions.ALL));
+        idxdb.findArtifactsAllCommittedVersionsOfUrlByPrefixAllAuidsInNamespace(spec.getNamespace(), spec.getUrl(), VersionsEnum.ALL));
 
     runMetric(specs, "findArtifactsAllCommittedVersionsOfUrlByPrefixAllAuidsInNamespace(LATEST)", (spec) ->
-        idxdb.findArtifactsAllCommittedVersionsOfUrlByPrefixAllAuidsInNamespace(spec.getNamespace(), spec.getUrl(), ArtifactVersions.LATEST));
+        idxdb.findArtifactsAllCommittedVersionsOfUrlByPrefixAllAuidsInNamespace(spec.getNamespace(), spec.getUrl(), VersionsEnum.LATEST));
   }
 
   @Metric("findArtifactsLatestCommittedVersionsOfAllUrlsMatchingPrefixWithNamespaceAndAuid")

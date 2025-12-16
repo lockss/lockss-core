@@ -37,10 +37,10 @@ import org.lockss.rs.io.StorageInfoSource;
 import org.lockss.log.L4JLogger;
 import org.lockss.util.rest.repo.model.Artifact;
 import org.lockss.util.rest.repo.model.ArtifactIdentifier;
-import org.lockss.util.rest.repo.model.ArtifactVersions;
 import org.lockss.util.rest.repo.model.AuSize;
 import org.lockss.util.PreOrderComparator;
 import org.lockss.util.lang.Ready;
+import org.lockss.util.rest.repo.model.VersionsEnum;
 import org.lockss.util.time.Deadline;
 
 import java.io.IOException;
@@ -309,14 +309,14 @@ public interface ArtifactIndex extends LockssRepositorySubsystem, StorageInfoSou
      *          A String with the namespace.
      * @param prefix
      *          A String with the URL prefix.
-     * @param versions   A {@link ArtifactVersions} indicating whether to include all versions or only the latest
+     * @param versions   A {@link VersionsEnum} indicating whether to include all versions or only the latest
      *                   versions of an artifact.
      * @return An {@code Iterable<Artifact>} containing the committed artifacts of all versions of all URLs matching a
      *         prefix.
      */
     Iterable<Artifact> getArtifactsWithUrlPrefixFromAllAus(String namespace,
                                                            String prefix,
-                                                           ArtifactVersions versions)
+                                                           VersionsEnum versions)
         throws IOException;
 
     /**
@@ -345,13 +345,13 @@ public interface ArtifactIndex extends LockssRepositorySubsystem, StorageInfoSou
      *          A {@code String} with the namespace.
      * @param url
      *          A {@code String} with the URL to be matched.
-     * @param versions   A {@link ArtifactVersions} indicating whether to include all versions or only the latest
+     * @param versions   A {@link VersionsEnum} indicating whether to include all versions or only the latest
      *                   versions of an artifact.
      * @return An {@code Iterable<Artifact>} containing the committed artifacts of all versions of a given URL.
      */
     Iterable<Artifact> getArtifactsWithUrlFromAllAus(String namespace,
                                                      String url,
-                                                     ArtifactVersions versions)
+                                                     VersionsEnum versions)
         throws IOException;
 
     /**

@@ -2190,6 +2190,21 @@ public class TestPluginManager extends LockssTestCase4 {
   }
 
   @Test
+  // Real-world(ish) example
+  public void testGenerateAuId2() {
+    mgr.startService();
+    String pluginId = "org.lockss.plugin.clockss.aps.ClockssAPSSourcePlugin";
+    Properties props = new Properties();
+    props.setProperty("base_url", "http://clockss-ingest.clockss.org/sourcefiles/aps-released/");
+    props.setProperty("utf8param", "éöf oo"); // non-ascii & a space
+    props.setProperty("year", "2020");
+
+    String actual = PluginManager.generateAuId(pluginId, props);
+    log.critical("auid: " + actual);
+    assertEquals("org|lockss|plugin|clockss|aps|ClockssAPSSourcePlugin&base_url~http%3A%2F%2Fclockss-ingest%2Eclockss%2Eorg%2Fsourcefiles%2Faps-released%2F&utf8param~%C3%A9%C3%B6f+oo&year~2020", actual);
+  }
+
+  @Test
   public void testGenerateAuIdUniqueInstance() throws Exception {
     mgr.startService();
 

@@ -39,7 +39,7 @@ import org.lockss.test.MockLockssDaemon;
 import org.lockss.test.TcpTestUtil;
 import org.lockss.util.Logger;
 import org.lockss.util.rest.repo.model.Artifact;
-import org.lockss.util.rest.repo.model.ArtifactVersions;
+import org.lockss.util.rest.repo.model.VersionsEnum;
 import org.lockss.util.rest.repo.util.ArtifactSpec;
 import org.lockss.util.time.TimeBase;
 import org.postgresql.ds.PGSimpleDataSource;
@@ -861,7 +861,7 @@ public class TestSQLArtifactIndexManagerSqlPaging extends LockssTestCase4 {
 
     // Query for all versions
     List<Artifact> artifacts =
-        toList(idxdb.findArtifactsAllCommittedVersionsOfUrlAllAuidsInNamespace(ns, url, ArtifactVersions.ALL));
+        toList(idxdb.findArtifactsAllCommittedVersionsOfUrlAllAuidsInNamespace(ns, url, VersionsEnum.ALL));
 
     assertEquals("Should return all artifacts across all AUIDs", totalArtifacts, artifacts.size());
 
@@ -919,7 +919,7 @@ public class TestSQLArtifactIndexManagerSqlPaging extends LockssTestCase4 {
 
     // Query for latest versions only
     Iterable<Artifact> result = idxdb.findArtifactsAllCommittedVersionsOfUrlAllAuidsInNamespace(
-        ns, url, ArtifactVersions.LATEST);
+        ns, url, VersionsEnum.LATEST);
 
     int count = 0;
     Set<String> returnedAuids = new HashSet<>();
@@ -975,7 +975,7 @@ public class TestSQLArtifactIndexManagerSqlPaging extends LockssTestCase4 {
 
     // Query by prefix - all versions
     Iterable<Artifact> result = idxdb.findArtifactsAllCommittedVersionsOfUrlByPrefixAllAuidsInNamespace(
-        ns, prefix, ArtifactVersions.ALL);
+        ns, prefix, VersionsEnum.ALL);
 
     int count = 0;
     for (Artifact artifact : result) {
@@ -1019,7 +1019,7 @@ public class TestSQLArtifactIndexManagerSqlPaging extends LockssTestCase4 {
 
     // Query by prefix - latest versions only
     Iterable<Artifact> result = idxdb.findArtifactsAllCommittedVersionsOfUrlByPrefixAllAuidsInNamespace(
-        ns, prefix, ArtifactVersions.LATEST);
+        ns, prefix, VersionsEnum.LATEST);
 
     int count = 0;
     for (Artifact artifact : result) {

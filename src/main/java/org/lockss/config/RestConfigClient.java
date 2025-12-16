@@ -33,11 +33,13 @@ import com.fasterxml.jackson.databind.DeserializationFeature;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.ObjectReader;
 import org.lockss.account.UserAccount;
+import org.lockss.config.rest.AuConfigPageInfo;
 import org.lockss.plugin.AuUtil;
 import org.lockss.util.*;
 import org.lockss.util.auth.AuthUtil;
 import org.lockss.util.rest.HttpResponseStatusAndHeaders;
 import org.lockss.util.rest.RestUtil;
+import org.lockss.util.rest.config.PageInfo;
 import org.lockss.util.rest.exception.LockssRestException;
 import org.lockss.util.rest.multipart.MultipartConnector;
 import org.lockss.util.rest.multipart.MultipartResponse;
@@ -757,44 +759,67 @@ public class RestConfigClient {
    */
   public Collection<AuConfiguration> getAllArchivalUnitConfiguration()
       throws LockssRestException {
-    // Create the URI of the request to the REST service.
-    UriComponents uriComponents =
-	UriComponentsBuilder.fromUriString(serviceLocation + "/aus").build();
+    List<AuConfiguration> allResults = new ArrayList<>();
+    String continuationToken = null;
 
-    URI uri = UriComponentsBuilder.newInstance().uriComponents(uriComponents)
-	.build().encode().toUri();
-    if (log.isDebug3()) log.debug3("uri = " + uri);
+    // Loop through all pages
+    do {
+      // Build URI with optional continuation token
+      UriComponentsBuilder builder =
+          UriComponentsBuilder.fromUriString(serviceLocation + "/aus");
 
-    // Initialize the request headers.
-    HttpHeaders requestHeaders = new HttpHeaders();
+      if (continuationToken != null) {
+        builder.queryParam("continuationToken", continuationToken);
+      }
 
-    // Set the authentication credentials.
-    setAuthenticationCredentials(requestHeaders);
+      UriComponents uriComponents = builder.build();
+      URI uri = UriComponentsBuilder.newInstance().uriComponents(uriComponents)
+          .build().encode().toUri();
+      if (log.isDebug3()) log.debug3("uri = " + uri);
 
-    // Create the request entity.
-    HttpEntity<Collection<AuConfiguration>> requestEntity =
-	new HttpEntity<Collection<AuConfiguration>>(null, requestHeaders);
+      // Initialize the request headers.
+      HttpHeaders requestHeaders = new HttpHeaders();
 
-    // Make the request and get the response. 
-    ResponseEntity<String> response =
-	RestUtil.callRestService(restTemplate, uri, HttpMethod.GET,
-	    requestEntity, String.class, "Cannot get all AU configurations");
+      // Set the authentication credentials.
+      setAuthenticationCredentials(requestHeaders);
 
-    Collection<AuConfiguration> result = Collections.emptyList();
+      // Create the request entity.
+      HttpEntity<AuConfigPageInfo> requestEntity =
+          new HttpEntity<>(null, requestHeaders);
 
-    try {
-      ObjectMapper mapper = new ObjectMapper();
-      result = mapper.readValue((String)response.getBody(),
-	  new TypeReference<Collection<AuConfiguration>>(){});
-    } catch (Exception e) {
-      log.error("Cannot get body of response", e);
-    }
+      // Make the request and get the response.
+      ResponseEntity<AuConfigPageInfo> response =
+          RestUtil.callRestService(restTemplate, uri, HttpMethod.GET,
+              requestEntity, AuConfigPageInfo.class,
+              "Cannot get all AU configurations");
 
-    for (AuConfiguration auc : result) {
+      AuConfigPageInfo pageInfo = response.getBody();
+
+      if (pageInfo != null) {
+        // Extract the AU configurations from this page
+        Collection<AuConfiguration> pageResults = pageInfo.getAuConfigs();
+        if (pageResults != null) {
+          allResults.addAll(pageResults);
+        }
+
+        // Get continuation token for next page
+        PageInfo pageInfoData = pageInfo.getPageInfo();
+        if (pageInfoData != null) {
+          continuationToken = pageInfoData.getContinuationToken();
+        } else {
+          continuationToken = null;
+        }
+      } else {
+        continuationToken = null;
+      }
+    } while (continuationToken != null);
+
+    // Intern all AU configurations
+    for (AuConfiguration auc : allResults) {
       auc.intern();
     }
-    if (log.isDebug2()) log.debug2("result = " + result);
-    return result;
+    if (log.isDebug2()) log.debug2("result = " + allResults);
+    return allResults;
   }
 
   /**

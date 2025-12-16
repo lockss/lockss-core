@@ -40,7 +40,6 @@ import java.io.BufferedOutputStream;
 import java.io.File;
 import java.io.FileOutputStream;
 import java.io.IOException;
-import java.nio.file.FileAlreadyExistsException;
 import java.nio.file.Path;
 
 public abstract class AbstractArtifactIndex implements ArtifactIndex {

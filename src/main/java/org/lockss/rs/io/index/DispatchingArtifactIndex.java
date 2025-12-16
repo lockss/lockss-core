@@ -258,7 +258,7 @@ public class DispatchingArtifactIndex extends AbstractArtifactIndex {
   @Override
   public Iterable<Artifact> getArtifactsWithUrlPrefixFromAllAus(String namespace,
                                                                 String prefix,
-                                                                ArtifactVersions versions)
+                                                                VersionsEnum versions)
       throws IOException {
     return masterIndex.getArtifactsWithUrlPrefixFromAllAus(namespace,
                                                            prefix,
@@ -276,7 +276,7 @@ public class DispatchingArtifactIndex extends AbstractArtifactIndex {
   @Override
   public Iterable<Artifact> getArtifactsWithUrlFromAllAus(String namespace,
                                                           String url,
-                                                          ArtifactVersions versions)
+                                                          VersionsEnum versions)
       throws IOException {
     return masterIndex.getArtifactsWithUrlFromAllAus(namespace, url, versions);
   }

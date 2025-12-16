@@ -378,11 +378,11 @@ public class SQLArtifactIndex extends AbstractArtifactIndex {
   }
 
   @Override
-  public Iterable<Artifact> getArtifactsWithUrlFromAllAus(String namespace, String url, ArtifactVersions versions)
+  public Iterable<Artifact> getArtifactsWithUrlFromAllAus(String namespace, String url, VersionsEnum versions)
       throws IOException {
 
-    if (!(versions == ArtifactVersions.ALL ||
-        versions == ArtifactVersions.LATEST)) {
+    if (!(versions == VersionsEnum.ALL ||
+        versions == VersionsEnum.LATEST)) {
       throw new IllegalArgumentException("Versions must be ALL or LATEST");
     }
 
@@ -418,11 +418,11 @@ public class SQLArtifactIndex extends AbstractArtifactIndex {
   }
 
   @Override
-  public Iterable<Artifact> getArtifactsWithUrlPrefixFromAllAus(String namespace, String prefix, ArtifactVersions versions)
+  public Iterable<Artifact> getArtifactsWithUrlPrefixFromAllAus(String namespace, String prefix, VersionsEnum versions)
       throws IOException {
 
-    if (!(versions == ArtifactVersions.ALL ||
-        versions == ArtifactVersions.LATEST)) {
+    if (!(versions == VersionsEnum.ALL ||
+        versions == VersionsEnum.LATEST)) {
       throw new IllegalArgumentException("Versions must be ALL or LATEST");
     }
 
@@ -444,8 +444,8 @@ public class SQLArtifactIndex extends AbstractArtifactIndex {
         .auWarcSize(namespace, auid);
 
     result.setTotalWarcSize(totalWarcSize);
-    result.setTotalAllVersions(idxdb.getSizeOfArtifacts(namespace, auid, ArtifactVersions.ALL));
-    result.setTotalLatestVersions(idxdb.getSizeOfArtifacts(namespace, auid, ArtifactVersions.LATEST));
+    result.setTotalAllVersions(idxdb.getSizeOfArtifacts(namespace, auid, VersionsEnum.ALL));
+    result.setTotalLatestVersions(idxdb.getSizeOfArtifacts(namespace, auid, VersionsEnum.LATEST));
 
     return result;
   }
