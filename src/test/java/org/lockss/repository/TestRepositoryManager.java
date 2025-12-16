@@ -33,7 +33,7 @@ import org.lockss.util.rest.repo.LockssRepository;
 import org.lockss.util.rest.repo.RestLockssRepository;
 import org.lockss.util.rest.repo.model.Artifact;
 import org.lockss.util.rest.repo.model.ArtifactData;
-import org.lockss.util.rest.repo.model.ArtifactVersions;
+import org.lockss.util.rest.repo.model.VersionsEnum;
 import org.lockss.util.test.FileTestUtil;
 import org.lockss.util.time.TimerUtil;
 
@@ -248,7 +248,7 @@ public class TestRepositoryManager extends LockssTestCase4 {
     assertEquals(1, arts3.size());
     assertArt(arts3.get(0), url1, 3, "yyyyyyy");
 
-    List<Artifact> arts4 = mgr.findArtifactsByUrl(url1, ArtifactVersions.ALL);
+    List<Artifact> arts4 = mgr.findArtifactsByUrl(url1, VersionsEnum.ALL);
     assertEquals(3, arts4.size());
     assertArt(arts4.get(0), url1, 3, "yyyyyyy");
     assertArt(arts4.get(1), url1, 2, "xxxx");
@@ -270,13 +270,12 @@ public class TestRepositoryManager extends LockssTestCase4 {
     storeArt(repo, url2, "222", null);
     TimerUtil.guaranteedSleep(1000);
     List<Artifact> arts1 = mgr.findArtifactsByUrl(url1,
-                                                  ArtifactVersions.ALL);
+        VersionsEnum.ALL);
     assertEquals(1, arts1.size());
     art = arts1.get(0);
     assertEquals(url1, art.getUri());
     assertEquals(1, (long)art.getVersion());
-    List<Artifact> arts2 = mgr.findArtifactsByUrl(url2,
-                                                  ArtifactVersions.ALL);
+    List<Artifact> arts2 = mgr.findArtifactsByUrl(url2, VersionsEnum.ALL);
     art = arts2.get(0);
     assertEquals(1, arts2.size());
     assertEquals(url2, art.getUri());
@@ -284,16 +283,14 @@ public class TestRepositoryManager extends LockssTestCase4 {
 
     storeArt(repo, url1, "xxxx", null);
     storeArt(repo, url1, "yyyyyyy", null);
-    List<Artifact> arts3 = mgr.findArtifactsByUrl(url1,
-                                                  ArtifactVersions.ALL);
+    List<Artifact> arts3 = mgr.findArtifactsByUrl(url1, VersionsEnum.ALL);
     assertEquals(3, arts3.size());
     for (int ix = 1; ix <= 3; ix++) {
       art = arts3.get(ix - 1);
       assertEquals(url1, art.getUri());
       assertEquals(4 - ix, (long)art.getVersion());
     }
-    assertEmpty(mgr.findArtifactsByUrl(url1 + "/notpresent",
-                                       ArtifactVersions.ALL));
+    assertEmpty(mgr.findArtifactsByUrl(url1 + "/notpresent", VersionsEnum.ALL));
   }
 
   protected Artifact storeArt(LockssRepository repo, String url, String content,
