@@ -174,39 +174,40 @@ public class TestSQLArtifactIndexManagerSqlPaging extends LockssTestCase4 {
     String ns = "ns1";
     String auid = "auid1";
 
-    // Create enough URLs to span multiple pages (test page size is 10)
-    int numUrls = 35;
-    List<ArtifactSpec> latestSpecs = new ArrayList<>();
-
-    SortedMap<String, String> sortUriMap = new TreeMap<>();
-    List<String> uriList = new ArrayList<>();
+    SortedMap<String, String> sortUris = new TreeMap<>();
+    List<String> unorderedUris = new ArrayList<>();
 
     for (int i = 0; i < 10; i++) {
       String uri = String.format("http://example.com/a-aa/%05d", i);
-      sortUriMap.put(uri.replace("/", "\t"), uri);
-      uriList.add(uri);
+      sortUris.put(uri.replace("/", "\t"), uri);
+      unorderedUris.add(uri);
     }
 
     for (int i = 0; i < 10; i++) {
       String uri = String.format("http://example.com/a/%05d", i);
-      sortUriMap.put(uri.replace("/", "\t"), uri);
-      uriList.add(uri);
+      sortUris.put(uri.replace("/", "\t"), uri);
+      unorderedUris.add(uri);
     }
 
     for (int i = 0; i < 15; i++) {
       String uri = String.format("http://example.com/aaa-/%05d", i);
-      sortUriMap.put(uri.replace("/", "\t"), uri);
-      uriList.add(uri);
+      sortUris.put(uri.replace("/", "\t"), uri);
+      unorderedUris.add(uri);
     }
 
-    List<String> sortedUriList = new ArrayList<>(uriList);
-    Collections.sort(sortedUriList);
-    assertNotEquals(sortedUriList, sortUriMap.values());
+    List<String> sortedUris = new ArrayList<>(unorderedUris);
+    Collections.sort(sortedUris);
+    
+    // Assert that the canonical order by Collections.sort() and the sort by TreeMap are different
+    assertNotEquals(sortedUris, sortUris.values());
 
+    // Create enough URLs to span multiple pages (test page size is 10)
+    int numUrls = 35;
+    List<ArtifactSpec> latestSpecs = new ArrayList<>();
     for (int i = 0; i < numUrls; i++) {
       // Create multiple versions for each URL to test that only latest is returned
-      ArtifactSpec specV1 = makeArtifactSpec(ns, auid, uriList.get(i), 1);
-      ArtifactSpec specV2 = makeArtifactSpec(ns, auid, uriList.get(i), 2);
+      ArtifactSpec specV1 = makeArtifactSpec(ns, auid, unorderedUris.get(i), 1);
+      ArtifactSpec specV2 = makeArtifactSpec(ns, auid, unorderedUris.get(i), 2);
 
       idxdb.addArtifact(specV1.getArtifact());
       idxdb.addArtifact(specV2.getArtifact());
@@ -218,23 +219,22 @@ public class TestSQLArtifactIndexManagerSqlPaging extends LockssTestCase4 {
       latestSpecs.add(specV2); // Only track latest version
     }
 
-    // Query for latest artifacts
-    Iterable<Artifact> result = idxdb.findLatestArtifactsOfAllUrlsWithNamespaceAndAuid(ns, auid, false);
-
-    // Collect all results
-    List<Artifact> artifacts = new ArrayList<>();
-    for (Artifact a : result) {
-      artifacts.add(a);
-    }
+    // Query for latest artifacts which will be returned in an order on sortUri field
+    List<Artifact> artifacts = 
+        toList(idxdb.findLatestArtifactsOfAllUrlsWithNamespaceAndAuid(ns, auid, false));
 
     // Verify count matches expected
     assertEquals("Should return exactly one artifact per URL", numUrls, artifacts.size());
 
     // Verify artifacts are returned in proper sort order
+    List<String> orderedSortUris = new ArrayList<>(sortUris.values());
+
     for (int i = 0; i < numUrls; i++) {
-      List<String> sortUris = new ArrayList<>(sortUriMap.values());
-      assertEquals(artifacts.get(i).getUri(), sortUris.get(i));
+      assertEquals(artifacts.get(i).getUri(), orderedSortUris.get(i));
     }
+
+    assertSorted(orderedSortUris, (uri) -> uri.replace("/", "\t"));
+    assertSorted(artifacts, (artifact) -> artifact.getUri().replace("/", "\t"));
   }
 
   /**
@@ -263,13 +263,8 @@ public class TestSQLArtifactIndexManagerSqlPaging extends LockssTestCase4 {
     }
 
     // Query for latest artifacts
-    Iterable<Artifact> result = idxdb.findLatestArtifactsOfAllUrlsWithNamespaceAndAuid(ns, auid, false);
-
-    // Collect and verify
-    List<Artifact> artifacts = new ArrayList<>();
-    for (Artifact a : result) {
-      artifacts.add(a);
-    }
+    List<Artifact> artifacts =
+        toList(idxdb.findLatestArtifactsOfAllUrlsWithNamespaceAndAuid(ns, auid, false));
 
     assertEquals("Should return all artifacts", numUrls, artifacts.size());
 
@@ -547,13 +542,8 @@ public class TestSQLArtifactIndexManagerSqlPaging extends LockssTestCase4 {
     Collections.sort(sortedUriList);
     assertNotEquals(sortedUriList, sortUriMap.values());
 
-    Iterable<Artifact> result = idxdb.findLatestArtifactsOfAllUrlsWithNamespaceAndAuid(ns, auid, false);
-
-    // Collect all results
-    List<Artifact> artifacts = new ArrayList<>();
-    for (Artifact a : result) {
-      artifacts.add(a);
-    }
+    List<Artifact> artifacts =
+        toList(idxdb.findLatestArtifactsOfAllUrlsWithNamespaceAndAuid(ns, auid, false));
 
     // Verify count matches expected
     assertEquals("Should return exactly one artifact per URL", numUrls, artifacts.size());
@@ -870,13 +860,8 @@ public class TestSQLArtifactIndexManagerSqlPaging extends LockssTestCase4 {
     }
 
     // Query for all versions
-    Iterable<Artifact> result = idxdb.findArtifactsAllCommittedVersionsOfUrlAllAuidsInNamespace(
-        ns, url, ArtifactVersions.ALL);
-
-    List<Artifact> artifacts = new ArrayList<>();
-    for (Artifact artifact : result) {
-      artifacts.add(artifact);
-    }
+    List<Artifact> artifacts =
+        toList(idxdb.findArtifactsAllCommittedVersionsOfUrlAllAuidsInNamespace(ns, url, ArtifactVersions.ALL));
 
     assertEquals("Should return all artifacts across all AUIDs", totalArtifacts, artifacts.size());
 
@@ -888,6 +873,14 @@ public class TestSQLArtifactIndexManagerSqlPaging extends LockssTestCase4 {
     }
 
     assertEquals("Should have artifacts from all AUIDs", numAuids, returnedAuids.size());
+  }
+  
+  <T> List<T> toList(Iterable<T> itr) {
+    List<T> list = new ArrayList<>();
+    for (T t : itr) {
+      list.add(t);
+    }
+    return list;
   }
 
   <T, C extends Comparable<? super C>> void assertSorted(Collection<T> objs, Function<T, C> sortFn) {
