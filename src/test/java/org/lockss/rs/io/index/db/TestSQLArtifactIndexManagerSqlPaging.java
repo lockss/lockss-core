@@ -31,20 +31,28 @@ POSSIBILITY OF SUCH DAMAGE.
 */
 package org.lockss.rs.io.index.db;
 
+import io.zonky.test.db.postgres.embedded.EmbeddedPostgres;
+import org.junit.AfterClass;
+import org.junit.BeforeClass;
 import org.junit.Test;
-import org.lockss.repository.RepositoryDbManager;
 import org.lockss.test.ConfigurationUtil;
 import org.lockss.test.LockssTestCase4;
 import org.lockss.test.MockLockssDaemon;
-import org.lockss.test.TcpTestUtil;
 import org.lockss.util.Logger;
+import org.lockss.util.StringUtil;
 import org.lockss.util.rest.repo.model.Artifact;
 import org.lockss.util.rest.repo.model.VersionsEnum;
 import org.lockss.util.rest.repo.util.ArtifactSpec;
 import org.lockss.util.time.TimeBase;
 import org.postgresql.ds.PGSimpleDataSource;
 
+import javax.sql.DataSource;
+import java.io.File;
 import java.net.URI;
+import java.sql.Connection;
+import java.sql.DriverManager;
+import java.sql.SQLException;
+import java.sql.Statement;
 import java.util.*;
 import java.util.function.Function;
 
@@ -59,19 +67,40 @@ import java.util.function.Function;
  *   <li>Edge cases (exact page size multiples, single item, empty) are handled</li>
  * </ul>
  *
- * <p>Methods tested:
+ * <p>Query methods under test (referenced as Q1-Q7 in test method names):
  * <ul>
- *   <li>{@link SQLArtifactIndexManagerSql#findLatestArtifactsOfAllUrlsWithNamespaceAndAuid}</li>
- *   <li>{@link SQLArtifactIndexManagerSql#findArtifactsAllVersionsOfAllUrlsWithNamespaceAndAuid}</li>
- *   <li>{@link SQLArtifactIndexManagerSql#findArtifactsAllCommittedVersionsOfUrlWithNamespaceAndAuid}</li>
- *   <li>{@link SQLArtifactIndexManagerSql#findArtifactsAllCommittedVersionsOfUrlAllAuidsInNamespace}</li>
- *   <li>{@link SQLArtifactIndexManagerSql#findArtifactsAllCommittedVersionsOfUrlByPrefixAllAuidsInNamespace}</li>
- *   <li>{@link SQLArtifactIndexManagerSql#findArtifactsLatestCommittedVersionsOfAllUrlsMatchingPrefixWithNamespaceAndAuid}</li>
- *   <li>{@link SQLArtifactIndexManagerSql#findArtifactsAllCommittedVersionsOfAllUrlsMatchingPrefixWithNamespaceAndAuid}</li>
+ *   <li><b>Q1</b>: {@link SQLArtifactIndexManagerSql#findLatestArtifactsOfAllUrlsWithNamespaceAndAuid findLatestArtifactsOfAllUrlsWithNamespaceAndAuid}
+ *       - Returns latest version of each URL in a namespace/AUID</li>
+ *   <li><b>Q2</b>: {@link SQLArtifactIndexManagerSql#findArtifactsAllVersionsOfAllUrlsWithNamespaceAndAuid findArtifactsAllVersionsOfAllUrlsWithNamespaceAndAuid}
+ *       - Returns all versions of all URLs in a namespace/AUID</li>
+ *   <li><b>Q3</b>: {@link SQLArtifactIndexManagerSql#findArtifactsAllCommittedVersionsOfUrlWithNamespaceAndAuid findArtifactsAllCommittedVersionsOfUrlWithNamespaceAndAuid}
+ *       - Returns all committed versions of a specific URL</li>
+ *   <li><b>Q4</b>: {@link SQLArtifactIndexManagerSql#findArtifactsAllCommittedVersionsOfUrlAllAuidsInNamespace findArtifactsAllCommittedVersionsOfUrlAllAuidsInNamespace}
+ *       - Returns all versions of a URL across all AUIDs in a namespace</li>
+ *   <li><b>Q5</b>: {@link SQLArtifactIndexManagerSql#findArtifactsAllCommittedVersionsOfUrlByPrefixAllAuidsInNamespace findArtifactsAllCommittedVersionsOfUrlByPrefixAllAuidsInNamespace}
+ *       - Returns all versions of URLs matching a prefix across all AUIDs</li>
+ *   <li><b>Q6</b>: {@link SQLArtifactIndexManagerSql#findArtifactsLatestCommittedVersionsOfAllUrlsMatchingPrefixWithNamespaceAndAuid findArtifactsLatestCommittedVersionsOfAllUrlsMatchingPrefixWithNamespaceAndAuid}
+ *       - Returns latest version of URLs matching a prefix in a namespace/AUID</li>
+ *   <li><b>Q7</b>: {@link SQLArtifactIndexManagerSql#findArtifactsAllCommittedVersionsOfAllUrlsMatchingPrefixWithNamespaceAndAuid findArtifactsAllCommittedVersionsOfAllUrlsMatchingPrefixWithNamespaceAndAuid}
+ *       - Returns all versions of URLs matching a prefix in a namespace/AUID</li>
  * </ul>
  *
  * <p>Tests use a small page size (10) and smaller data sets to speed up execution
  * while still exercising multi-page scenarios.</p>
+ *
+ * <h3>Embedded PostgreSQL Lifecycle</h3>
+ * <p>This test class uses a shared embedded PostgreSQL instance for efficiency:
+ * <ol>
+ *   <li>{@code @BeforeClass setUpClass()} - Starts the shared embedded PostgreSQL instance once
+ *       before any tests run.</li>
+ *   <li>{@code @Before setUp()} - Creates a unique database for each test and initializes
+ *       {@link SQLArtifactIndexDbManager}. The {@code @Before} annotation is inherited from
+ *       {@link LockssTestCase4}.</li>
+ *   <li>{@code @After tearDown()} - Stops the {@link SQLArtifactIndexDbManager} and daemon after
+ *       each test. The {@code @After} annotation is inherited from {@link LockssTestCase4}.</li>
+ *   <li>{@code @AfterClass tearDownClass()} - Stops the shared PostgreSQL instance after all
+ *       tests complete.</li>
+ * </ol>
  */
 public class TestSQLArtifactIndexManagerSqlPaging extends LockssTestCase4 {
   private static final Logger log = Logger.getLogger();
@@ -202,16 +231,17 @@ public class TestSQLArtifactIndexManagerSqlPaging extends LockssTestCase4 {
   }
 
   // ============================================================================
-  // Tests for findLatestArtifactsOfAllUrlsWithNamespaceAndAuid with paging
+  // Paging Tests
   // ============================================================================
+  // Tests that verify basic paging functionality across multiple pages of results.
 
   /**
    * Tests that paging works correctly with a large number of URLs,
    * ensuring all artifacts are returned without duplicates or gaps.
+   * Q1: findLatestArtifactsOfAllUrlsWithNamespaceAndAuid
    */
   @Test
-  public void testFindLatestArtifacts_PagingWithManyUrls() throws Exception {
-    initializeDatabase();
+  public void testPaging_ManyUrls_Q1() throws Exception {
     SQLArtifactIndexManagerSql idxdb = createIndexManagerSql();
 
     String ns = "ns1";
@@ -283,10 +313,10 @@ public class TestSQLArtifactIndexManagerSqlPaging extends LockssTestCase4 {
   /**
    * Tests paging with a result set that is exactly a multiple of the page size.
    * This is an edge case where the iterator needs to correctly detect the end.
+   * Q1: findLatestArtifactsOfAllUrlsWithNamespaceAndAuid
    */
   @Test
-  public void testFindLatestArtifacts_ExactPageSizeMultiple() throws Exception {
-    initializeDatabase();
+  public void testPaging_ExactPageSizeMultiple_Q1() throws Exception {
     SQLArtifactIndexManagerSql idxdb = createIndexManagerSql();
 
     String ns = "ns1";
@@ -319,245 +349,12 @@ public class TestSQLArtifactIndexManagerSqlPaging extends LockssTestCase4 {
   }
 
   /**
-   * Tests paging with URLs that have special characters, ensuring cursor tracking
-   * works correctly when URLs contain characters that might affect sorting.
-   */
-  @Test
-  public void testFindLatestArtifacts_PagingWithSpecialCharacterUrls() throws Exception {
-    initializeDatabase();
-    SQLArtifactIndexManagerSql idxdb = createIndexManagerSql();
-
-    String ns = "ns1";
-    String auid = "auid1";
-
-    // Create URLs with various special characters
-    String[] urlPatterns = {
-        "http://example.com/path/with spaces/file%d.html",
-        "http://example.com/path/with?query=param&num=%d",
-        "http://example.com/path/with#fragment%d",
-        "http://example.com/unicode/资源/%d",
-        "http://example.com/path/with//double//slashes/%d",
-        "http://example.com/path/normal/%d"
-    };
-
-    int numPerPattern = 6; // 6 patterns * 6 = 36 total, spanning multiple pages
-    int totalUrls = urlPatterns.length * numPerPattern;
-    Set<String> expectedUrls = new HashSet<>();
-
-    for (String pattern : urlPatterns) {
-      for (int i = 0; i < numPerPattern; i++) {
-        String url = String.format(pattern, i);
-        expectedUrls.add(url);
-
-        ArtifactSpec spec = makeArtifactSpec(ns, auid, url, 1);
-        idxdb.addArtifact(spec.getArtifact());
-        idxdb.commitArtifact(spec.getArtifactUuid());
-      }
-    }
-
-    // Query for latest artifacts
-    Iterable<Artifact> result = idxdb.findLatestArtifactsOfAllUrlsWithNamespaceAndAuid(ns, auid, false);
-
-    // Collect results
-    Set<String> returnedUrls = new HashSet<>();
-    int count = 0;
-    for (Artifact a : result) {
-      assertTrue("Duplicate URL found: " + a.getUri(), returnedUrls.add(a.getUri()));
-      count++;
-    }
-
-    assertEquals("Should return all artifacts", totalUrls, count);
-
-    // Verify all expected URLs are present
-    for (String expectedUrl : expectedUrls) {
-      assertTrue("Missing URL: " + expectedUrl, returnedUrls.contains(expectedUrl));
-    }
-  }
-
-  /**
-   * Tests that uncommitted artifacts are correctly included/excluded
-   * when paging through large result sets.
-   */
-  @Test
-  public void testFindLatestArtifacts_PagingIncludeUncommitted() throws Exception {
-    initializeDatabase();
-    SQLArtifactIndexManagerSql idxdb = createIndexManagerSql();
-
-    String ns = "ns1";
-    String auid = "auid1";
-
-    int numUrls = 25;
-
-    for (int i = 0; i < numUrls; i++) {
-      String url = String.format("http://example.com/path/%05d", i);
-
-      // Create v1 (committed) and v2 (uncommitted) for each URL
-      ArtifactSpec specV1 = makeArtifactSpec(ns, auid, url, 1);
-      ArtifactSpec specV2 = makeArtifactSpec(ns, auid, url, 2);
-
-      idxdb.addArtifact(specV1.getArtifact());
-      idxdb.addArtifact(specV2.getArtifact());
-
-      // Only commit v1
-      idxdb.commitArtifact(specV1.getArtifactUuid());
-    }
-
-    // Query excluding uncommitted - should get v1 for all
-    {
-      Iterable<Artifact> result = idxdb.findLatestArtifactsOfAllUrlsWithNamespaceAndAuid(ns, auid, false);
-
-      int count = 0;
-      for (Artifact a : result) {
-        assertEquals("Should return committed version", Integer.valueOf(1), a.getVersion());
-        count++;
-      }
-      assertEquals("Should return all URLs", numUrls, count);
-    }
-
-    // Query including uncommitted - should get v2 for all
-    {
-      Iterable<Artifact> result = idxdb.findLatestArtifactsOfAllUrlsWithNamespaceAndAuid(ns, auid, true);
-
-      int count = 0;
-      for (Artifact a : result) {
-        assertEquals("Should return latest version (uncommitted)", Integer.valueOf(2), a.getVersion());
-        count++;
-      }
-      assertEquals("Should return all URLs", numUrls, count);
-    }
-  }
-
-  /**
-   * Tests paging behavior with an empty result set.
-   */
-  @Test
-  public void testFindLatestArtifacts_EmptyResult() throws Exception {
-    initializeDatabase();
-    SQLArtifactIndexManagerSql idxdb = createIndexManagerSql();
-
-    String ns = "ns1";
-    String auid = "auid1";
-
-    // Query with no artifacts in database
-    Iterable<Artifact> result = idxdb.findLatestArtifactsOfAllUrlsWithNamespaceAndAuid(ns, auid, false);
-
-    assertFalse(result.iterator().hasNext());
-  }
-
-  /**
-   * Tests that artifacts from different namespaces are correctly filtered
-   * when paging.
-   */
-  @Test
-  public void testFindLatestArtifacts_PagingNamespaceIsolation() throws Exception {
-    initializeDatabase();
-    SQLArtifactIndexManagerSql idxdb = createIndexManagerSql();
-
-    String ns1 = "namespace1";
-    String ns2 = "namespace2";
-    String auid = "auid1";
-
-    int numUrlsPerNamespace = 25;
-
-    // Create artifacts in both namespaces
-    for (int i = 0; i < numUrlsPerNamespace; i++) {
-      String url = String.format("http://example.com/path/%05d", i);
-
-      ArtifactSpec spec1 = makeArtifactSpec(ns1, auid, url, 1);
-      ArtifactSpec spec2 = makeArtifactSpec(ns2, auid, url, 1);
-
-      idxdb.addArtifact(spec1.getArtifact());
-      idxdb.addArtifact(spec2.getArtifact());
-
-      idxdb.commitArtifact(spec1.getArtifactUuid());
-      idxdb.commitArtifact(spec2.getArtifactUuid());
-    }
-
-    // Query ns1 only
-    {
-      Iterable<Artifact> result = idxdb.findLatestArtifactsOfAllUrlsWithNamespaceAndAuid(ns1, auid, false);
-
-      int count = 0;
-      for (Artifact a : result) {
-        assertEquals("All artifacts should be from ns1", ns1, a.getNamespace());
-        count++;
-      }
-      assertEquals("Should return all ns1 artifacts", numUrlsPerNamespace, count);
-    }
-
-    // Query ns2 only
-    {
-      Iterable<Artifact> result = idxdb.findLatestArtifactsOfAllUrlsWithNamespaceAndAuid(ns2, auid, false);
-
-      int count = 0;
-      for (Artifact a : result) {
-        assertEquals("All artifacts should be from ns2", ns2, a.getNamespace());
-        count++;
-      }
-      assertEquals("Should return all ns2 artifacts", numUrlsPerNamespace, count);
-    }
-  }
-
-  /**
-   * Tests that artifacts from different AUIDs are correctly filtered when paging.
-   */
-  @Test
-  public void testFindLatestArtifacts_PagingAuidIsolation() throws Exception {
-    initializeDatabase();
-    SQLArtifactIndexManagerSql idxdb = createIndexManagerSql();
-
-    String ns = "ns1";
-    String auid1 = "auid1";
-    String auid2 = "auid2";
-
-    int numUrlsPerAuid = 25;
-
-    // Create artifacts in both AUIDs
-    for (int i = 0; i < numUrlsPerAuid; i++) {
-      String url = String.format("http://example.com/path/%05d", i);
-
-      ArtifactSpec spec1 = makeArtifactSpec(ns, auid1, url, 1);
-      ArtifactSpec spec2 = makeArtifactSpec(ns, auid2, url, 1);
-
-      idxdb.addArtifact(spec1.getArtifact());
-      idxdb.addArtifact(spec2.getArtifact());
-
-      idxdb.commitArtifact(spec1.getArtifactUuid());
-      idxdb.commitArtifact(spec2.getArtifactUuid());
-    }
-
-    // Query auid1 only
-    {
-      Iterable<Artifact> result = idxdb.findLatestArtifactsOfAllUrlsWithNamespaceAndAuid(ns, auid1, false);
-
-      int count = 0;
-      for (Artifact a : result) {
-        assertEquals("All artifacts should be from auid1", auid1, a.getAuid());
-        count++;
-      }
-      assertEquals("Should return all auid1 artifacts", numUrlsPerAuid, count);
-    }
-
-    // Query auid2 only
-    {
-      Iterable<Artifact> result = idxdb.findLatestArtifactsOfAllUrlsWithNamespaceAndAuid(ns, auid2, false);
-
-      int count = 0;
-      for (Artifact a : result) {
-        assertEquals("All artifacts should be from auid2", auid2, a.getAuid());
-        count++;
-      }
-      assertEquals("Should return all auid2 artifacts", numUrlsPerAuid, count);
-    }
-  }
-
-  /**
    * Tests paging with URLs that differ only at page boundaries,
    * ensuring the keyset cursor correctly handles the transition.
+   * Q1: findLatestArtifactsOfAllUrlsWithNamespaceAndAuid
    */
   @Test
-  public void testFindLatestArtifacts_PageBoundaryUrlSimilarity() throws Exception {
-    initializeDatabase();
+  public void testPaging_PageBoundaryUrlSimilarity_Q1() throws Exception {
     SQLArtifactIndexManagerSql idxdb = createIndexManagerSql();
 
     String ns = "ns1";
@@ -600,10 +397,10 @@ public class TestSQLArtifactIndexManagerSqlPaging extends LockssTestCase4 {
 
   /**
    * Tests that iterating multiple times over the same query returns consistent results.
+   * Q1: findLatestArtifactsOfAllUrlsWithNamespaceAndAuid
    */
   @Test
-  public void testFindLatestArtifacts_MultipleIterations() throws Exception {
-    initializeDatabase();
+  public void testPaging_MultipleIterations_Q1() throws Exception {
     SQLArtifactIndexManagerSql idxdb = createIndexManagerSql();
 
     String ns = "ns1";
@@ -633,10 +430,10 @@ public class TestSQLArtifactIndexManagerSqlPaging extends LockssTestCase4 {
 
   /**
    * Tests paging behavior when partial iteration is performed (early break).
+   * Q1: findLatestArtifactsOfAllUrlsWithNamespaceAndAuid
    */
   @Test
-  public void testFindLatestArtifacts_PartialIteration() throws Exception {
-    initializeDatabase();
+  public void testPaging_PartialIteration_Q1() throws Exception {
     SQLArtifactIndexManagerSql idxdb = createIndexManagerSql();
 
     String ns = "ns1";
@@ -676,16 +473,12 @@ public class TestSQLArtifactIndexManagerSqlPaging extends LockssTestCase4 {
     }
   }
 
-  // ============================================================================
-  // Tests for findArtifactsAllVersionsOfAllUrlsWithNamespaceAndAuid
-  // ============================================================================
-
   /**
    * Tests that paging returns all versions of all URLs correctly.
+   * Q2: findArtifactsAllVersionsOfAllUrlsWithNamespaceAndAuid
    */
   @Test
-  public void testFindAllVersions_PagingWithManyUrlsAndVersions() throws Exception {
-    initializeDatabase();
+  public void testPaging_ManyUrlsAndVersions_Q2() throws Exception {
     SQLArtifactIndexManagerSql idxdb = createIndexManagerSql();
 
     String ns = "ns1";
@@ -737,64 +530,11 @@ public class TestSQLArtifactIndexManagerSqlPaging extends LockssTestCase4 {
   }
 
   /**
-   * Tests that uncommitted artifacts are correctly included/excluded when getting all versions.
-   */
-  @Test
-  public void testFindAllVersions_IncludeUncommitted() throws Exception {
-    initializeDatabase();
-    SQLArtifactIndexManagerSql idxdb = createIndexManagerSql();
-
-    String ns = "ns1";
-    String auid = "auid1";
-
-    int numUrls = 25;
-
-    for (int i = 0; i < numUrls; i++) {
-      String url = String.format("http://example.com/path/%05d", i);
-
-      // v1 committed, v2 uncommitted
-      ArtifactSpec specV1 = makeArtifactSpec(ns, auid, url, 1);
-      ArtifactSpec specV2 = makeArtifactSpec(ns, auid, url, 2);
-
-      idxdb.addArtifact(specV1.getArtifact());
-      idxdb.addArtifact(specV2.getArtifact());
-      idxdb.commitArtifact(specV1.getArtifactUuid());
-    }
-
-    // Query excluding uncommitted - should get only v1 for all URLs
-    {
-      Iterable<Artifact> result = idxdb.findArtifactsAllVersionsOfAllUrlsWithNamespaceAndAuid(ns, auid, false);
-
-      int count = 0;
-      for (Artifact a : result) {
-        assertEquals("Should only return committed version", Integer.valueOf(1), a.getVersion());
-        count++;
-      }
-      assertEquals("Should return only committed artifacts", numUrls, count);
-    }
-
-    // Query including uncommitted - should get both v1 and v2 for all URLs
-    {
-      Iterable<Artifact> result = idxdb.findArtifactsAllVersionsOfAllUrlsWithNamespaceAndAuid(ns, auid, true);
-
-      int count = 0;
-      for (Artifact a : result) {
-        count++;
-      }
-      assertEquals("Should return all artifacts including uncommitted", numUrls * 2, count);
-    }
-  }
-
-  // ============================================================================
-  // Tests for findArtifactsAllCommittedVersionsOfUrlWithNamespaceAndAuid
-  // ============================================================================
-
-  /**
    * Tests paging when fetching all versions of a single URL.
+   * Q3: findArtifactsAllCommittedVersionsOfUrlWithNamespaceAndAuid
    */
   @Test
-  public void testFindVersionsOfUrl_PagingWithManyVersions() throws Exception {
-    initializeDatabase();
+  public void testPaging_ManyVersions_Q3() throws Exception {
     SQLArtifactIndexManagerSql idxdb = createIndexManagerSql();
 
     String ns = "ns1";
@@ -832,56 +572,13 @@ public class TestSQLArtifactIndexManagerSqlPaging extends LockssTestCase4 {
   }
 
   /**
-   * Tests that only committed versions are returned.
-   */
-  @Test
-  public void testFindVersionsOfUrl_OnlyCommitted() throws Exception {
-    initializeDatabase();
-    SQLArtifactIndexManagerSql idxdb = createIndexManagerSql();
-
-    String ns = "ns1";
-    String auid = "auid1";
-    String url = "http://example.com/test-url";
-
-    // Create 25 committed versions and 10 uncommitted versions
-    int committedVersions = 25;
-    int uncommittedVersions = 10;
-
-    for (int v = 1; v <= committedVersions; v++) {
-      ArtifactSpec spec = makeArtifactSpec(ns, auid, url, v);
-      idxdb.addArtifact(spec.getArtifact());
-      idxdb.commitArtifact(spec.getArtifactUuid());
-    }
-
-    for (int v = committedVersions + 1; v <= committedVersions + uncommittedVersions; v++) {
-      ArtifactSpec spec = makeArtifactSpec(ns, auid, url, v);
-      idxdb.addArtifact(spec.getArtifact());
-      // Don't commit
-    }
-
-    Iterable<Artifact> result = idxdb.findArtifactsAllCommittedVersionsOfUrlWithNamespaceAndAuid(ns, auid, url);
-
-    int count = 0;
-    for (Artifact a : result) {
-      assertTrue("Should only return committed versions", a.getVersion() <= committedVersions);
-      count++;
-    }
-
-    assertEquals("Should return only committed versions", committedVersions, count);
-  }
-
-  // ============================================================================
-  // Tests for findArtifactsAllCommittedVersionsOfUrlAllAuidsInNamespace
-  // ============================================================================
-
-  /**
    * Tests fetching artifacts for a URL across multiple AUIDs with multi-page results.
    * This verifies that the extended keyset pagination (sortUri, auid, version) correctly
    * handles cases where the same URL exists across multiple AUIDs with the same versions.
+   * Q4: findArtifactsAllCommittedVersionsOfUrlAllAuidsInNamespace
    */
   @Test
-  public void testFindUrlAllAuids_MultipleAuids() throws Exception {
-    initializeDatabase();
+  public void testPaging_MultipleAuids_Q4() throws Exception {
     SQLArtifactIndexManagerSql idxdb = createIndexManagerSql();
 
     String ns = "ns1";
@@ -938,54 +635,12 @@ public class TestSQLArtifactIndexManagerSqlPaging extends LockssTestCase4 {
   }
 
   /**
-   * Tests fetching latest version only across multiple AUIDs with multi-page results.
-   */
-  @Test
-  public void testFindUrlAllAuids_LatestVersionOnly() throws Exception {
-    initializeDatabase();
-    SQLArtifactIndexManagerSql idxdb = createIndexManagerSql();
-
-    String ns = "ns1";
-    String url = "http://example.com/shared-url";
-
-    int numAuids = 12;  // More than page size to span multiple pages
-    int versionsPerAuid = 3;
-
-    for (int a = 0; a < numAuids; a++) {
-      String auid = String.format("auid%05d", a);
-      for (int v = 1; v <= versionsPerAuid; v++) {
-        ArtifactSpec spec = makeArtifactSpec(ns, auid, url, v);
-        idxdb.addArtifact(spec.getArtifact());
-        idxdb.commitArtifact(spec.getArtifactUuid());
-      }
-    }
-
-    // Query for latest versions only
-    Iterable<Artifact> result = idxdb.findArtifactsAllCommittedVersionsOfUrlAllAuidsInNamespace(
-        ns, url, VersionsEnum.LATEST);
-
-    int count = 0;
-    Set<String> returnedAuids = new HashSet<>();
-    for (Artifact artifact : result) {
-      assertEquals("Should return latest version", Integer.valueOf(versionsPerAuid), artifact.getVersion());
-      assertTrue("Duplicate AUID found: " + artifact.getAuid(), returnedAuids.add(artifact.getAuid()));
-      count++;
-    }
-
-    assertEquals("Should return one artifact per AUID", numAuids, count);
-  }
-
-  // ============================================================================
-  // Tests for findArtifactsAllCommittedVersionsOfUrlByPrefixAllAuidsInNamespace
-  // ============================================================================
-
-  /**
    * Tests fetching artifacts by URL prefix across all AUIDs.
    * Uses multiple unique URLs to test paging properly (each URL has distinct sortUri).
+   * Q5: findArtifactsAllCommittedVersionsOfUrlByPrefixAllAuidsInNamespace
    */
   @Test
-  public void testFindByPrefixAllAuids_PagingWithManyUrls() throws Exception {
-    initializeDatabase();
+  public void testPaging_ManyUrls_Q5() throws Exception {
     SQLArtifactIndexManagerSql idxdb = createIndexManagerSql();
 
     String ns = "ns1";
@@ -1031,59 +686,11 @@ public class TestSQLArtifactIndexManagerSqlPaging extends LockssTestCase4 {
   }
 
   /**
-   * Tests fetching latest version only by prefix across all AUIDs with unique URLs.
-   */
-  @Test
-  public void testFindByPrefixAllAuids_LatestVersionOnly() throws Exception {
-    initializeDatabase();
-    SQLArtifactIndexManagerSql idxdb = createIndexManagerSql();
-
-    String ns = "ns1";
-    String prefix = "http://example.com/data/";
-
-    // Create unique URLs to avoid keyset pagination limitation
-    int numAuids = 5;
-    int urlsPerAuid = 8;  // Total: 40 URLs
-    int versionsPerUrl = 3;
-    int expectedCount = numAuids * urlsPerAuid; // One per URL
-
-    for (int a = 0; a < numAuids; a++) {
-      String auid = String.format("auid%05d", a);
-      for (int u = 0; u < urlsPerAuid; u++) {
-        // Make each URL unique by including both auid and url index
-        String url = String.format("%s%s/item%05d", prefix, auid, u);
-        for (int v = 1; v <= versionsPerUrl; v++) {
-          ArtifactSpec spec = makeArtifactSpec(ns, auid, url, v);
-          idxdb.addArtifact(spec.getArtifact());
-          idxdb.commitArtifact(spec.getArtifactUuid());
-        }
-      }
-    }
-
-    // Query by prefix - latest versions only
-    Iterable<Artifact> result = idxdb.findArtifactsAllCommittedVersionsOfUrlByPrefixAllAuidsInNamespace(
-        ns, prefix, VersionsEnum.LATEST);
-
-    int count = 0;
-    for (Artifact artifact : result) {
-      assertEquals("Should return latest version", Integer.valueOf(versionsPerUrl), artifact.getVersion());
-      assertTrue("URL should match prefix", artifact.getUri().startsWith(prefix));
-      count++;
-    }
-
-    assertEquals("Should return one artifact per URL", expectedCount, count);
-  }
-
-  // ============================================================================
-  // Tests for findArtifactsLatestCommittedVersionsOfAllUrlsMatchingPrefixWithNamespaceAndAuid
-  // ============================================================================
-
-  /**
    * Tests paging when fetching latest versions of URLs matching a prefix.
+   * Q6: findArtifactsLatestCommittedVersionsOfAllUrlsMatchingPrefixWithNamespaceAndAuid
    */
   @Test
-  public void testFindLatestByPrefix_PagingWithManyUrls() throws Exception {
-    initializeDatabase();
+  public void testPaging_ManyUrls_Q6() throws Exception {
     SQLArtifactIndexManagerSql idxdb = createIndexManagerSql();
 
     String ns = "ns1";
@@ -1131,55 +738,11 @@ public class TestSQLArtifactIndexManagerSqlPaging extends LockssTestCase4 {
   }
 
   /**
-   * Tests that only the specified AUID is returned.
-   */
-  @Test
-  public void testFindLatestByPrefix_AuidIsolation() throws Exception {
-    initializeDatabase();
-    SQLArtifactIndexManagerSql idxdb = createIndexManagerSql();
-
-    String ns = "ns1";
-    String auid1 = "auid1";
-    String auid2 = "auid2";
-    String prefix = "http://example.com/shared/";
-
-    int numUrls = 25;
-
-    for (int i = 0; i < numUrls; i++) {
-      String url = String.format("%sfile%05d", prefix, i);
-
-      ArtifactSpec spec1 = makeArtifactSpec(ns, auid1, url, 1);
-      ArtifactSpec spec2 = makeArtifactSpec(ns, auid2, url, 1);
-
-      idxdb.addArtifact(spec1.getArtifact());
-      idxdb.addArtifact(spec2.getArtifact());
-      idxdb.commitArtifact(spec1.getArtifactUuid());
-      idxdb.commitArtifact(spec2.getArtifactUuid());
-    }
-
-    // Query auid1 only
-    Iterable<Artifact> result = idxdb.findArtifactsLatestCommittedVersionsOfAllUrlsMatchingPrefixWithNamespaceAndAuid(
-        ns, auid1, prefix);
-
-    int count = 0;
-    for (Artifact artifact : result) {
-      assertEquals("All artifacts should be from auid1", auid1, artifact.getAuid());
-      count++;
-    }
-
-    assertEquals("Should return all auid1 artifacts", numUrls, count);
-  }
-
-  // ============================================================================
-  // Tests for findArtifactsAllCommittedVersionsOfAllUrlsMatchingPrefixWithNamespaceAndAuid
-  // ============================================================================
-
-  /**
    * Tests paging when fetching all versions of URLs matching a prefix.
+   * Q7: findArtifactsAllCommittedVersionsOfAllUrlsMatchingPrefixWithNamespaceAndAuid
    */
   @Test
-  public void testFindAllVersionsByPrefix_PagingWithManyUrlsAndVersions() throws Exception {
-    initializeDatabase();
+  public void testPaging_ManyUrlsAndVersions_Q7() throws Exception {
     SQLArtifactIndexManagerSql idxdb = createIndexManagerSql();
 
     String ns = "ns1";
@@ -1231,74 +794,344 @@ public class TestSQLArtifactIndexManagerSqlPaging extends LockssTestCase4 {
     }
   }
 
+  // ============================================================================
+  // Sort Order Tests
+  // ============================================================================
+  // These tests verify that each paging query returns results in the correct
+  // sort order. They use URLs where natural string sort differs from sortUri
+  // sort (which replaces "/" with "\t") to ensure the tests would fail if
+  // the DB wasn't actually sorting by the correct field.
+
   /**
-   * Tests that only committed artifacts are returned when fetching all versions by prefix.
+   * Creates a set of URIs that sort differently by natural string order vs sortUri order.
+   * This is essential for testing that the DB query actually sorts by sortUri.
+   *
+   * @param prefix URL prefix to use
+   * @param count total number of URIs to create
+   * @return a map from sortUri key to original URI, in sortUri order
    */
-  @Test
-  public void testFindAllVersionsByPrefix_OnlyCommitted() throws Exception {
-    initializeDatabase();
-    SQLArtifactIndexManagerSql idxdb = createIndexManagerSql();
+  private SortedMap<String, String> createDivergentSortUris(String prefix, int count) {
+    SortedMap<String, String> sortUris = new TreeMap<>();
+    List<String> unorderedUris = new ArrayList<>();
 
-    String ns = "ns1";
-    String auid = "auid1";
-    String prefix = "http://example.com/test/";
+    // Create three groups with paths that sort differently:
+    // Natural sort: /x-yy/ < /x/ < /xxx-/  (because '-' < '/' in ASCII)
+    // SortUri sort: /x/ < /x-yy/ < /xxx-/  (because '\t' < '-' in ASCII after replacement)
+    int perGroup = count / 3;
+    int remainder = count % 3;
 
-    int numUrls = 25;
-
-    for (int i = 0; i < numUrls; i++) {
-      String url = String.format("%sfile%05d", prefix, i);
-
-      // v1 committed, v2 uncommitted
-      ArtifactSpec specV1 = makeArtifactSpec(ns, auid, url, 1);
-      ArtifactSpec specV2 = makeArtifactSpec(ns, auid, url, 2);
-
-      idxdb.addArtifact(specV1.getArtifact());
-      idxdb.addArtifact(specV2.getArtifact());
-      idxdb.commitArtifact(specV1.getArtifactUuid());
+    for (int i = 0; i < perGroup; i++) {
+      String uri = String.format("%sx-yy/%05d", prefix, i);
+      sortUris.put(uri.replace("/", "\t"), uri);
+      unorderedUris.add(uri);
     }
 
-    Iterable<Artifact> result = idxdb.findArtifactsAllCommittedVersionsOfAllUrlsMatchingPrefixWithNamespaceAndAuid(
-        ns, auid, prefix);
-
-    int count = 0;
-    for (Artifact artifact : result) {
-      assertEquals("Should only return committed version", Integer.valueOf(1), artifact.getVersion());
-      count++;
+    for (int i = 0; i < perGroup; i++) {
+      String uri = String.format("%sx/%05d", prefix, i);
+      sortUris.put(uri.replace("/", "\t"), uri);
+      unorderedUris.add(uri);
     }
 
-    assertEquals("Should return only committed artifacts", numUrls, count);
+    for (int i = 0; i < perGroup + remainder; i++) {
+      String uri = String.format("%sxxx-/%05d", prefix, i);
+      sortUris.put(uri.replace("/", "\t"), uri);
+      unorderedUris.add(uri);
+    }
+
+    // Verify the two orderings are actually different
+    List<String> naturallySorted = new ArrayList<>(unorderedUris);
+    Collections.sort(naturallySorted);
+    assertNotEquals("Test setup error: natural and sortUri order should differ",
+        naturallySorted, new ArrayList<>(sortUris.values()));
+
+    return sortUris;
   }
 
   /**
-   * Tests paging with an empty prefix (should match all URLs).
+   * Tests that findLatestArtifactsOfAllUrlsWithNamespaceAndAuid returns
+   * results sorted by sortUri (ascending), then version (descending).
+   * Since this returns only latest versions, the version component is constant per URL.
+   * Q1: findLatestArtifactsOfAllUrlsWithNamespaceAndAuid
    */
   @Test
-  public void testFindAllVersionsByPrefix_EmptyPrefix() throws Exception {
-    initializeDatabase();
+  public void testSortOrder_Q1() throws Exception {
     SQLArtifactIndexManagerSql idxdb = createIndexManagerSql();
 
     String ns = "ns1";
     String auid = "auid1";
 
-    int numUrls = 25;
+    SortedMap<String, String> sortUris = createDivergentSortUris("http://example.com/", 21);
 
-    for (int i = 0; i < numUrls; i++) {
-      String url = String.format("http://example.com/path/%05d", i);
-      ArtifactSpec spec = makeArtifactSpec(ns, auid, url, 1);
+    for (String uri : sortUris.values()) {
+      for (int v = 1; v <= 3; v++) {
+        ArtifactSpec spec = makeArtifactSpec(ns, auid, uri, v);
+        idxdb.addArtifact(spec.getArtifact());
+        idxdb.commitArtifact(spec.getArtifactUuid());
+      }
+    }
+
+    List<Artifact> artifacts = toList(
+        idxdb.findLatestArtifactsOfAllUrlsWithNamespaceAndAuid(ns, auid, false));
+
+    assertEquals(sortUris.size(), artifacts.size());
+
+    // Verify sort by sortUri and that only latest version is returned
+    List<String> expectedUris = new ArrayList<>(sortUris.values());
+    for (int i = 0; i < expectedUris.size(); i++) {
+      assertEquals("Wrong URI at position " + i, expectedUris.get(i), artifacts.get(i).getUri());
+      assertEquals("Should return latest version", Integer.valueOf(3), artifacts.get(i).getVersion());
+    }
+
+    assertSorted(artifacts, a -> a.getUri().replace("/", "\t"));
+  }
+
+  /**
+   * Tests that findArtifactsAllCommittedVersionsOfUrlWithNamespaceAndAuid returns
+   * results sorted by sortUri (ascending), then version (descending).
+   * Since this queries a single URL, sortUri is constant, so we verify version order.
+   * Q3: findArtifactsAllCommittedVersionsOfUrlWithNamespaceAndAuid
+   */
+  @Test
+  public void testSortOrder_Q3() throws Exception {
+    SQLArtifactIndexManagerSql idxdb = createIndexManagerSql();
+
+    String ns = "ns1";
+    String auid = "auid1";
+    String url = "http://example.com/test/resource";
+    int numVersions = 15;
+
+    // Insert versions out of order to ensure DB is sorting
+    int[] insertOrder = {5, 12, 3, 8, 1, 15, 7, 10, 2, 14, 6, 11, 4, 9, 13};
+    for (int v : insertOrder) {
+      ArtifactSpec spec = makeArtifactSpec(ns, auid, url, v);
       idxdb.addArtifact(spec.getArtifact());
       idxdb.commitArtifact(spec.getArtifactUuid());
     }
 
-    // Query with empty prefix - should match all
-    Iterable<Artifact> result = idxdb.findArtifactsAllCommittedVersionsOfAllUrlsMatchingPrefixWithNamespaceAndAuid(
-        ns, auid, "");
+    List<Artifact> artifacts = toList(
+        idxdb.findArtifactsAllCommittedVersionsOfUrlWithNamespaceAndAuid(ns, auid, url));
 
-    int count = 0;
-    for (Artifact artifact : result) {
-      count++;
+    assertEquals(numVersions, artifacts.size());
+
+    // Verify versions are returned in descending order
+    for (int i = 0; i < numVersions; i++) {
+      int expectedVersion = numVersions - i;
+      assertEquals("Wrong version at position " + i,
+          Integer.valueOf(expectedVersion), artifacts.get(i).getVersion());
+      assertEquals("All artifacts should have same URL", url, artifacts.get(i).getUri());
+    }
+  }
+
+  /**
+   * Tests that findArtifactsAllVersionsOfAllUrlsWithNamespaceAndAuid returns
+   * results sorted by sortUri (ascending) then version (descending).
+   * Q2: findArtifactsAllVersionsOfAllUrlsWithNamespaceAndAuid
+   */
+  @Test
+  public void testSortOrder_Q2() throws Exception {
+    SQLArtifactIndexManagerSql idxdb = createIndexManagerSql();
+
+    String ns = "ns1";
+    String auid = "auid1";
+    int versionsPerUrl = 3;
+
+    SortedMap<String, String> sortUris = createDivergentSortUris("http://example.com/", 15);
+
+    for (String uri : sortUris.values()) {
+      for (int v = 1; v <= versionsPerUrl; v++) {
+        ArtifactSpec spec = makeArtifactSpec(ns, auid, uri, v);
+        idxdb.addArtifact(spec.getArtifact());
+        idxdb.commitArtifact(spec.getArtifactUuid());
+      }
     }
 
-    assertEquals("Empty prefix should match all URLs", numUrls, count);
+    List<Artifact> artifacts = toList(
+        idxdb.findArtifactsAllVersionsOfAllUrlsWithNamespaceAndAuid(ns, auid, false));
+
+    assertEquals(sortUris.size() * versionsPerUrl, artifacts.size());
+
+    // Verify primary sort by sortUri, secondary sort by version (descending)
+    List<String> expectedUris = new ArrayList<>(sortUris.values());
+    int idx = 0;
+    for (String expectedUri : expectedUris) {
+      for (int expectedVersion = versionsPerUrl; expectedVersion >= 1; expectedVersion--) {
+        assertEquals("Wrong URI at position " + idx, expectedUri, artifacts.get(idx).getUri());
+        assertEquals("Wrong version at position " + idx,
+            Integer.valueOf(expectedVersion), artifacts.get(idx).getVersion());
+        idx++;
+      }
+    }
+  }
+
+  /**
+   * Tests that findArtifactsAllCommittedVersionsOfUrlAllAuidsInNamespace returns
+   * results sorted by sortUri (ascending), auid (ascending), then version (descending).
+   * Since this test uses a single URL, sortUri is constant, so we verify auid and version order.
+   * Q4: findArtifactsAllCommittedVersionsOfUrlAllAuidsInNamespace
+   */
+  @Test
+  public void testSortOrder_Q4() throws Exception {
+    SQLArtifactIndexManagerSql idxdb = createIndexManagerSql();
+
+    String ns = "ns1";
+    String url = "http://example.com/shared";
+    int versionsPerAuid = 3;
+
+    // Create AUIDs that will test sorting
+    String[] auids = {"auid-02", "auid-01", "auid-03"};  // Inserted out of order
+    String[] sortedAuids = {"auid-01", "auid-02", "auid-03"};  // Expected order
+
+    for (String auid : auids) {
+      for (int v = 1; v <= versionsPerAuid; v++) {
+        ArtifactSpec spec = makeArtifactSpec(ns, auid, url, v);
+        idxdb.addArtifact(spec.getArtifact());
+        idxdb.commitArtifact(spec.getArtifactUuid());
+      }
+    }
+
+    List<Artifact> artifacts = toList(
+        idxdb.findArtifactsAllCommittedVersionsOfUrlAllAuidsInNamespace(ns, url, VersionsEnum.ALL));
+
+    assertEquals(auids.length * versionsPerAuid, artifacts.size());
+
+    // Verify primary sort by auid, secondary sort by version (descending)
+    int idx = 0;
+    for (String expectedAuid : sortedAuids) {
+      for (int expectedVersion = versionsPerAuid; expectedVersion >= 1; expectedVersion--) {
+        assertEquals("Wrong AUID at position " + idx, expectedAuid, artifacts.get(idx).getAuid());
+        assertEquals("Wrong version at position " + idx,
+            Integer.valueOf(expectedVersion), artifacts.get(idx).getVersion());
+        idx++;
+      }
+    }
+  }
+
+  /**
+   * Tests that findArtifactsAllCommittedVersionsOfUrlByPrefixAllAuidsInNamespace returns
+   * results sorted by sortUri (ascending), auid (ascending), then version (descending).
+   * Q5: findArtifactsAllCommittedVersionsOfUrlByPrefixAllAuidsInNamespace
+   */
+  @Test
+  public void testSortOrder_Q5() throws Exception {
+    SQLArtifactIndexManagerSql idxdb = createIndexManagerSql();
+
+    String ns = "ns1";
+    String prefix = "http://example.com/";
+    int versionsPerArtifact = 2;
+
+    SortedMap<String, String> sortUris = createDivergentSortUris(prefix, 9);
+    String[] auids = {"auid-b", "auid-a", "auid-c"};  // Inserted out of order
+    String[] sortedAuids = {"auid-a", "auid-b", "auid-c"};
+
+    for (String uri : sortUris.values()) {
+      for (String auid : auids) {
+        for (int v = 1; v <= versionsPerArtifact; v++) {
+          ArtifactSpec spec = makeArtifactSpec(ns, auid, uri, v);
+          idxdb.addArtifact(spec.getArtifact());
+          idxdb.commitArtifact(spec.getArtifactUuid());
+        }
+      }
+    }
+
+    List<Artifact> artifacts = toList(
+        idxdb.findArtifactsAllCommittedVersionsOfUrlByPrefixAllAuidsInNamespace(ns, prefix, VersionsEnum.ALL));
+
+    assertEquals(sortUris.size() * auids.length * versionsPerArtifact, artifacts.size());
+
+    // Verify sort order: sortUri ASC, auid ASC, version DESC
+    int idx = 0;
+    for (String expectedUri : sortUris.values()) {
+      for (String expectedAuid : sortedAuids) {
+        for (int expectedVersion = versionsPerArtifact; expectedVersion >= 1; expectedVersion--) {
+          assertEquals("Wrong URI at position " + idx, expectedUri, artifacts.get(idx).getUri());
+          assertEquals("Wrong AUID at position " + idx, expectedAuid, artifacts.get(idx).getAuid());
+          assertEquals("Wrong version at position " + idx,
+              Integer.valueOf(expectedVersion), artifacts.get(idx).getVersion());
+          idx++;
+        }
+      }
+    }
+  }
+
+  /**
+   * Tests that findArtifactsLatestCommittedVersionsOfAllUrlsMatchingPrefixWithNamespaceAndAuid
+   * returns results sorted by sortUri (ascending), then version (descending).
+   * Since this returns only latest versions, the version component is constant per URL.
+   * Q6: findArtifactsLatestCommittedVersionsOfAllUrlsMatchingPrefixWithNamespaceAndAuid
+   */
+  @Test
+  public void testSortOrder_Q6() throws Exception {
+    SQLArtifactIndexManagerSql idxdb = createIndexManagerSql();
+
+    String ns = "ns1";
+    String auid = "auid1";
+    String prefix = "http://example.com/";
+
+    SortedMap<String, String> sortUris = createDivergentSortUris(prefix, 21);
+
+    for (String uri : sortUris.values()) {
+      for (int v = 1; v <= 3; v++) {
+        ArtifactSpec spec = makeArtifactSpec(ns, auid, uri, v);
+        idxdb.addArtifact(spec.getArtifact());
+        idxdb.commitArtifact(spec.getArtifactUuid());
+      }
+    }
+
+    List<Artifact> artifacts = toList(
+        idxdb.findArtifactsLatestCommittedVersionsOfAllUrlsMatchingPrefixWithNamespaceAndAuid(ns, auid, prefix));
+
+    assertEquals(sortUris.size(), artifacts.size());
+
+    // Verify sort by sortUri and that only latest version is returned
+    List<String> expectedUris = new ArrayList<>(sortUris.values());
+    for (int i = 0; i < expectedUris.size(); i++) {
+      assertEquals("Wrong URI at position " + i, expectedUris.get(i), artifacts.get(i).getUri());
+      assertEquals("Should return latest version", Integer.valueOf(3), artifacts.get(i).getVersion());
+    }
+
+    assertSorted(artifacts, a -> a.getUri().replace("/", "\t"));
+  }
+
+  /**
+   * Tests that findArtifactsAllCommittedVersionsOfAllUrlsMatchingPrefixWithNamespaceAndAuid
+   * returns results sorted by sortUri (ascending) then version (descending).
+   * Q7: findArtifactsAllCommittedVersionsOfAllUrlsMatchingPrefixWithNamespaceAndAuid
+   */
+  @Test
+  public void testSortOrder_Q7() throws Exception {
+    SQLArtifactIndexManagerSql idxdb = createIndexManagerSql();
+
+    String ns = "ns1";
+    String auid = "auid1";
+    String prefix = "http://example.com/";
+    int versionsPerUrl = 3;
+
+    SortedMap<String, String> sortUris = createDivergentSortUris(prefix, 15);
+
+    for (String uri : sortUris.values()) {
+      for (int v = 1; v <= versionsPerUrl; v++) {
+        ArtifactSpec spec = makeArtifactSpec(ns, auid, uri, v);
+        idxdb.addArtifact(spec.getArtifact());
+        idxdb.commitArtifact(spec.getArtifactUuid());
+      }
+    }
+
+    List<Artifact> artifacts = toList(
+        idxdb.findArtifactsAllCommittedVersionsOfAllUrlsMatchingPrefixWithNamespaceAndAuid(ns, auid, prefix));
+
+    assertEquals(sortUris.size() * versionsPerUrl, artifacts.size());
+
+    // Verify primary sort by sortUri, secondary sort by version (descending)
+    List<String> expectedUris = new ArrayList<>(sortUris.values());
+    int idx = 0;
+    for (String expectedUri : expectedUris) {
+      for (int expectedVersion = versionsPerUrl; expectedVersion >= 1; expectedVersion--) {
+        assertEquals("Wrong URI at position " + idx, expectedUri, artifacts.get(idx).getUri());
+        assertEquals("Wrong version at position " + idx,
+            Integer.valueOf(expectedVersion), artifacts.get(idx).getVersion());
+        idx++;
+      }
+    }
   }
 
   // ============================================================================
@@ -1310,8 +1143,7 @@ public class TestSQLArtifactIndexManagerSqlPaging extends LockssTestCase4 {
    * are included in subsequent pages.
    */
   @Test
-  public void testConcurrentModification_AddArtifactAfterCursor() throws Exception {
-    initializeDatabase();
+  public void testConcurrentModification_AddAfterCursor_Q1() throws Exception {
     SQLArtifactIndexManagerSql idxdb = createIndexManagerSql();
 
     String ns = "ns1";
@@ -1357,8 +1189,7 @@ public class TestSQLArtifactIndexManagerSqlPaging extends LockssTestCase4 {
    * are NOT included (already passed).
    */
   @Test
-  public void testConcurrentModification_AddArtifactBeforeCursor() throws Exception {
-    initializeDatabase();
+  public void testConcurrentModification_AddBeforeCursor_Q1() throws Exception {
     SQLArtifactIndexManagerSql idxdb = createIndexManagerSql();
 
     String ns = "ns1";
@@ -1403,8 +1234,7 @@ public class TestSQLArtifactIndexManagerSqlPaging extends LockssTestCase4 {
    * (if not yet fetched).
    */
   @Test
-  public void testConcurrentModification_DeleteArtifactAfterCursor() throws Exception {
-    initializeDatabase();
+  public void testConcurrentModification_DeleteAfterCursor_Q1() throws Exception {
     SQLArtifactIndexManagerSql idxdb = createIndexManagerSql();
 
     String ns = "ns1";
@@ -1449,8 +1279,7 @@ public class TestSQLArtifactIndexManagerSqlPaging extends LockssTestCase4 {
    * in subsequent pages (when querying committed only).
    */
   @Test
-  public void testConcurrentModification_CommitArtifactDuringIteration() throws Exception {
-    initializeDatabase();
+  public void testConcurrentModification_CommitDuringIteration_Q1() throws Exception {
     SQLArtifactIndexManagerSql idxdb = createIndexManagerSql();
 
     String ns = "ns1";
@@ -1499,5 +1328,2220 @@ public class TestSQLArtifactIndexManagerSqlPaging extends LockssTestCase4 {
     // Should have 6 items: url00015 (newly committed) + url00020-url00024 (5 items)
     assertEquals("Should see newly committed artifact plus remaining", 6, remainingUrls.size());
     assertTrue("Newly committed artifact should be included", remainingUrls.contains(uncommittedUrl));
+  }
+
+  /**
+   * Tests that deleting an artifact BEFORE the current cursor position during iteration
+   * does not affect the remaining results (already passed that position).
+   */
+  @Test
+  public void testConcurrentModification_DeleteBeforeCursor_Q1() throws Exception {
+    SQLArtifactIndexManagerSql idxdb = createIndexManagerSql();
+
+    String ns = "ns1";
+    String auid = "auid1";
+
+    // Create initial artifacts and track their UUIDs
+    Map<String, String> urlToUuid = new HashMap<>();
+    for (int i = 0; i < 15; i++) {
+      String url = String.format("http://example.com/url%05d", i);
+      ArtifactSpec spec = makeArtifactSpec(ns, auid, url, 1);
+      idxdb.addArtifact(spec.getArtifact());
+      idxdb.commitArtifact(spec.getArtifactUuid());
+      urlToUuid.put(url, spec.getArtifactUuid());
+    }
+
+    // Start iteration
+    Iterator<Artifact> iter = idxdb.findLatestArtifactsOfAllUrlsWithNamespaceAndAuid(ns, auid, false).iterator();
+
+    // Consume first page (10 items: url00000 through url00009)
+    for (int i = 0; i < 10; i++) {
+      assertTrue("Should have more items in first page", iter.hasNext());
+      iter.next();
+    }
+
+    // Delete an artifact that was already fetched (url00005)
+    String deletedUrl = "http://example.com/url00005";
+    idxdb.deleteArtifact(urlToUuid.get(deletedUrl));
+
+    // Continue iteration - deletion before cursor should not affect remaining results
+    List<String> remainingUrls = new ArrayList<>();
+    while (iter.hasNext()) {
+      remainingUrls.add(iter.next().getUri());
+    }
+
+    // Should have all 5 remaining (url00010-url00014)
+    assertEquals("Should see all remaining items", 5, remainingUrls.size());
+  }
+
+  @Test
+  public void testConcurrentModification_AddAfterCursor_Q2() throws Exception {
+    SQLArtifactIndexManagerSql idxdb = createIndexManagerSql();
+
+    String ns = "ns1";
+    String auid = "auid1";
+
+    // Create 12 artifacts (spans 2 pages): 4 URLs with 3 versions each
+    for (int i = 0; i < 4; i++) {
+      String url = String.format("http://example.com/url%05d", i);
+      for (int v = 1; v <= 3; v++) {
+        ArtifactSpec spec = makeArtifactSpec(ns, auid, url, v);
+        idxdb.addArtifact(spec.getArtifact());
+        idxdb.commitArtifact(spec.getArtifactUuid());
+      }
+    }
+
+    Iterator<Artifact> iter = idxdb.findArtifactsAllVersionsOfAllUrlsWithNamespaceAndAuid(ns, auid, false).iterator();
+
+    // Consume first page (10 items)
+    for (int i = 0; i < 10; i++) {
+      assertTrue(iter.hasNext());
+      iter.next();
+    }
+
+    // Add new artifact after cursor position
+    String newUrl = "http://example.com/url00010";
+    ArtifactSpec newSpec = makeArtifactSpec(ns, auid, newUrl, 1);
+    idxdb.addArtifact(newSpec.getArtifact());
+    idxdb.commitArtifact(newSpec.getArtifactUuid());
+
+    // Continue - should see remaining + new
+    List<Artifact> remaining = new ArrayList<>();
+    while (iter.hasNext()) {
+      remaining.add(iter.next());
+    }
+
+    assertEquals("Should see remaining items plus new one", 3, remaining.size());
+    assertTrue("New artifact should be included",
+        remaining.stream().anyMatch(a -> a.getUri().equals(newUrl)));
+  }
+
+  @Test
+  public void testConcurrentModification_DeleteAfterCursor_Q2() throws Exception {
+    SQLArtifactIndexManagerSql idxdb = createIndexManagerSql();
+
+    String ns = "ns1";
+    String auid = "auid1";
+
+    Map<String, String> urlVersionToUuid = new HashMap<>();
+    for (int i = 0; i < 5; i++) {
+      String url = String.format("http://example.com/url%05d", i);
+      for (int v = 1; v <= 3; v++) {
+        ArtifactSpec spec = makeArtifactSpec(ns, auid, url, v);
+        idxdb.addArtifact(spec.getArtifact());
+        idxdb.commitArtifact(spec.getArtifactUuid());
+        urlVersionToUuid.put(url + ":" + v, spec.getArtifactUuid());
+      }
+    }
+
+    Iterator<Artifact> iter = idxdb.findArtifactsAllVersionsOfAllUrlsWithNamespaceAndAuid(ns, auid, false).iterator();
+
+    // Consume first page
+    for (int i = 0; i < 10; i++) {
+      assertTrue(iter.hasNext());
+      iter.next();
+    }
+
+    // Delete artifact not yet fetched
+    String deletedKey = "http://example.com/url00004:1";
+    idxdb.deleteArtifact(urlVersionToUuid.get(deletedKey));
+
+    List<Artifact> remaining = new ArrayList<>();
+    while (iter.hasNext()) {
+      remaining.add(iter.next());
+    }
+
+    // 15 total - 10 fetched - 1 deleted = 4
+    assertEquals("Should see remaining minus deleted", 4, remaining.size());
+  }
+
+  @Test
+  public void testConcurrentModification_AddAfterCursor_Q3() throws Exception {
+    SQLArtifactIndexManagerSql idxdb = createIndexManagerSql();
+
+    String ns = "ns1";
+    String auid = "auid1";
+    String url = "http://example.com/file";
+
+    // Create 12 versions (spans 2 pages)
+    for (int v = 1; v <= 12; v++) {
+      ArtifactSpec spec = makeArtifactSpec(ns, auid, url, v);
+      idxdb.addArtifact(spec.getArtifact());
+      idxdb.commitArtifact(spec.getArtifactUuid());
+    }
+
+    Iterator<Artifact> iter = idxdb.findArtifactsAllCommittedVersionsOfUrlWithNamespaceAndAuid(ns, auid, url).iterator();
+
+    // Consume first page (10 items - versions 12 down to 3 since descending)
+    for (int i = 0; i < 10; i++) {
+      assertTrue(iter.hasNext());
+      iter.next();
+    }
+
+    // Add new version (will be at beginning due to descending order, so after cursor in iteration)
+    ArtifactSpec newSpec = makeArtifactSpec(ns, auid, url, 13);
+    idxdb.addArtifact(newSpec.getArtifact());
+    idxdb.commitArtifact(newSpec.getArtifactUuid());
+
+    List<Artifact> remaining = new ArrayList<>();
+    while (iter.hasNext()) {
+      remaining.add(iter.next());
+    }
+
+    // Should only see versions 2 and 1 (new version 13 is before cursor in sort order)
+    assertEquals("Should see remaining versions", 2, remaining.size());
+  }
+
+  @Test
+  public void testConcurrentModification_DeleteAfterCursor_Q3() throws Exception {
+    SQLArtifactIndexManagerSql idxdb = createIndexManagerSql();
+
+    String ns = "ns1";
+    String auid = "auid1";
+    String url = "http://example.com/file";
+
+    Map<Integer, String> versionToUuid = new HashMap<>();
+    for (int v = 1; v <= 12; v++) {
+      ArtifactSpec spec = makeArtifactSpec(ns, auid, url, v);
+      idxdb.addArtifact(spec.getArtifact());
+      idxdb.commitArtifact(spec.getArtifactUuid());
+      versionToUuid.put(v, spec.getArtifactUuid());
+    }
+
+    Iterator<Artifact> iter = idxdb.findArtifactsAllCommittedVersionsOfUrlWithNamespaceAndAuid(ns, auid, url).iterator();
+
+    // Consume first page (versions 12 down to 3)
+    for (int i = 0; i < 10; i++) {
+      assertTrue(iter.hasNext());
+      iter.next();
+    }
+
+    // Delete version 1 (not yet fetched)
+    idxdb.deleteArtifact(versionToUuid.get(1));
+
+    List<Artifact> remaining = new ArrayList<>();
+    while (iter.hasNext()) {
+      remaining.add(iter.next());
+    }
+
+    // Should only see version 2 (version 1 deleted)
+    assertEquals("Should see remaining minus deleted", 1, remaining.size());
+    assertEquals("Should be version 2", Integer.valueOf(2), remaining.get(0).getVersion());
+  }
+
+  @Test
+  public void testConcurrentModification_AddAfterCursor_Q4() throws Exception {
+    SQLArtifactIndexManagerSql idxdb = createIndexManagerSql();
+
+    String ns = "ns1";
+    String url = "http://example.com/shared";
+
+    // Create 12 artifacts across AUIDs (spans 2 pages)
+    for (int a = 0; a < 4; a++) {
+      String auid = String.format("auid%05d", a);
+      for (int v = 1; v <= 3; v++) {
+        ArtifactSpec spec = makeArtifactSpec(ns, auid, url, v);
+        idxdb.addArtifact(spec.getArtifact());
+        idxdb.commitArtifact(spec.getArtifactUuid());
+      }
+    }
+
+    Iterator<Artifact> iter = idxdb.findArtifactsAllCommittedVersionsOfUrlAllAuidsInNamespace(
+        ns, url, VersionsEnum.ALL).iterator();
+
+    // Consume first page
+    for (int i = 0; i < 10; i++) {
+      assertTrue(iter.hasNext());
+      iter.next();
+    }
+
+    // Add new artifact in new AUID (sorts after existing)
+    String newAuid = "auid00010";
+    ArtifactSpec newSpec = makeArtifactSpec(ns, newAuid, url, 1);
+    idxdb.addArtifact(newSpec.getArtifact());
+    idxdb.commitArtifact(newSpec.getArtifactUuid());
+
+    List<Artifact> remaining = new ArrayList<>();
+    while (iter.hasNext()) {
+      remaining.add(iter.next());
+    }
+
+    assertEquals("Should see remaining plus new", 3, remaining.size());
+    assertTrue("New artifact should be included",
+        remaining.stream().anyMatch(a -> a.getAuid().equals(newAuid)));
+  }
+
+  @Test
+  public void testConcurrentModification_DeleteAfterCursor_Q4() throws Exception {
+    SQLArtifactIndexManagerSql idxdb = createIndexManagerSql();
+
+    String ns = "ns1";
+    String url = "http://example.com/shared";
+
+    Map<String, String> auidVersionToUuid = new HashMap<>();
+    for (int a = 0; a < 5; a++) {
+      String auid = String.format("auid%05d", a);
+      for (int v = 1; v <= 3; v++) {
+        ArtifactSpec spec = makeArtifactSpec(ns, auid, url, v);
+        idxdb.addArtifact(spec.getArtifact());
+        idxdb.commitArtifact(spec.getArtifactUuid());
+        auidVersionToUuid.put(auid + ":" + v, spec.getArtifactUuid());
+      }
+    }
+
+    Iterator<Artifact> iter = idxdb.findArtifactsAllCommittedVersionsOfUrlAllAuidsInNamespace(
+        ns, url, VersionsEnum.ALL).iterator();
+
+    for (int i = 0; i < 10; i++) {
+      assertTrue(iter.hasNext());
+      iter.next();
+    }
+
+    // Delete artifact not yet fetched
+    idxdb.deleteArtifact(auidVersionToUuid.get("auid00004:1"));
+
+    List<Artifact> remaining = new ArrayList<>();
+    while (iter.hasNext()) {
+      remaining.add(iter.next());
+    }
+
+    // 15 total - 10 fetched - 1 deleted = 4
+    assertEquals("Should see remaining minus deleted", 4, remaining.size());
+  }
+
+  @Test
+  public void testConcurrentModification_AddAfterCursor_Q5() throws Exception {
+    SQLArtifactIndexManagerSql idxdb = createIndexManagerSql();
+
+    String ns = "ns1";
+    String prefix = "http://example.com/data/";
+
+    // Create 12 artifacts (spans 2 pages)
+    for (int i = 0; i < 4; i++) {
+      String url = String.format("%sfile%05d", prefix, i);
+      for (int v = 1; v <= 3; v++) {
+        ArtifactSpec spec = makeArtifactSpec(ns, "auid1", url, v);
+        idxdb.addArtifact(spec.getArtifact());
+        idxdb.commitArtifact(spec.getArtifactUuid());
+      }
+    }
+
+    Iterator<Artifact> iter = idxdb.findArtifactsAllCommittedVersionsOfUrlByPrefixAllAuidsInNamespace(
+        ns, prefix, VersionsEnum.ALL).iterator();
+
+    for (int i = 0; i < 10; i++) {
+      assertTrue(iter.hasNext());
+      iter.next();
+    }
+
+    // Add new artifact after cursor
+    String newUrl = prefix + "file00010";
+    ArtifactSpec newSpec = makeArtifactSpec(ns, "auid1", newUrl, 1);
+    idxdb.addArtifact(newSpec.getArtifact());
+    idxdb.commitArtifact(newSpec.getArtifactUuid());
+
+    List<Artifact> remaining = new ArrayList<>();
+    while (iter.hasNext()) {
+      remaining.add(iter.next());
+    }
+
+    assertEquals("Should see remaining plus new", 3, remaining.size());
+    assertTrue("New artifact should be included",
+        remaining.stream().anyMatch(a -> a.getUri().equals(newUrl)));
+  }
+
+  @Test
+  public void testConcurrentModification_DeleteAfterCursor_Q5() throws Exception {
+    SQLArtifactIndexManagerSql idxdb = createIndexManagerSql();
+
+    String ns = "ns1";
+    String prefix = "http://example.com/data/";
+
+    Map<String, String> urlVersionToUuid = new HashMap<>();
+    for (int i = 0; i < 5; i++) {
+      String url = String.format("%sfile%05d", prefix, i);
+      for (int v = 1; v <= 3; v++) {
+        ArtifactSpec spec = makeArtifactSpec(ns, "auid1", url, v);
+        idxdb.addArtifact(spec.getArtifact());
+        idxdb.commitArtifact(spec.getArtifactUuid());
+        urlVersionToUuid.put(url + ":" + v, spec.getArtifactUuid());
+      }
+    }
+
+    Iterator<Artifact> iter = idxdb.findArtifactsAllCommittedVersionsOfUrlByPrefixAllAuidsInNamespace(
+        ns, prefix, VersionsEnum.ALL).iterator();
+
+    for (int i = 0; i < 10; i++) {
+      assertTrue(iter.hasNext());
+      iter.next();
+    }
+
+    String deletedKey = String.format("%sfile%05d:%d", prefix, 4, 1);
+    idxdb.deleteArtifact(urlVersionToUuid.get(deletedKey));
+
+    List<Artifact> remaining = new ArrayList<>();
+    while (iter.hasNext()) {
+      remaining.add(iter.next());
+    }
+
+    assertEquals("Should see remaining minus deleted", 4, remaining.size());
+  }
+
+  @Test
+  public void testConcurrentModification_AddAfterCursor_Q6() throws Exception {
+    SQLArtifactIndexManagerSql idxdb = createIndexManagerSql();
+
+    String ns = "ns1";
+    String auid = "auid1";
+    String prefix = "http://example.com/articles/";
+
+    // Create 15 artifacts (spans 2 pages)
+    for (int i = 0; i < 15; i++) {
+      String url = String.format("%sarticle%05d", prefix, i);
+      ArtifactSpec spec = makeArtifactSpec(ns, auid, url, 1);
+      idxdb.addArtifact(spec.getArtifact());
+      idxdb.commitArtifact(spec.getArtifactUuid());
+    }
+
+    Iterator<Artifact> iter = idxdb.findArtifactsLatestCommittedVersionsOfAllUrlsMatchingPrefixWithNamespaceAndAuid(
+        ns, auid, prefix).iterator();
+
+    for (int i = 0; i < 10; i++) {
+      assertTrue(iter.hasNext());
+      iter.next();
+    }
+
+    // Add new artifact after cursor
+    String newUrl = prefix + "article00020";
+    ArtifactSpec newSpec = makeArtifactSpec(ns, auid, newUrl, 1);
+    idxdb.addArtifact(newSpec.getArtifact());
+    idxdb.commitArtifact(newSpec.getArtifactUuid());
+
+    List<Artifact> remaining = new ArrayList<>();
+    while (iter.hasNext()) {
+      remaining.add(iter.next());
+    }
+
+    assertEquals("Should see remaining plus new", 6, remaining.size());
+    assertTrue("New artifact should be included",
+        remaining.stream().anyMatch(a -> a.getUri().equals(newUrl)));
+  }
+
+  @Test
+  public void testConcurrentModification_DeleteAfterCursor_Q6() throws Exception {
+    SQLArtifactIndexManagerSql idxdb = createIndexManagerSql();
+
+    String ns = "ns1";
+    String auid = "auid1";
+    String prefix = "http://example.com/articles/";
+
+    Map<String, String> urlToUuid = new HashMap<>();
+    for (int i = 0; i < 15; i++) {
+      String url = String.format("%sarticle%05d", prefix, i);
+      ArtifactSpec spec = makeArtifactSpec(ns, auid, url, 1);
+      idxdb.addArtifact(spec.getArtifact());
+      idxdb.commitArtifact(spec.getArtifactUuid());
+      urlToUuid.put(url, spec.getArtifactUuid());
+    }
+
+    Iterator<Artifact> iter = idxdb.findArtifactsLatestCommittedVersionsOfAllUrlsMatchingPrefixWithNamespaceAndAuid(
+        ns, auid, prefix).iterator();
+
+    for (int i = 0; i < 10; i++) {
+      assertTrue(iter.hasNext());
+      iter.next();
+    }
+
+    String deletedUrl = prefix + "article00012";
+    idxdb.deleteArtifact(urlToUuid.get(deletedUrl));
+
+    List<Artifact> remaining = new ArrayList<>();
+    while (iter.hasNext()) {
+      remaining.add(iter.next());
+    }
+
+    assertEquals("Should see remaining minus deleted", 4, remaining.size());
+    assertFalse("Deleted should not be included",
+        remaining.stream().anyMatch(a -> a.getUri().equals(deletedUrl)));
+  }
+
+  @Test
+  public void testConcurrentModification_AddAfterCursor_Q7() throws Exception {
+    SQLArtifactIndexManagerSql idxdb = createIndexManagerSql();
+
+    String ns = "ns1";
+    String auid = "auid1";
+    String prefix = "http://example.com/docs/";
+
+    // Create 12 artifacts (4 URLs x 3 versions, spans 2 pages)
+    for (int i = 0; i < 4; i++) {
+      String url = String.format("%sdoc%05d", prefix, i);
+      for (int v = 1; v <= 3; v++) {
+        ArtifactSpec spec = makeArtifactSpec(ns, auid, url, v);
+        idxdb.addArtifact(spec.getArtifact());
+        idxdb.commitArtifact(spec.getArtifactUuid());
+      }
+    }
+
+    Iterator<Artifact> iter = idxdb.findArtifactsAllCommittedVersionsOfAllUrlsMatchingPrefixWithNamespaceAndAuid(
+        ns, auid, prefix).iterator();
+
+    for (int i = 0; i < 10; i++) {
+      assertTrue(iter.hasNext());
+      iter.next();
+    }
+
+    // Add new artifact after cursor
+    String newUrl = prefix + "doc00010";
+    ArtifactSpec newSpec = makeArtifactSpec(ns, auid, newUrl, 1);
+    idxdb.addArtifact(newSpec.getArtifact());
+    idxdb.commitArtifact(newSpec.getArtifactUuid());
+
+    List<Artifact> remaining = new ArrayList<>();
+    while (iter.hasNext()) {
+      remaining.add(iter.next());
+    }
+
+    assertEquals("Should see remaining plus new", 3, remaining.size());
+    assertTrue("New artifact should be included",
+        remaining.stream().anyMatch(a -> a.getUri().equals(newUrl)));
+  }
+
+  @Test
+  public void testConcurrentModification_DeleteAfterCursor_Q7() throws Exception {
+    SQLArtifactIndexManagerSql idxdb = createIndexManagerSql();
+
+    String ns = "ns1";
+    String auid = "auid1";
+    String prefix = "http://example.com/docs/";
+
+    Map<String, String> urlVersionToUuid = new HashMap<>();
+    for (int i = 0; i < 5; i++) {
+      String url = String.format("%sdoc%05d", prefix, i);
+      for (int v = 1; v <= 3; v++) {
+        ArtifactSpec spec = makeArtifactSpec(ns, auid, url, v);
+        idxdb.addArtifact(spec.getArtifact());
+        idxdb.commitArtifact(spec.getArtifactUuid());
+        urlVersionToUuid.put(url + ":" + v, spec.getArtifactUuid());
+      }
+    }
+
+    Iterator<Artifact> iter = idxdb.findArtifactsAllCommittedVersionsOfAllUrlsMatchingPrefixWithNamespaceAndAuid(
+        ns, auid, prefix).iterator();
+
+    for (int i = 0; i < 10; i++) {
+      assertTrue(iter.hasNext());
+      iter.next();
+    }
+
+    String deletedKey = String.format("%sdoc%05d:%d", prefix, 4, 1);
+    idxdb.deleteArtifact(urlVersionToUuid.get(deletedKey));
+
+    List<Artifact> remaining = new ArrayList<>();
+    while (iter.hasNext()) {
+      remaining.add(iter.next());
+    }
+
+    assertEquals("Should see remaining minus deleted", 4, remaining.size());
+  }
+
+  // ============================================================================
+  // Single Item Result Tests
+  // ============================================================================
+  // Tests that verify correct behavior when query returns exactly 1 item
+
+  @Test
+  public void testSingleItemResult_Q1() throws Exception {
+    SQLArtifactIndexManagerSql idxdb = createIndexManagerSql();
+
+    String ns = "ns1";
+    String auid = "auid1";
+    String url = "http://example.com/only-one";
+
+    ArtifactSpec spec = makeArtifactSpec(ns, auid, url, 1);
+    idxdb.addArtifact(spec.getArtifact());
+    idxdb.commitArtifact(spec.getArtifactUuid());
+
+    List<Artifact> artifacts = toList(
+        idxdb.findLatestArtifactsOfAllUrlsWithNamespaceAndAuid(ns, auid, false));
+
+    assertEquals("Should return exactly 1 artifact", 1, artifacts.size());
+    assertEquals("Should return correct URL", url, artifacts.get(0).getUri());
+  }
+
+  @Test
+  public void testSingleItemResult_Q2() throws Exception {
+    SQLArtifactIndexManagerSql idxdb = createIndexManagerSql();
+
+    String ns = "ns1";
+    String auid = "auid1";
+    String url = "http://example.com/only-one";
+
+    ArtifactSpec spec = makeArtifactSpec(ns, auid, url, 1);
+    idxdb.addArtifact(spec.getArtifact());
+    idxdb.commitArtifact(spec.getArtifactUuid());
+
+    List<Artifact> artifacts = toList(
+        idxdb.findArtifactsAllVersionsOfAllUrlsWithNamespaceAndAuid(ns, auid, false));
+
+    assertEquals("Should return exactly 1 artifact", 1, artifacts.size());
+    assertEquals("Should return correct URL", url, artifacts.get(0).getUri());
+  }
+
+  @Test
+  public void testSingleItemResult_Q3() throws Exception {
+    SQLArtifactIndexManagerSql idxdb = createIndexManagerSql();
+
+    String ns = "ns1";
+    String auid = "auid1";
+    String url = "http://example.com/single-version";
+
+    ArtifactSpec spec = makeArtifactSpec(ns, auid, url, 1);
+    idxdb.addArtifact(spec.getArtifact());
+    idxdb.commitArtifact(spec.getArtifactUuid());
+
+    List<Artifact> artifacts = toList(
+        idxdb.findArtifactsAllCommittedVersionsOfUrlWithNamespaceAndAuid(ns, auid, url));
+
+    assertEquals("Should return exactly 1 artifact", 1, artifacts.size());
+    assertEquals("Should return version 1", Integer.valueOf(1), artifacts.get(0).getVersion());
+  }
+
+  @Test
+  public void testSingleItemResult_Q4() throws Exception {
+    SQLArtifactIndexManagerSql idxdb = createIndexManagerSql();
+
+    String ns = "ns1";
+    String url = "http://example.com/shared";
+
+    ArtifactSpec spec = makeArtifactSpec(ns, "auid1", url, 1);
+    idxdb.addArtifact(spec.getArtifact());
+    idxdb.commitArtifact(spec.getArtifactUuid());
+
+    List<Artifact> artifacts = toList(
+        idxdb.findArtifactsAllCommittedVersionsOfUrlAllAuidsInNamespace(ns, url, VersionsEnum.ALL));
+
+    assertEquals("Should return exactly 1 artifact", 1, artifacts.size());
+  }
+
+  @Test
+  public void testSingleItemResult_Q5() throws Exception {
+    SQLArtifactIndexManagerSql idxdb = createIndexManagerSql();
+
+    String ns = "ns1";
+    String prefix = "http://example.com/prefix/";
+    String url = prefix + "only-file.html";
+
+    ArtifactSpec spec = makeArtifactSpec(ns, "auid1", url, 1);
+    idxdb.addArtifact(spec.getArtifact());
+    idxdb.commitArtifact(spec.getArtifactUuid());
+
+    List<Artifact> artifacts = toList(
+        idxdb.findArtifactsAllCommittedVersionsOfUrlByPrefixAllAuidsInNamespace(ns, prefix, VersionsEnum.ALL));
+
+    assertEquals("Should return exactly 1 artifact", 1, artifacts.size());
+    assertTrue("URL should match prefix", artifacts.get(0).getUri().startsWith(prefix));
+  }
+
+  @Test
+  public void testSingleItemResult_Q6() throws Exception {
+    SQLArtifactIndexManagerSql idxdb = createIndexManagerSql();
+
+    String ns = "ns1";
+    String auid = "auid1";
+    String prefix = "http://example.com/articles/";
+    String url = prefix + "only-article.html";
+
+    ArtifactSpec spec = makeArtifactSpec(ns, auid, url, 1);
+    idxdb.addArtifact(spec.getArtifact());
+    idxdb.commitArtifact(spec.getArtifactUuid());
+
+    List<Artifact> artifacts = toList(
+        idxdb.findArtifactsLatestCommittedVersionsOfAllUrlsMatchingPrefixWithNamespaceAndAuid(ns, auid, prefix));
+
+    assertEquals("Should return exactly 1 artifact", 1, artifacts.size());
+    assertTrue("URL should match prefix", artifacts.get(0).getUri().startsWith(prefix));
+  }
+
+  @Test
+  public void testSingleItemResult_Q7() throws Exception {
+    SQLArtifactIndexManagerSql idxdb = createIndexManagerSql();
+
+    String ns = "ns1";
+    String auid = "auid1";
+    String prefix = "http://example.com/docs/";
+    String url = prefix + "only-doc.pdf";
+
+    ArtifactSpec spec = makeArtifactSpec(ns, auid, url, 1);
+    idxdb.addArtifact(spec.getArtifact());
+    idxdb.commitArtifact(spec.getArtifactUuid());
+
+    List<Artifact> artifacts = toList(
+        idxdb.findArtifactsAllCommittedVersionsOfAllUrlsMatchingPrefixWithNamespaceAndAuid(ns, auid, prefix));
+
+    assertEquals("Should return exactly 1 artifact", 1, artifacts.size());
+    assertTrue("URL should match prefix", artifacts.get(0).getUri().startsWith(prefix));
+  }
+
+  // ============================================================================
+  // Page Size + 1 Tests
+  // ============================================================================
+  // Tests that verify correct behavior when result set is exactly page size + 1
+
+  @Test
+  public void testPageSizePlusOne_Q1() throws Exception {
+    SQLArtifactIndexManagerSql idxdb = createIndexManagerSql();
+
+    String ns = "ns1";
+    String auid = "auid1";
+    int count = TEST_PAGE_SIZE + 1; // 11 items
+
+    for (int i = 0; i < count; i++) {
+      String url = String.format("http://example.com/item%05d", i);
+      ArtifactSpec spec = makeArtifactSpec(ns, auid, url, 1);
+      idxdb.addArtifact(spec.getArtifact());
+      idxdb.commitArtifact(spec.getArtifactUuid());
+    }
+
+    List<Artifact> artifacts = toList(
+        idxdb.findLatestArtifactsOfAllUrlsWithNamespaceAndAuid(ns, auid, false));
+
+    assertEquals("Should return exactly page size + 1", count, artifacts.size());
+
+    // Verify no duplicates
+    Set<String> urls = new HashSet<>();
+    for (Artifact a : artifacts) {
+      assertTrue("No duplicates allowed", urls.add(a.getUri()));
+    }
+  }
+
+  @Test
+  public void testPageSizePlusOne_Q2() throws Exception {
+    SQLArtifactIndexManagerSql idxdb = createIndexManagerSql();
+
+    String ns = "ns1";
+    String auid = "auid1";
+    int count = TEST_PAGE_SIZE + 1;
+
+    for (int i = 0; i < count; i++) {
+      String url = String.format("http://example.com/item%05d", i);
+      ArtifactSpec spec = makeArtifactSpec(ns, auid, url, 1);
+      idxdb.addArtifact(spec.getArtifact());
+      idxdb.commitArtifact(spec.getArtifactUuid());
+    }
+
+    List<Artifact> artifacts = toList(
+        idxdb.findArtifactsAllVersionsOfAllUrlsWithNamespaceAndAuid(ns, auid, false));
+
+    assertEquals("Should return exactly page size + 1", count, artifacts.size());
+  }
+
+  @Test
+  public void testPageSizePlusOne_Q3() throws Exception {
+    SQLArtifactIndexManagerSql idxdb = createIndexManagerSql();
+
+    String ns = "ns1";
+    String auid = "auid1";
+    String url = "http://example.com/many-versions";
+    int count = TEST_PAGE_SIZE + 1;
+
+    for (int v = 1; v <= count; v++) {
+      ArtifactSpec spec = makeArtifactSpec(ns, auid, url, v);
+      idxdb.addArtifact(spec.getArtifact());
+      idxdb.commitArtifact(spec.getArtifactUuid());
+    }
+
+    List<Artifact> artifacts = toList(
+        idxdb.findArtifactsAllCommittedVersionsOfUrlWithNamespaceAndAuid(ns, auid, url));
+
+    assertEquals("Should return exactly page size + 1", count, artifacts.size());
+  }
+
+  @Test
+  public void testPageSizePlusOne_Q4() throws Exception {
+    SQLArtifactIndexManagerSql idxdb = createIndexManagerSql();
+
+    String ns = "ns1";
+    String url = "http://example.com/shared";
+    int count = TEST_PAGE_SIZE + 1;
+
+    for (int i = 0; i < count; i++) {
+      String auid = String.format("auid%05d", i);
+      ArtifactSpec spec = makeArtifactSpec(ns, auid, url, 1);
+      idxdb.addArtifact(spec.getArtifact());
+      idxdb.commitArtifact(spec.getArtifactUuid());
+    }
+
+    List<Artifact> artifacts = toList(
+        idxdb.findArtifactsAllCommittedVersionsOfUrlAllAuidsInNamespace(ns, url, VersionsEnum.ALL));
+
+    assertEquals("Should return exactly page size + 1", count, artifacts.size());
+  }
+
+  @Test
+  public void testPageSizePlusOne_Q5() throws Exception {
+    SQLArtifactIndexManagerSql idxdb = createIndexManagerSql();
+
+    String ns = "ns1";
+    String prefix = "http://example.com/prefix/";
+    int count = TEST_PAGE_SIZE + 1;
+
+    for (int i = 0; i < count; i++) {
+      String url = String.format("%sfile%05d.html", prefix, i);
+      ArtifactSpec spec = makeArtifactSpec(ns, "auid1", url, 1);
+      idxdb.addArtifact(spec.getArtifact());
+      idxdb.commitArtifact(spec.getArtifactUuid());
+    }
+
+    List<Artifact> artifacts = toList(
+        idxdb.findArtifactsAllCommittedVersionsOfUrlByPrefixAllAuidsInNamespace(ns, prefix, VersionsEnum.ALL));
+
+    assertEquals("Should return exactly page size + 1", count, artifacts.size());
+  }
+
+  @Test
+  public void testPageSizePlusOne_Q6() throws Exception {
+    SQLArtifactIndexManagerSql idxdb = createIndexManagerSql();
+
+    String ns = "ns1";
+    String auid = "auid1";
+    String prefix = "http://example.com/articles/";
+    int count = TEST_PAGE_SIZE + 1;
+
+    for (int i = 0; i < count; i++) {
+      String url = String.format("%sarticle%05d.html", prefix, i);
+      ArtifactSpec spec = makeArtifactSpec(ns, auid, url, 1);
+      idxdb.addArtifact(spec.getArtifact());
+      idxdb.commitArtifact(spec.getArtifactUuid());
+    }
+
+    List<Artifact> artifacts = toList(
+        idxdb.findArtifactsLatestCommittedVersionsOfAllUrlsMatchingPrefixWithNamespaceAndAuid(ns, auid, prefix));
+
+    assertEquals("Should return exactly page size + 1", count, artifacts.size());
+  }
+
+  @Test
+  public void testPageSizePlusOne_Q7() throws Exception {
+    SQLArtifactIndexManagerSql idxdb = createIndexManagerSql();
+
+    String ns = "ns1";
+    String auid = "auid1";
+    String prefix = "http://example.com/docs/";
+    int count = TEST_PAGE_SIZE + 1;
+
+    for (int i = 0; i < count; i++) {
+      String url = String.format("%sdoc%05d.pdf", prefix, i);
+      ArtifactSpec spec = makeArtifactSpec(ns, auid, url, 1);
+      idxdb.addArtifact(spec.getArtifact());
+      idxdb.commitArtifact(spec.getArtifactUuid());
+    }
+
+    List<Artifact> artifacts = toList(
+        idxdb.findArtifactsAllCommittedVersionsOfAllUrlsMatchingPrefixWithNamespaceAndAuid(ns, auid, prefix));
+
+    assertEquals("Should return exactly page size + 1", count, artifacts.size());
+  }
+
+  // ============================================================================
+  // Invalid/Stale Cursor Tests
+  // ============================================================================
+  // Tests behavior when referenced artifact is deleted mid-iteration
+
+  @Test
+  public void testStaleCursor_DeletedAtCursor_Q1() throws Exception {
+    SQLArtifactIndexManagerSql idxdb = createIndexManagerSql();
+
+    String ns = "ns1";
+    String auid = "auid1";
+
+    Map<String, String> urlToUuid = new HashMap<>();
+    for (int i = 0; i < 15; i++) {
+      String url = String.format("http://example.com/url%05d", i);
+      ArtifactSpec spec = makeArtifactSpec(ns, auid, url, 1);
+      idxdb.addArtifact(spec.getArtifact());
+      idxdb.commitArtifact(spec.getArtifactUuid());
+      urlToUuid.put(url, spec.getArtifactUuid());
+    }
+
+    Iterator<Artifact> iter = idxdb.findLatestArtifactsOfAllUrlsWithNamespaceAndAuid(ns, auid, false).iterator();
+
+    // Get first 10 items
+    Artifact lastFetched = null;
+    for (int i = 0; i < 10; i++) {
+      lastFetched = iter.next();
+    }
+
+    // Delete the last fetched artifact (cursor position)
+    idxdb.deleteArtifact(urlToUuid.get(lastFetched.getUri()));
+
+    // Continue iteration - should still work and return remaining items
+    List<Artifact> remaining = new ArrayList<>();
+    while (iter.hasNext()) {
+      remaining.add(iter.next());
+    }
+
+    assertEquals("Should return remaining items", 5, remaining.size());
+  }
+
+  @Test
+  public void testStaleCursor_DeletedAtCursor_Q2() throws Exception {
+    SQLArtifactIndexManagerSql idxdb = createIndexManagerSql();
+
+    String ns = "ns1";
+    String auid = "auid1";
+
+    Map<String, String> keyToUuid = new HashMap<>();
+    for (int i = 0; i < 5; i++) {
+      String url = String.format("http://example.com/url%05d", i);
+      for (int v = 1; v <= 3; v++) {
+        ArtifactSpec spec = makeArtifactSpec(ns, auid, url, v);
+        idxdb.addArtifact(spec.getArtifact());
+        idxdb.commitArtifact(spec.getArtifactUuid());
+        keyToUuid.put(url + ":" + v, spec.getArtifactUuid());
+      }
+    }
+
+    Iterator<Artifact> iter = idxdb.findArtifactsAllVersionsOfAllUrlsWithNamespaceAndAuid(ns, auid, false).iterator();
+
+    Artifact lastFetched = null;
+    for (int i = 0; i < 10; i++) {
+      lastFetched = iter.next();
+    }
+
+    idxdb.deleteArtifact(keyToUuid.get(lastFetched.getUri() + ":" + lastFetched.getVersion()));
+
+    List<Artifact> remaining = new ArrayList<>();
+    while (iter.hasNext()) {
+      remaining.add(iter.next());
+    }
+
+    assertEquals("Should return remaining items", 5, remaining.size());
+  }
+
+  @Test
+  public void testStaleCursor_DeletedAtCursor_Q3() throws Exception {
+    SQLArtifactIndexManagerSql idxdb = createIndexManagerSql();
+
+    String ns = "ns1";
+    String auid = "auid1";
+    String url = "http://example.com/file";
+
+    Map<Integer, String> versionToUuid = new HashMap<>();
+    for (int v = 1; v <= 15; v++) {
+      ArtifactSpec spec = makeArtifactSpec(ns, auid, url, v);
+      idxdb.addArtifact(spec.getArtifact());
+      idxdb.commitArtifact(spec.getArtifactUuid());
+      versionToUuid.put(v, spec.getArtifactUuid());
+    }
+
+    Iterator<Artifact> iter = idxdb.findArtifactsAllCommittedVersionsOfUrlWithNamespaceAndAuid(ns, auid, url).iterator();
+
+    // Consume first 10 (versions 15 down to 6)
+    Artifact lastFetched = null;
+    for (int i = 0; i < 10; i++) {
+      lastFetched = iter.next();
+    }
+
+    // Delete the cursor position artifact
+    idxdb.deleteArtifact(versionToUuid.get(lastFetched.getVersion()));
+
+    List<Artifact> remaining = new ArrayList<>();
+    while (iter.hasNext()) {
+      remaining.add(iter.next());
+    }
+
+    assertEquals("Should return remaining versions", 5, remaining.size());
+  }
+
+  @Test
+  public void testStaleCursor_DeletedAtCursor_Q4() throws Exception {
+    SQLArtifactIndexManagerSql idxdb = createIndexManagerSql();
+
+    String ns = "ns1";
+    String url = "http://example.com/shared";
+
+    Map<String, String> auidToUuid = new HashMap<>();
+    for (int i = 0; i < 15; i++) {
+      String auid = String.format("auid%05d", i);
+      ArtifactSpec spec = makeArtifactSpec(ns, auid, url, 1);
+      idxdb.addArtifact(spec.getArtifact());
+      idxdb.commitArtifact(spec.getArtifactUuid());
+      auidToUuid.put(auid, spec.getArtifactUuid());
+    }
+
+    Iterator<Artifact> iter = idxdb.findArtifactsAllCommittedVersionsOfUrlAllAuidsInNamespace(
+        ns, url, VersionsEnum.ALL).iterator();
+
+    Artifact lastFetched = null;
+    for (int i = 0; i < 10; i++) {
+      lastFetched = iter.next();
+    }
+
+    idxdb.deleteArtifact(auidToUuid.get(lastFetched.getAuid()));
+
+    List<Artifact> remaining = new ArrayList<>();
+    while (iter.hasNext()) {
+      remaining.add(iter.next());
+    }
+
+    assertEquals("Should return remaining items", 5, remaining.size());
+  }
+
+  @Test
+  public void testStaleCursor_DeletedAtCursor_Q5() throws Exception {
+    SQLArtifactIndexManagerSql idxdb = createIndexManagerSql();
+
+    String ns = "ns1";
+    String prefix = "http://example.com/prefix/";
+
+    Map<String, String> urlToUuid = new HashMap<>();
+    for (int i = 0; i < 15; i++) {
+      String url = String.format("%sfile%05d.html", prefix, i);
+      ArtifactSpec spec = makeArtifactSpec(ns, "auid1", url, 1);
+      idxdb.addArtifact(spec.getArtifact());
+      idxdb.commitArtifact(spec.getArtifactUuid());
+      urlToUuid.put(url, spec.getArtifactUuid());
+    }
+
+    Iterator<Artifact> iter = idxdb.findArtifactsAllCommittedVersionsOfUrlByPrefixAllAuidsInNamespace(
+        ns, prefix, VersionsEnum.ALL).iterator();
+
+    Artifact lastFetched = null;
+    for (int i = 0; i < 10; i++) {
+      lastFetched = iter.next();
+    }
+
+    idxdb.deleteArtifact(urlToUuid.get(lastFetched.getUri()));
+
+    List<Artifact> remaining = new ArrayList<>();
+    while (iter.hasNext()) {
+      remaining.add(iter.next());
+    }
+
+    assertEquals("Should return remaining items", 5, remaining.size());
+  }
+
+  @Test
+  public void testStaleCursor_DeletedAtCursor_Q6() throws Exception {
+    SQLArtifactIndexManagerSql idxdb = createIndexManagerSql();
+
+    String ns = "ns1";
+    String auid = "auid1";
+    String prefix = "http://example.com/articles/";
+
+    Map<String, String> urlToUuid = new HashMap<>();
+    for (int i = 0; i < 15; i++) {
+      String url = String.format("%sarticle%05d.html", prefix, i);
+      ArtifactSpec spec = makeArtifactSpec(ns, auid, url, 1);
+      idxdb.addArtifact(spec.getArtifact());
+      idxdb.commitArtifact(spec.getArtifactUuid());
+      urlToUuid.put(url, spec.getArtifactUuid());
+    }
+
+    Iterator<Artifact> iter = idxdb.findArtifactsLatestCommittedVersionsOfAllUrlsMatchingPrefixWithNamespaceAndAuid(
+        ns, auid, prefix).iterator();
+
+    Artifact lastFetched = null;
+    for (int i = 0; i < 10; i++) {
+      lastFetched = iter.next();
+    }
+
+    idxdb.deleteArtifact(urlToUuid.get(lastFetched.getUri()));
+
+    List<Artifact> remaining = new ArrayList<>();
+    while (iter.hasNext()) {
+      remaining.add(iter.next());
+    }
+
+    assertEquals("Should return remaining items", 5, remaining.size());
+  }
+
+  @Test
+  public void testStaleCursor_DeletedAtCursor_Q7() throws Exception {
+    SQLArtifactIndexManagerSql idxdb = createIndexManagerSql();
+
+    String ns = "ns1";
+    String auid = "auid1";
+    String prefix = "http://example.com/docs/";
+
+    Map<String, String> keyToUuid = new HashMap<>();
+    for (int i = 0; i < 5; i++) {
+      String url = String.format("%sdoc%05d.pdf", prefix, i);
+      for (int v = 1; v <= 3; v++) {
+        ArtifactSpec spec = makeArtifactSpec(ns, auid, url, v);
+        idxdb.addArtifact(spec.getArtifact());
+        idxdb.commitArtifact(spec.getArtifactUuid());
+        keyToUuid.put(url + ":" + v, spec.getArtifactUuid());
+      }
+    }
+
+    Iterator<Artifact> iter = idxdb.findArtifactsAllCommittedVersionsOfAllUrlsMatchingPrefixWithNamespaceAndAuid(
+        ns, auid, prefix).iterator();
+
+    Artifact lastFetched = null;
+    for (int i = 0; i < 10; i++) {
+      lastFetched = iter.next();
+    }
+
+    idxdb.deleteArtifact(keyToUuid.get(lastFetched.getUri() + ":" + lastFetched.getVersion()));
+
+    List<Artifact> remaining = new ArrayList<>();
+    while (iter.hasNext()) {
+      remaining.add(iter.next());
+    }
+
+    assertEquals("Should return remaining items", 5, remaining.size());
+  }
+
+  // ============================================================================
+  // Many Pages (10+) Iteration Tests
+  // ============================================================================
+  // Tests that verify iteration works correctly across many pages
+
+  @Test
+  public void testManyPagesIteration_Q1() throws Exception {
+    SQLArtifactIndexManagerSql idxdb = createIndexManagerSql();
+
+    String ns = "ns1";
+    String auid = "auid1";
+    int numItems = TEST_PAGE_SIZE * 12 + 5; // 125 items, 13 pages
+
+    Set<String> expectedUrls = new TreeSet<>();
+    for (int i = 0; i < numItems; i++) {
+      String url = String.format("http://example.com/item%05d", i);
+      expectedUrls.add(url);
+      ArtifactSpec spec = makeArtifactSpec(ns, auid, url, 1);
+      idxdb.addArtifact(spec.getArtifact());
+      idxdb.commitArtifact(spec.getArtifactUuid());
+    }
+
+    List<Artifact> artifacts = toList(
+        idxdb.findLatestArtifactsOfAllUrlsWithNamespaceAndAuid(ns, auid, false));
+
+    assertEquals("Should return all items", numItems, artifacts.size());
+
+    // Verify no duplicates and all expected items present
+    Set<String> returnedUrls = new HashSet<>();
+    for (Artifact a : artifacts) {
+      assertTrue("No duplicates", returnedUrls.add(a.getUri()));
+    }
+    assertEquals("Should have all URLs", expectedUrls, returnedUrls);
+
+    // Verify sort order maintained across all pages
+    assertSorted(artifacts, a -> a.getUri().replace("/", "\t"));
+  }
+
+  @Test
+  public void testManyPagesIteration_Q2() throws Exception {
+    SQLArtifactIndexManagerSql idxdb = createIndexManagerSql();
+
+    String ns = "ns1";
+    String auid = "auid1";
+    int numUrls = 42;
+    int versionsPerUrl = 3;
+    int totalItems = numUrls * versionsPerUrl; // 126 items
+
+    for (int i = 0; i < numUrls; i++) {
+      String url = String.format("http://example.com/item%05d", i);
+      for (int v = 1; v <= versionsPerUrl; v++) {
+        ArtifactSpec spec = makeArtifactSpec(ns, auid, url, v);
+        idxdb.addArtifact(spec.getArtifact());
+        idxdb.commitArtifact(spec.getArtifactUuid());
+      }
+    }
+
+    List<Artifact> artifacts = toList(
+        idxdb.findArtifactsAllVersionsOfAllUrlsWithNamespaceAndAuid(ns, auid, false));
+
+    assertEquals("Should return all items", totalItems, artifacts.size());
+
+    // Verify no duplicates by UUID
+    Set<String> uuids = new HashSet<>();
+    for (Artifact a : artifacts) {
+      assertTrue("No duplicate UUIDs", uuids.add(a.getUuid()));
+    }
+  }
+
+  @Test
+  public void testManyPagesIteration_Q3() throws Exception {
+    SQLArtifactIndexManagerSql idxdb = createIndexManagerSql();
+
+    String ns = "ns1";
+    String auid = "auid1";
+    String url = "http://example.com/many-versions";
+    int numVersions = TEST_PAGE_SIZE * 12 + 5; // 125 versions
+
+    for (int v = 1; v <= numVersions; v++) {
+      ArtifactSpec spec = makeArtifactSpec(ns, auid, url, v);
+      idxdb.addArtifact(spec.getArtifact());
+      idxdb.commitArtifact(spec.getArtifactUuid());
+    }
+
+    List<Artifact> artifacts = toList(
+        idxdb.findArtifactsAllCommittedVersionsOfUrlWithNamespaceAndAuid(ns, auid, url));
+
+    assertEquals("Should return all versions", numVersions, artifacts.size());
+
+    // Verify descending version order
+    for (int i = 0; i < numVersions; i++) {
+      assertEquals("Wrong version at position " + i,
+          Integer.valueOf(numVersions - i), artifacts.get(i).getVersion());
+    }
+  }
+
+  @Test
+  public void testManyPagesIteration_Q4() throws Exception {
+    SQLArtifactIndexManagerSql idxdb = createIndexManagerSql();
+
+    String ns = "ns1";
+    String url = "http://example.com/shared";
+    int numAuids = TEST_PAGE_SIZE * 12 + 5; // 125 AUIDs
+
+    for (int i = 0; i < numAuids; i++) {
+      String auid = String.format("auid%05d", i);
+      ArtifactSpec spec = makeArtifactSpec(ns, auid, url, 1);
+      idxdb.addArtifact(spec.getArtifact());
+      idxdb.commitArtifact(spec.getArtifactUuid());
+    }
+
+    List<Artifact> artifacts = toList(
+        idxdb.findArtifactsAllCommittedVersionsOfUrlAllAuidsInNamespace(ns, url, VersionsEnum.ALL));
+
+    assertEquals("Should return all items", numAuids, artifacts.size());
+
+    // Verify AUID sort order
+    String prevAuid = null;
+    for (Artifact a : artifacts) {
+      if (prevAuid != null) {
+        assertTrue("AUIDs should be sorted", prevAuid.compareTo(a.getAuid()) <= 0);
+      }
+      prevAuid = a.getAuid();
+    }
+  }
+
+  @Test
+  public void testManyPagesIteration_Q5() throws Exception {
+    SQLArtifactIndexManagerSql idxdb = createIndexManagerSql();
+
+    String ns = "ns1";
+    String prefix = "http://example.com/prefix/";
+    int numItems = TEST_PAGE_SIZE * 12 + 5; // 125 items
+
+    for (int i = 0; i < numItems; i++) {
+      String url = String.format("%sfile%05d.html", prefix, i);
+      ArtifactSpec spec = makeArtifactSpec(ns, "auid1", url, 1);
+      idxdb.addArtifact(spec.getArtifact());
+      idxdb.commitArtifact(spec.getArtifactUuid());
+    }
+
+    List<Artifact> artifacts = toList(
+        idxdb.findArtifactsAllCommittedVersionsOfUrlByPrefixAllAuidsInNamespace(ns, prefix, VersionsEnum.ALL));
+
+    assertEquals("Should return all items", numItems, artifacts.size());
+
+    // Verify all match prefix
+    for (Artifact a : artifacts) {
+      assertTrue("Should match prefix", a.getUri().startsWith(prefix));
+    }
+  }
+
+  @Test
+  public void testManyPagesIteration_Q6() throws Exception {
+    SQLArtifactIndexManagerSql idxdb = createIndexManagerSql();
+
+    String ns = "ns1";
+    String auid = "auid1";
+    String prefix = "http://example.com/articles/";
+    int numItems = TEST_PAGE_SIZE * 12 + 5; // 125 items
+
+    for (int i = 0; i < numItems; i++) {
+      String url = String.format("%sarticle%05d.html", prefix, i);
+      ArtifactSpec spec = makeArtifactSpec(ns, auid, url, 1);
+      idxdb.addArtifact(spec.getArtifact());
+      idxdb.commitArtifact(spec.getArtifactUuid());
+    }
+
+    List<Artifact> artifacts = toList(
+        idxdb.findArtifactsLatestCommittedVersionsOfAllUrlsMatchingPrefixWithNamespaceAndAuid(ns, auid, prefix));
+
+    assertEquals("Should return all items", numItems, artifacts.size());
+
+    // Verify sort order
+    assertSorted(artifacts, a -> a.getUri().replace("/", "\t"));
+  }
+
+  @Test
+  public void testManyPagesIteration_Q7() throws Exception {
+    SQLArtifactIndexManagerSql idxdb = createIndexManagerSql();
+
+    String ns = "ns1";
+    String auid = "auid1";
+    String prefix = "http://example.com/docs/";
+    int numUrls = 42;
+    int versionsPerUrl = 3;
+    int totalItems = numUrls * versionsPerUrl; // 126 items
+
+    for (int i = 0; i < numUrls; i++) {
+      String url = String.format("%sdoc%05d.pdf", prefix, i);
+      for (int v = 1; v <= versionsPerUrl; v++) {
+        ArtifactSpec spec = makeArtifactSpec(ns, auid, url, v);
+        idxdb.addArtifact(spec.getArtifact());
+        idxdb.commitArtifact(spec.getArtifactUuid());
+      }
+    }
+
+    List<Artifact> artifacts = toList(
+        idxdb.findArtifactsAllCommittedVersionsOfAllUrlsMatchingPrefixWithNamespaceAndAuid(ns, auid, prefix));
+
+    assertEquals("Should return all items", totalItems, artifacts.size());
+
+    // Verify all match prefix
+    for (Artifact a : artifacts) {
+      assertTrue("Should match prefix", a.getUri().startsWith(prefix));
+    }
+  }
+
+  @Test
+  public void testConcurrentModification_CommitDuringIteration_Q2() throws Exception {
+    SQLArtifactIndexManagerSql idxdb = createIndexManagerSql();
+
+    String ns = "ns1";
+    String auid = "auid1";
+
+    // Create committed artifacts
+    for (int i = 0; i < 10; i++) {
+      String url = String.format("http://example.com/url%05d", i);
+      ArtifactSpec spec = makeArtifactSpec(ns, auid, url, 1);
+      idxdb.addArtifact(spec.getArtifact());
+      idxdb.commitArtifact(spec.getArtifactUuid());
+    }
+
+    // Create uncommitted artifact that sorts after first page
+    String uncommittedUrl = "http://example.com/url00015";
+    ArtifactSpec uncommittedSpec = makeArtifactSpec(ns, auid, uncommittedUrl, 1);
+    idxdb.addArtifact(uncommittedSpec.getArtifact());
+
+    // More committed artifacts
+    for (int i = 20; i < 25; i++) {
+      String url = String.format("http://example.com/url%05d", i);
+      ArtifactSpec spec = makeArtifactSpec(ns, auid, url, 1);
+      idxdb.addArtifact(spec.getArtifact());
+      idxdb.commitArtifact(spec.getArtifactUuid());
+    }
+
+    Iterator<Artifact> iter = idxdb.findArtifactsAllVersionsOfAllUrlsWithNamespaceAndAuid(ns, auid, false).iterator();
+
+    // Consume first page
+    for (int i = 0; i < 10; i++) {
+      iter.next();
+    }
+
+    // Commit the uncommitted artifact
+    idxdb.commitArtifact(uncommittedSpec.getArtifactUuid());
+
+    List<Artifact> remaining = new ArrayList<>();
+    while (iter.hasNext()) {
+      remaining.add(iter.next());
+    }
+
+    assertEquals("Should see newly committed plus remaining", 6, remaining.size());
+    assertTrue("Newly committed should be included",
+        remaining.stream().anyMatch(a -> a.getUri().equals(uncommittedUrl)));
+  }
+
+  @Test
+  public void testConcurrentModification_CommitDuringIteration_Q3() throws Exception {
+    SQLArtifactIndexManagerSql idxdb = createIndexManagerSql();
+
+    String ns = "ns1";
+    String auid = "auid1";
+    String url = "http://example.com/file";
+
+    // Create committed versions 10-1 (descending order in results)
+    for (int v = 1; v <= 10; v++) {
+      ArtifactSpec spec = makeArtifactSpec(ns, auid, url, v);
+      idxdb.addArtifact(spec.getArtifact());
+      idxdb.commitArtifact(spec.getArtifactUuid());
+    }
+
+    // Create uncommitted version 11 (will appear at start due to DESC order)
+    ArtifactSpec uncommittedSpec = makeArtifactSpec(ns, auid, url, 11);
+    idxdb.addArtifact(uncommittedSpec.getArtifact());
+
+    Iterator<Artifact> iter = idxdb.findArtifactsAllCommittedVersionsOfUrlWithNamespaceAndAuid(ns, auid, url).iterator();
+
+    // Consume all 10 committed versions (10 down to 1)
+    for (int i = 0; i < 10; i++) {
+      iter.next();
+    }
+
+    // Commit version 11
+    idxdb.commitArtifact(uncommittedSpec.getArtifactUuid());
+
+    // Should have no more since version 11 is before cursor (higher version = earlier in DESC order)
+    List<Artifact> remaining = new ArrayList<>();
+    while (iter.hasNext()) {
+      remaining.add(iter.next());
+    }
+
+    assertEquals("New version is before cursor in sort order, should not appear", 0, remaining.size());
+  }
+
+  @Test
+  public void testConcurrentModification_CommitDuringIteration_Q4() throws Exception {
+    SQLArtifactIndexManagerSql idxdb = createIndexManagerSql();
+
+    String ns = "ns1";
+    String url = "http://example.com/shared";
+
+    // Create committed artifacts
+    for (int i = 0; i < 10; i++) {
+      String auid = String.format("auid%05d", i);
+      ArtifactSpec spec = makeArtifactSpec(ns, auid, url, 1);
+      idxdb.addArtifact(spec.getArtifact());
+      idxdb.commitArtifact(spec.getArtifactUuid());
+    }
+
+    // Create uncommitted artifact in AUID that sorts after first page
+    String uncommittedAuid = "auid00015";
+    ArtifactSpec uncommittedSpec = makeArtifactSpec(ns, uncommittedAuid, url, 1);
+    idxdb.addArtifact(uncommittedSpec.getArtifact());
+
+    // More committed
+    for (int i = 20; i < 25; i++) {
+      String auid = String.format("auid%05d", i);
+      ArtifactSpec spec = makeArtifactSpec(ns, auid, url, 1);
+      idxdb.addArtifact(spec.getArtifact());
+      idxdb.commitArtifact(spec.getArtifactUuid());
+    }
+
+    Iterator<Artifact> iter = idxdb.findArtifactsAllCommittedVersionsOfUrlAllAuidsInNamespace(
+        ns, url, VersionsEnum.ALL).iterator();
+
+    for (int i = 0; i < 10; i++) {
+      iter.next();
+    }
+
+    idxdb.commitArtifact(uncommittedSpec.getArtifactUuid());
+
+    List<Artifact> remaining = new ArrayList<>();
+    while (iter.hasNext()) {
+      remaining.add(iter.next());
+    }
+
+    assertEquals("Should see newly committed plus remaining", 6, remaining.size());
+    assertTrue("Newly committed should be included",
+        remaining.stream().anyMatch(a -> a.getAuid().equals(uncommittedAuid)));
+  }
+
+  @Test
+  public void testConcurrentModification_CommitDuringIteration_Q5() throws Exception {
+    SQLArtifactIndexManagerSql idxdb = createIndexManagerSql();
+
+    String ns = "ns1";
+    String prefix = "http://example.com/data/";
+
+    for (int i = 0; i < 10; i++) {
+      String url = String.format("%sfile%05d", prefix, i);
+      ArtifactSpec spec = makeArtifactSpec(ns, "auid1", url, 1);
+      idxdb.addArtifact(spec.getArtifact());
+      idxdb.commitArtifact(spec.getArtifactUuid());
+    }
+
+    String uncommittedUrl = prefix + "file00015";
+    ArtifactSpec uncommittedSpec = makeArtifactSpec(ns, "auid1", uncommittedUrl, 1);
+    idxdb.addArtifact(uncommittedSpec.getArtifact());
+
+    for (int i = 20; i < 25; i++) {
+      String url = String.format("%sfile%05d", prefix, i);
+      ArtifactSpec spec = makeArtifactSpec(ns, "auid1", url, 1);
+      idxdb.addArtifact(spec.getArtifact());
+      idxdb.commitArtifact(spec.getArtifactUuid());
+    }
+
+    Iterator<Artifact> iter = idxdb.findArtifactsAllCommittedVersionsOfUrlByPrefixAllAuidsInNamespace(
+        ns, prefix, VersionsEnum.ALL).iterator();
+
+    for (int i = 0; i < 10; i++) {
+      iter.next();
+    }
+
+    idxdb.commitArtifact(uncommittedSpec.getArtifactUuid());
+
+    List<Artifact> remaining = new ArrayList<>();
+    while (iter.hasNext()) {
+      remaining.add(iter.next());
+    }
+
+    assertEquals("Should see newly committed plus remaining", 6, remaining.size());
+    assertTrue("Newly committed should be included",
+        remaining.stream().anyMatch(a -> a.getUri().equals(uncommittedUrl)));
+  }
+
+  @Test
+  public void testConcurrentModification_CommitDuringIteration_Q6() throws Exception {
+    SQLArtifactIndexManagerSql idxdb = createIndexManagerSql();
+
+    String ns = "ns1";
+    String auid = "auid1";
+    String prefix = "http://example.com/articles/";
+
+    for (int i = 0; i < 10; i++) {
+      String url = String.format("%sarticle%05d", prefix, i);
+      ArtifactSpec spec = makeArtifactSpec(ns, auid, url, 1);
+      idxdb.addArtifact(spec.getArtifact());
+      idxdb.commitArtifact(spec.getArtifactUuid());
+    }
+
+    String uncommittedUrl = prefix + "article00015";
+    ArtifactSpec uncommittedSpec = makeArtifactSpec(ns, auid, uncommittedUrl, 1);
+    idxdb.addArtifact(uncommittedSpec.getArtifact());
+
+    for (int i = 20; i < 25; i++) {
+      String url = String.format("%sarticle%05d", prefix, i);
+      ArtifactSpec spec = makeArtifactSpec(ns, auid, url, 1);
+      idxdb.addArtifact(spec.getArtifact());
+      idxdb.commitArtifact(spec.getArtifactUuid());
+    }
+
+    Iterator<Artifact> iter = idxdb.findArtifactsLatestCommittedVersionsOfAllUrlsMatchingPrefixWithNamespaceAndAuid(
+        ns, auid, prefix).iterator();
+
+    for (int i = 0; i < 10; i++) {
+      iter.next();
+    }
+
+    idxdb.commitArtifact(uncommittedSpec.getArtifactUuid());
+
+    List<Artifact> remaining = new ArrayList<>();
+    while (iter.hasNext()) {
+      remaining.add(iter.next());
+    }
+
+    assertEquals("Should see newly committed plus remaining", 6, remaining.size());
+    assertTrue("Newly committed should be included",
+        remaining.stream().anyMatch(a -> a.getUri().equals(uncommittedUrl)));
+  }
+
+  @Test
+  public void testConcurrentModification_CommitDuringIteration_Q7() throws Exception {
+    SQLArtifactIndexManagerSql idxdb = createIndexManagerSql();
+
+    String ns = "ns1";
+    String auid = "auid1";
+    String prefix = "http://example.com/docs/";
+
+    for (int i = 0; i < 10; i++) {
+      String url = String.format("%sdoc%05d", prefix, i);
+      ArtifactSpec spec = makeArtifactSpec(ns, auid, url, 1);
+      idxdb.addArtifact(spec.getArtifact());
+      idxdb.commitArtifact(spec.getArtifactUuid());
+    }
+
+    String uncommittedUrl = prefix + "doc00015";
+    ArtifactSpec uncommittedSpec = makeArtifactSpec(ns, auid, uncommittedUrl, 1);
+    idxdb.addArtifact(uncommittedSpec.getArtifact());
+
+    for (int i = 20; i < 25; i++) {
+      String url = String.format("%sdoc%05d", prefix, i);
+      ArtifactSpec spec = makeArtifactSpec(ns, auid, url, 1);
+      idxdb.addArtifact(spec.getArtifact());
+      idxdb.commitArtifact(spec.getArtifactUuid());
+    }
+
+    Iterator<Artifact> iter = idxdb.findArtifactsAllCommittedVersionsOfAllUrlsMatchingPrefixWithNamespaceAndAuid(
+        ns, auid, prefix).iterator();
+
+    for (int i = 0; i < 10; i++) {
+      iter.next();
+    }
+
+    idxdb.commitArtifact(uncommittedSpec.getArtifactUuid());
+
+    List<Artifact> remaining = new ArrayList<>();
+    while (iter.hasNext()) {
+      remaining.add(iter.next());
+    }
+
+    assertEquals("Should see newly committed plus remaining", 6, remaining.size());
+    assertTrue("Newly committed should be included",
+        remaining.stream().anyMatch(a -> a.getUri().equals(uncommittedUrl)));
+  }
+
+  // ============================================================================
+  // Query-Specific Tests
+  // ============================================================================
+  // Tests that exercise behavior unique to specific queries.
+
+  // ---------------------------------------------------------------------------
+  // Q1/Q6: Latest Version Selection Tests
+  // ---------------------------------------------------------------------------
+  // Q1 and Q6 return only the latest version of each URL. These tests verify
+  // that the correct version is returned when multiple versions exist.
+
+  /**
+   * Tests that Q1 returns only the latest version when multiple versions exist.
+   * Q1: findLatestArtifactsOfAllUrlsWithNamespaceAndAuid
+   */
+  @Test
+  public void testLatestVersionSelection_Q1() throws Exception {
+    SQLArtifactIndexManagerSql idxdb = createIndexManagerSql();
+
+    String ns = "ns1";
+    String auid = "auid1";
+
+    // Create URLs with varying numbers of versions
+    for (int i = 0; i < 15; i++) {
+      String url = String.format("http://example.com/doc%05d", i);
+      int numVersions = (i % 5) + 1; // 1-5 versions per URL
+
+      for (int v = 1; v <= numVersions; v++) {
+        ArtifactSpec spec = makeArtifactSpec(ns, auid, url, v);
+        idxdb.addArtifact(spec.getArtifact());
+        idxdb.commitArtifact(spec.getArtifactUuid());
+      }
+    }
+
+    List<Artifact> artifacts = toList(
+        idxdb.findLatestArtifactsOfAllUrlsWithNamespaceAndAuid(ns, auid, false));
+
+    assertEquals("Should return exactly one artifact per URL", 15, artifacts.size());
+
+    // Verify each artifact is the latest version
+    for (Artifact a : artifacts) {
+      // Extract URL index to determine expected version
+      String url = a.getUri();
+      int urlIndex = Integer.parseInt(url.substring(url.length() - 5));
+      int expectedVersion = (urlIndex % 5) + 1;
+      assertEquals("Should return latest version for " + url,
+          Integer.valueOf(expectedVersion), a.getVersion());
+    }
+  }
+
+  /**
+   * Tests that Q6 returns only the latest version when multiple versions exist.
+   * Q6: findArtifactsLatestCommittedVersionsOfAllUrlsMatchingPrefixWithNamespaceAndAuid
+   */
+  @Test
+  public void testLatestVersionSelection_Q6() throws Exception {
+    SQLArtifactIndexManagerSql idxdb = createIndexManagerSql();
+
+    String ns = "ns1";
+    String auid = "auid1";
+    String prefix = "http://example.com/articles/";
+
+    // Create URLs with varying numbers of versions
+    for (int i = 0; i < 15; i++) {
+      String url = String.format("%sarticle%05d", prefix, i);
+      int numVersions = (i % 5) + 1; // 1-5 versions per URL
+
+      for (int v = 1; v <= numVersions; v++) {
+        ArtifactSpec spec = makeArtifactSpec(ns, auid, url, v);
+        idxdb.addArtifact(spec.getArtifact());
+        idxdb.commitArtifact(spec.getArtifactUuid());
+      }
+    }
+
+    // Also create some URLs that don't match the prefix
+    for (int i = 0; i < 5; i++) {
+      String url = String.format("http://example.com/other/doc%05d", i);
+      ArtifactSpec spec = makeArtifactSpec(ns, auid, url, 1);
+      idxdb.addArtifact(spec.getArtifact());
+      idxdb.commitArtifact(spec.getArtifactUuid());
+    }
+
+    List<Artifact> artifacts = toList(
+        idxdb.findArtifactsLatestCommittedVersionsOfAllUrlsMatchingPrefixWithNamespaceAndAuid(ns, auid, prefix));
+
+    assertEquals("Should return exactly one artifact per matching URL", 15, artifacts.size());
+
+    // Verify each artifact matches prefix and is the latest version
+    for (Artifact a : artifacts) {
+      assertTrue("Should match prefix", a.getUri().startsWith(prefix));
+      String url = a.getUri();
+      int urlIndex = Integer.parseInt(url.substring(url.length() - 5));
+      int expectedVersion = (urlIndex % 5) + 1;
+      assertEquals("Should return latest version for " + url,
+          Integer.valueOf(expectedVersion), a.getVersion());
+    }
+  }
+
+  /**
+   * Tests that a new higher version committed during iteration is seen if after cursor.
+   * Q1: findLatestArtifactsOfAllUrlsWithNamespaceAndAuid
+   */
+  @Test
+  public void testLatestVersionSelection_NewVersionDuringIteration_Q1() throws Exception {
+    SQLArtifactIndexManagerSql idxdb = createIndexManagerSql();
+
+    String ns = "ns1";
+    String auid = "auid1";
+
+    // Create 15 URLs, each with version 1
+    for (int i = 0; i < 15; i++) {
+      String url = String.format("http://example.com/doc%05d", i);
+      ArtifactSpec spec = makeArtifactSpec(ns, auid, url, 1);
+      idxdb.addArtifact(spec.getArtifact());
+      idxdb.commitArtifact(spec.getArtifactUuid());
+    }
+
+    Iterator<Artifact> iter = idxdb.findLatestArtifactsOfAllUrlsWithNamespaceAndAuid(ns, auid, false).iterator();
+
+    // Fetch first page (10 items)
+    for (int i = 0; i < 10; i++) {
+      Artifact a = iter.next();
+      assertEquals("First page should have version 1", Integer.valueOf(1), a.getVersion());
+    }
+
+    // Add version 2 to a URL that's AFTER the cursor (doc00012)
+    String urlAfterCursor = "http://example.com/doc00012";
+    ArtifactSpec newVersionSpec = makeArtifactSpec(ns, auid, urlAfterCursor, 2);
+    idxdb.addArtifact(newVersionSpec.getArtifact());
+    idxdb.commitArtifact(newVersionSpec.getArtifactUuid());
+
+    // Continue iteration - should see version 2 for doc00012
+    List<Artifact> remaining = new ArrayList<>();
+    while (iter.hasNext()) {
+      remaining.add(iter.next());
+    }
+
+    assertEquals("Should see remaining 5 URLs", 5, remaining.size());
+
+    // Find doc00012 in results - should be version 2
+    Artifact doc12 = remaining.stream()
+        .filter(a -> a.getUri().equals(urlAfterCursor))
+        .findFirst()
+        .orElse(null);
+    assertNotNull("Should find doc00012", doc12);
+    assertEquals("Should be version 2 (latest)", Integer.valueOf(2), doc12.getVersion());
+  }
+
+  // ---------------------------------------------------------------------------
+  // Q2: Uncommitted Artifacts Tests
+  // ---------------------------------------------------------------------------
+  // Q2 is unique in that it can include uncommitted artifacts.
+
+  /**
+   * Tests that Q2 includes uncommitted artifacts when includeUncommitted=true.
+   * Q2: findArtifactsAllVersionsOfAllUrlsWithNamespaceAndAuid
+   */
+  @Test
+  public void testUncommittedArtifacts_Included_Q2() throws Exception {
+    SQLArtifactIndexManagerSql idxdb = createIndexManagerSql();
+
+    String ns = "ns1";
+    String auid = "auid1";
+
+    // Create mix of committed and uncommitted artifacts
+    List<String> uncommittedUuids = new ArrayList<>();
+    for (int i = 0; i < 15; i++) {
+      String url = String.format("http://example.com/doc%05d", i);
+      ArtifactSpec spec = makeArtifactSpec(ns, auid, url, 1);
+      idxdb.addArtifact(spec.getArtifact());
+
+      if (i % 2 == 0) {
+        // Commit even-indexed artifacts
+        idxdb.commitArtifact(spec.getArtifactUuid());
+      } else {
+        // Keep odd-indexed uncommitted
+        uncommittedUuids.add(spec.getArtifactUuid());
+      }
+    }
+
+    // Query with includeUncommitted=true (second parameter is includeUncommitted)
+    List<Artifact> artifacts = toList(
+        idxdb.findArtifactsAllVersionsOfAllUrlsWithNamespaceAndAuid(ns, auid, true));
+
+    assertEquals("Should return all 15 artifacts (committed + uncommitted)", 15, artifacts.size());
+
+    // Verify uncommitted artifacts are present
+    long uncommittedCount = artifacts.stream()
+        .filter(a -> !a.getCommitted())
+        .count();
+    assertEquals("Should have 7 uncommitted artifacts", 7, uncommittedCount);
+  }
+
+  /**
+   * Tests that Q2 excludes uncommitted artifacts when includeUncommitted=false.
+   * Q2: findArtifactsAllVersionsOfAllUrlsWithNamespaceAndAuid
+   */
+  @Test
+  public void testUncommittedArtifacts_Excluded_Q2() throws Exception {
+    SQLArtifactIndexManagerSql idxdb = createIndexManagerSql();
+
+    String ns = "ns1";
+    String auid = "auid1";
+
+    // Create mix of committed and uncommitted artifacts
+    for (int i = 0; i < 15; i++) {
+      String url = String.format("http://example.com/doc%05d", i);
+      ArtifactSpec spec = makeArtifactSpec(ns, auid, url, 1);
+      idxdb.addArtifact(spec.getArtifact());
+
+      if (i % 2 == 0) {
+        // Commit even-indexed artifacts (8 total: 0,2,4,6,8,10,12,14)
+        idxdb.commitArtifact(spec.getArtifactUuid());
+      }
+    }
+
+    // Query with includeUncommitted=false
+    List<Artifact> artifacts = toList(
+        idxdb.findArtifactsAllVersionsOfAllUrlsWithNamespaceAndAuid(ns, auid, false));
+
+    assertEquals("Should return only 8 committed artifacts", 8, artifacts.size());
+
+    // Verify all returned artifacts are committed
+    for (Artifact a : artifacts) {
+      assertTrue("All artifacts should be committed", a.getCommitted());
+    }
+  }
+
+  // ---------------------------------------------------------------------------
+  // Q3: Single URL Focus Tests
+  // ---------------------------------------------------------------------------
+  // Q3 queries versions of a single URL, so it should return nothing for
+  // non-existent URLs and exclude other URLs.
+
+  /**
+   * Tests that Q3 returns empty result for non-existent URL.
+   * Q3: findArtifactsAllCommittedVersionsOfUrlWithNamespaceAndAuid
+   */
+  @Test
+  public void testSingleUrlFocus_NonExistentUrl_Q3() throws Exception {
+    SQLArtifactIndexManagerSql idxdb = createIndexManagerSql();
+
+    String ns = "ns1";
+    String auid = "auid1";
+
+    // Create some artifacts with different URLs
+    for (int i = 0; i < 10; i++) {
+      String url = String.format("http://example.com/exists%05d", i);
+      ArtifactSpec spec = makeArtifactSpec(ns, auid, url, 1);
+      idxdb.addArtifact(spec.getArtifact());
+      idxdb.commitArtifact(spec.getArtifactUuid());
+    }
+
+    // Query for a URL that doesn't exist
+    List<Artifact> artifacts = toList(
+        idxdb.findArtifactsAllCommittedVersionsOfUrlWithNamespaceAndAuid(
+            ns, auid, "http://example.com/does-not-exist"));
+
+    assertEquals("Should return empty result for non-existent URL", 0, artifacts.size());
+  }
+
+  /**
+   * Tests that Q3 only returns versions of the specified URL.
+   * Q3: findArtifactsAllCommittedVersionsOfUrlWithNamespaceAndAuid
+   */
+  @Test
+  public void testSingleUrlFocus_ExcludesOtherUrls_Q3() throws Exception {
+    SQLArtifactIndexManagerSql idxdb = createIndexManagerSql();
+
+    String ns = "ns1";
+    String auid = "auid1";
+    String targetUrl = "http://example.com/target";
+
+    // Create versions of the target URL
+    for (int v = 1; v <= 5; v++) {
+      ArtifactSpec spec = makeArtifactSpec(ns, auid, targetUrl, v);
+      idxdb.addArtifact(spec.getArtifact());
+      idxdb.commitArtifact(spec.getArtifactUuid());
+    }
+
+    // Create artifacts with similar URLs that should NOT be returned
+    String[] similarUrls = {
+        "http://example.com/target2",
+        "http://example.com/target/subpath",
+        "http://example.com/targe",
+        "http://example.com/targetx"
+    };
+    for (String url : similarUrls) {
+      ArtifactSpec spec = makeArtifactSpec(ns, auid, url, 1);
+      idxdb.addArtifact(spec.getArtifact());
+      idxdb.commitArtifact(spec.getArtifactUuid());
+    }
+
+    List<Artifact> artifacts = toList(
+        idxdb.findArtifactsAllCommittedVersionsOfUrlWithNamespaceAndAuid(ns, auid, targetUrl));
+
+    assertEquals("Should return exactly 5 versions of target URL", 5, artifacts.size());
+    for (Artifact a : artifacts) {
+      assertEquals("All artifacts should have target URL", targetUrl, a.getUri());
+    }
+  }
+
+  // ---------------------------------------------------------------------------
+  // Q4/Q5: Cross-AUID Tests
+  // ---------------------------------------------------------------------------
+  // Q4 and Q5 query across all AUIDs in a namespace.
+
+  /**
+   * Tests that Q4 returns artifacts from multiple AUIDs correctly interleaved.
+   * Q4: findArtifactsAllCommittedVersionsOfUrlAllAuidsInNamespace
+   */
+  @Test
+  public void testCrossAuid_InterleavedResults_Q4() throws Exception {
+    SQLArtifactIndexManagerSql idxdb = createIndexManagerSql();
+
+    String ns = "ns1";
+    String url = "http://example.com/shared";
+
+    // Create the same URL in multiple AUIDs with multiple versions
+    String[] auids = {"auid-aaa", "auid-bbb", "auid-ccc"};
+    for (String auid : auids) {
+      for (int v = 1; v <= 3; v++) {
+        ArtifactSpec spec = makeArtifactSpec(ns, auid, url, v);
+        idxdb.addArtifact(spec.getArtifact());
+        idxdb.commitArtifact(spec.getArtifactUuid());
+      }
+    }
+
+    List<Artifact> artifacts = toList(
+        idxdb.findArtifactsAllCommittedVersionsOfUrlAllAuidsInNamespace(ns, url, VersionsEnum.ALL));
+
+    assertEquals("Should return 9 artifacts (3 AUIDs x 3 versions)", 9, artifacts.size());
+
+    // Verify all AUIDs are represented
+    Set<String> foundAuids = new HashSet<>();
+    for (Artifact a : artifacts) {
+      foundAuids.add(a.getAuid());
+      assertEquals("All should have same URL", url, a.getUri());
+    }
+    assertEquals("Should have all 3 AUIDs", 3, foundAuids.size());
+
+    // Verify sort order: auid ascending, then version descending
+    String prevAuid = "";
+    int prevVersion = Integer.MAX_VALUE;
+    for (Artifact a : artifacts) {
+      if (!a.getAuid().equals(prevAuid)) {
+        assertTrue("AUIDs should be ascending", a.getAuid().compareTo(prevAuid) > 0);
+        prevAuid = a.getAuid();
+        prevVersion = Integer.MAX_VALUE;
+      }
+      assertTrue("Versions should be descending within AUID", a.getVersion() < prevVersion);
+      prevVersion = a.getVersion();
+    }
+  }
+
+  /**
+   * Tests that Q5 returns artifacts from multiple AUIDs for prefix-matching URLs.
+   * Q5: findArtifactsAllCommittedVersionsOfUrlByPrefixAllAuidsInNamespace
+   */
+  @Test
+  public void testCrossAuid_InterleavedResults_Q5() throws Exception {
+    SQLArtifactIndexManagerSql idxdb = createIndexManagerSql();
+
+    String ns = "ns1";
+    String prefix = "http://example.com/shared/";
+
+    // Create URLs matching prefix in multiple AUIDs
+    String[] auids = {"auid-aaa", "auid-bbb", "auid-ccc"};
+    for (String auid : auids) {
+      for (int i = 0; i < 5; i++) {
+        String url = String.format("%sdoc%05d", prefix, i);
+        ArtifactSpec spec = makeArtifactSpec(ns, auid, url, 1);
+        idxdb.addArtifact(spec.getArtifact());
+        idxdb.commitArtifact(spec.getArtifactUuid());
+      }
+    }
+
+    // Also create URLs NOT matching prefix
+    for (String auid : auids) {
+      String url = "http://example.com/other/doc";
+      ArtifactSpec spec = makeArtifactSpec(ns, auid, url, 1);
+      idxdb.addArtifact(spec.getArtifact());
+      idxdb.commitArtifact(spec.getArtifactUuid());
+    }
+
+    List<Artifact> artifacts = toList(
+        idxdb.findArtifactsAllCommittedVersionsOfUrlByPrefixAllAuidsInNamespace(ns, prefix, VersionsEnum.ALL));
+
+    assertEquals("Should return 15 artifacts (3 AUIDs x 5 URLs)", 15, artifacts.size());
+
+    // Verify all match prefix and all AUIDs are represented
+    Set<String> foundAuids = new HashSet<>();
+    for (Artifact a : artifacts) {
+      assertTrue("All should match prefix", a.getUri().startsWith(prefix));
+      foundAuids.add(a.getAuid());
+    }
+    assertEquals("Should have all 3 AUIDs", 3, foundAuids.size());
+  }
+
+  /**
+   * Tests that Q1 does NOT return artifacts from other AUIDs (AUID isolation).
+   * Q1: findLatestArtifactsOfAllUrlsWithNamespaceAndAuid
+   */
+  @Test
+  public void testAuidIsolation_Q1() throws Exception {
+    SQLArtifactIndexManagerSql idxdb = createIndexManagerSql();
+
+    String ns = "ns1";
+
+    // Create same URLs in multiple AUIDs
+    String[] auids = {"auid-aaa", "auid-bbb", "auid-ccc"};
+    for (String auid : auids) {
+      for (int i = 0; i < 5; i++) {
+        String url = String.format("http://example.com/doc%05d", i);
+        ArtifactSpec spec = makeArtifactSpec(ns, auid, url, 1);
+        idxdb.addArtifact(spec.getArtifact());
+        idxdb.commitArtifact(spec.getArtifactUuid());
+      }
+    }
+
+    // Query for only auid-bbb
+    List<Artifact> artifacts = toList(
+        idxdb.findLatestArtifactsOfAllUrlsWithNamespaceAndAuid(ns, "auid-bbb", false));
+
+    assertEquals("Should return only 5 artifacts from auid-bbb", 5, artifacts.size());
+    for (Artifact a : artifacts) {
+      assertEquals("All should be from auid-bbb", "auid-bbb", a.getAuid());
+    }
+  }
+
+  // ---------------------------------------------------------------------------
+  // Q5/Q6/Q7: Prefix Matching Tests
+  // ---------------------------------------------------------------------------
+  // These queries filter by URL prefix.
+
+  /**
+   * Tests that prefix matching returns empty for non-matching prefix.
+   * Q5: findArtifactsAllCommittedVersionsOfUrlByPrefixAllAuidsInNamespace
+   */
+  @Test
+  public void testPrefixMatching_NoMatch_Q5() throws Exception {
+    SQLArtifactIndexManagerSql idxdb = createIndexManagerSql();
+
+    String ns = "ns1";
+    String auid = "auid1";
+
+    // Create URLs with specific prefix
+    for (int i = 0; i < 10; i++) {
+      String url = String.format("http://example.com/existing/%05d", i);
+      ArtifactSpec spec = makeArtifactSpec(ns, auid, url, 1);
+      idxdb.addArtifact(spec.getArtifact());
+      idxdb.commitArtifact(spec.getArtifactUuid());
+    }
+
+    // Query for non-existent prefix
+    List<Artifact> artifacts = toList(
+        idxdb.findArtifactsAllCommittedVersionsOfUrlByPrefixAllAuidsInNamespace(
+            ns, "http://example.com/nonexistent/", VersionsEnum.ALL));
+
+    assertEquals("Should return empty for non-matching prefix", 0, artifacts.size());
+  }
+
+  /**
+   * Tests prefix boundary - URLs that almost match but don't.
+   * Q6: findArtifactsLatestCommittedVersionsOfAllUrlsMatchingPrefixWithNamespaceAndAuid
+   */
+  @Test
+  public void testPrefixMatching_Boundary_Q6() throws Exception {
+    SQLArtifactIndexManagerSql idxdb = createIndexManagerSql();
+
+    String ns = "ns1";
+    String auid = "auid1";
+    String prefix = "http://example.com/docs/";
+
+    // Create URLs that match the prefix
+    for (int i = 0; i < 5; i++) {
+      String url = prefix + "file" + i;
+      ArtifactSpec spec = makeArtifactSpec(ns, auid, url, 1);
+      idxdb.addArtifact(spec.getArtifact());
+      idxdb.commitArtifact(spec.getArtifactUuid());
+    }
+
+    // Create URLs that almost match but shouldn't
+    String[] nonMatchingUrls = {
+        "http://example.com/doc/file",      // 'doc' not 'docs'
+        "http://example.com/docs",          // missing trailing slash
+        "http://example.com/documents/file", // 'documents' not 'docs'
+        "http://example.com/DOCS/file",     // case-sensitive
+        "http://example.org/docs/file"      // different domain
+    };
+    for (String url : nonMatchingUrls) {
+      ArtifactSpec spec = makeArtifactSpec(ns, auid, url, 1);
+      idxdb.addArtifact(spec.getArtifact());
+      idxdb.commitArtifact(spec.getArtifactUuid());
+    }
+
+    List<Artifact> artifacts = toList(
+        idxdb.findArtifactsLatestCommittedVersionsOfAllUrlsMatchingPrefixWithNamespaceAndAuid(ns, auid, prefix));
+
+    assertEquals("Should return only 5 matching URLs", 5, artifacts.size());
+    for (Artifact a : artifacts) {
+      assertTrue("All should match prefix exactly", a.getUri().startsWith(prefix));
+    }
+  }
+
+  /**
+   * Tests prefix matching with empty prefix (should match all).
+   * Q7: findArtifactsAllCommittedVersionsOfAllUrlsMatchingPrefixWithNamespaceAndAuid
+   */
+  @Test
+  public void testPrefixMatching_EmptyPrefix_Q7() throws Exception {
+    SQLArtifactIndexManagerSql idxdb = createIndexManagerSql();
+
+    String ns = "ns1";
+    String auid = "auid1";
+
+    // Create URLs with various prefixes
+    String[] urls = {
+        "http://example.com/a",
+        "http://example.org/b",
+        "https://secure.com/c",
+        "ftp://files.com/d"
+    };
+    for (String url : urls) {
+      ArtifactSpec spec = makeArtifactSpec(ns, auid, url, 1);
+      idxdb.addArtifact(spec.getArtifact());
+      idxdb.commitArtifact(spec.getArtifactUuid());
+    }
+
+    // Query with empty prefix
+    List<Artifact> artifacts = toList(
+        idxdb.findArtifactsAllCommittedVersionsOfAllUrlsMatchingPrefixWithNamespaceAndAuid(ns, auid, ""));
+
+    assertEquals("Empty prefix should match all URLs", 4, artifacts.size());
+  }
+
+  // ---------------------------------------------------------------------------
+  // Q4/Q5: VersionsEnum Parameter Tests
+  // ---------------------------------------------------------------------------
+  // Q4 and Q5 accept a VersionsEnum parameter (ALL or LATEST).
+
+  /**
+   * Tests Q4 with VersionsEnum.LATEST returns only latest version per URL/AUID.
+   * Q4: findArtifactsAllCommittedVersionsOfUrlAllAuidsInNamespace
+   */
+  @Test
+  public void testVersionsEnum_Latest_Q4() throws Exception {
+    SQLArtifactIndexManagerSql idxdb = createIndexManagerSql();
+
+    String ns = "ns1";
+    String url = "http://example.com/shared";
+
+    // Create same URL in multiple AUIDs with multiple versions
+    String[] auids = {"auid-aaa", "auid-bbb", "auid-ccc"};
+    for (String auid : auids) {
+      for (int v = 1; v <= 5; v++) {
+        ArtifactSpec spec = makeArtifactSpec(ns, auid, url, v);
+        idxdb.addArtifact(spec.getArtifact());
+        idxdb.commitArtifact(spec.getArtifactUuid());
+      }
+    }
+
+    // Query with LATEST
+    List<Artifact> artifacts = toList(
+        idxdb.findArtifactsAllCommittedVersionsOfUrlAllAuidsInNamespace(ns, url, VersionsEnum.LATEST));
+
+    assertEquals("Should return 3 artifacts (1 per AUID)", 3, artifacts.size());
+
+    // Verify each is version 5 (latest)
+    for (Artifact a : artifacts) {
+      assertEquals("Should be latest version", Integer.valueOf(5), a.getVersion());
+    }
+
+    // Verify all AUIDs represented
+    Set<String> foundAuids = new HashSet<>();
+    for (Artifact a : artifacts) {
+      foundAuids.add(a.getAuid());
+    }
+    assertEquals("Should have all 3 AUIDs", 3, foundAuids.size());
+  }
+
+  /**
+   * Tests Q4 with VersionsEnum.ALL returns all versions.
+   * Q4: findArtifactsAllCommittedVersionsOfUrlAllAuidsInNamespace
+   */
+  @Test
+  public void testVersionsEnum_All_Q4() throws Exception {
+    SQLArtifactIndexManagerSql idxdb = createIndexManagerSql();
+
+    String ns = "ns1";
+    String url = "http://example.com/shared";
+
+    // Create same URL in multiple AUIDs with multiple versions
+    String[] auids = {"auid-aaa", "auid-bbb"};
+    for (String auid : auids) {
+      for (int v = 1; v <= 3; v++) {
+        ArtifactSpec spec = makeArtifactSpec(ns, auid, url, v);
+        idxdb.addArtifact(spec.getArtifact());
+        idxdb.commitArtifact(spec.getArtifactUuid());
+      }
+    }
+
+    // Query with ALL
+    List<Artifact> artifacts = toList(
+        idxdb.findArtifactsAllCommittedVersionsOfUrlAllAuidsInNamespace(ns, url, VersionsEnum.ALL));
+
+    assertEquals("Should return 6 artifacts (2 AUIDs x 3 versions)", 6, artifacts.size());
+  }
+
+  /**
+   * Tests Q5 with VersionsEnum.LATEST returns only latest version per URL/AUID.
+   * Q5: findArtifactsAllCommittedVersionsOfUrlByPrefixAllAuidsInNamespace
+   */
+  @Test
+  public void testVersionsEnum_Latest_Q5() throws Exception {
+    SQLArtifactIndexManagerSql idxdb = createIndexManagerSql();
+
+    String ns = "ns1";
+    String prefix = "http://example.com/docs/";
+
+    // Create URLs in multiple AUIDs with multiple versions
+    String[] auids = {"auid-aaa", "auid-bbb"};
+    for (String auid : auids) {
+      for (int i = 0; i < 3; i++) {
+        String url = String.format("%sdoc%d", prefix, i);
+        for (int v = 1; v <= 4; v++) {
+          ArtifactSpec spec = makeArtifactSpec(ns, auid, url, v);
+          idxdb.addArtifact(spec.getArtifact());
+          idxdb.commitArtifact(spec.getArtifactUuid());
+        }
+      }
+    }
+
+    // Query with LATEST
+    List<Artifact> artifacts = toList(
+        idxdb.findArtifactsAllCommittedVersionsOfUrlByPrefixAllAuidsInNamespace(ns, prefix, VersionsEnum.LATEST));
+
+    assertEquals("Should return 6 artifacts (2 AUIDs x 3 URLs)", 6, artifacts.size());
+
+    // Verify each is version 4 (latest)
+    for (Artifact a : artifacts) {
+      assertEquals("Should be latest version", Integer.valueOf(4), a.getVersion());
+    }
+  }
+
+  /**
+   * Tests Q5 with VersionsEnum.ALL returns all versions.
+   * Q5: findArtifactsAllCommittedVersionsOfUrlByPrefixAllAuidsInNamespace
+   */
+  @Test
+  public void testVersionsEnum_All_Q5() throws Exception {
+    SQLArtifactIndexManagerSql idxdb = createIndexManagerSql();
+
+    String ns = "ns1";
+    String prefix = "http://example.com/docs/";
+
+    // Create URLs in multiple AUIDs with multiple versions
+    String[] auids = {"auid-aaa", "auid-bbb"};
+    for (String auid : auids) {
+      for (int i = 0; i < 2; i++) {
+        String url = String.format("%sdoc%d", prefix, i);
+        for (int v = 1; v <= 3; v++) {
+          ArtifactSpec spec = makeArtifactSpec(ns, auid, url, v);
+          idxdb.addArtifact(spec.getArtifact());
+          idxdb.commitArtifact(spec.getArtifactUuid());
+        }
+      }
+    }
+
+    // Query with ALL
+    List<Artifact> artifacts = toList(
+        idxdb.findArtifactsAllCommittedVersionsOfUrlByPrefixAllAuidsInNamespace(ns, prefix, VersionsEnum.ALL));
+
+    assertEquals("Should return 12 artifacts (2 AUIDs x 2 URLs x 3 versions)", 12, artifacts.size());
   }
 }
