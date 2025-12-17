@@ -79,10 +79,63 @@ public class TestSQLArtifactIndexManagerSqlPaging extends LockssTestCase4 {
   /** Small page size for testing - allows testing paging with fewer artifacts */
   private static final int TEST_PAGE_SIZE = 10;
 
+  /** Shared embedded PostgreSQL instance for all tests in this class */
+  private static EmbeddedPostgres embeddedPg;
+
   private MockLockssDaemon theDaemon;
   private String tempDirPath;
   private SQLArtifactIndexDbManager idxDbManager;
-  private String dbPort;
+
+  /**
+   * Start the shared PostgreSQL instance once before any tests run.
+   */
+  @BeforeClass
+  public static void setUpClass() throws Exception {
+    EmbeddedPostgres.Builder builder = EmbeddedPostgres.builder();
+    String extemp = System.getProperty("org.lockss.executableTempDir");
+    if (!StringUtil.isNullString(extemp)) {
+      builder.setOverrideWorkingDirectory(new File(extemp));
+    }
+    embeddedPg = builder.start();
+    log.info("Started embedded PostgreSQL on port " + embeddedPg.getPort());
+  }
+
+  /**
+   * Stop the shared PostgreSQL instance after all tests complete.
+   */
+  @AfterClass
+  public static void tearDownClass() throws Exception {
+    if (embeddedPg != null) {
+      embeddedPg.close();
+      embeddedPg = null;
+    }
+  }
+
+  /**
+   * Creates a new database with the given name and returns a DataSource for it.
+   */
+  private static DataSource createDatabase(String dbName) throws SQLException {
+    int port = embeddedPg.getPort();
+    String host = "localhost";
+    String adminDb = "postgres";
+    String username = "postgres";
+
+    // Connect to admin database and create the new database
+    String adminUrl = String.format("jdbc:postgresql://%s:%d/%s", host, port, adminDb);
+    try (Connection adminConn = DriverManager.getConnection(adminUrl, username, "");
+         Statement stmt = adminConn.createStatement()) {
+      String createQuery = String.format("CREATE DATABASE %s TEMPLATE template0", dbName);
+      stmt.executeUpdate(createQuery);
+    }
+
+    // Return a DataSource connected to the new database
+    PGSimpleDataSource ds = new PGSimpleDataSource();
+    ds.setServerNames(new String[]{host});
+    ds.setPortNumbers(new int[]{port});
+    ds.setDatabaseName(dbName);
+    ds.setUser(username);
+    return ds;
+  }
 
   @Override
   public void setUp() throws Exception {
@@ -90,47 +143,37 @@ public class TestSQLArtifactIndexManagerSqlPaging extends LockssTestCase4 {
     tempDirPath = setUpDiskSpace();
     theDaemon = getMockLockssDaemon();
     theDaemon.setDaemonInited(true);
-    dbPort = Integer.toString(TcpTestUtil.findUnboundTcpPort());
-    ConfigurationUtil.addFromArgs(RepositoryDbManager.PARAM_DATASOURCE_PORTNUMBER, dbPort);
+
+    // Configure DbManager settings
+    ConfigurationUtil.addFromArgs(
+        SQLArtifactIndexDbManager.PARAM_DATASOURCE_USER, "postgres",
+        SQLArtifactIndexDbManager.PARAM_DATASOURCE_PASSWORD, "postgres",
+        SQLArtifactIndexDbManager.DATASOURCE_ROOT + ".dbcp.enabled", "false",
+        SQLArtifactIndexDbManager.PARAM_MAX_RETRY_COUNT, "0");
+    ConfigurationUtil.addFromArgs(
+        SQLArtifactIndexDbManager.PARAM_RETRY_DELAY, "0",
+        SQLArtifactIndexDbManager.PARAM_DATASOURCE_CLASSNAME, PGSimpleDataSource.class.getCanonicalName());
+
+    // Create a unique database for this test
+    String dbName = "test_" + UUID.randomUUID().toString().replace("-", "");
+    DataSource ds = createDatabase(dbName);
+
+    // Initialize the DbManager with the test database
+    idxDbManager = new SQLArtifactIndexDbManager();
+    idxDbManager.setTestingDataSource(ds);
+    idxDbManager.initService(theDaemon);
+    idxDbManager.setTargetDatabaseVersion(4);
+    idxDbManager.startService();
+    theDaemon.setSQLArtifactIndexDbManager(idxDbManager);
   }
 
   @Override
   public void tearDown() throws Exception {
-    if (idxDbManager != null)
+    if (idxDbManager != null) {
       idxDbManager.stopService();
+    }
     theDaemon.stopDaemon();
     super.tearDown();
-  }
-
-  protected void initializePostgreSQL() throws Exception {
-    ConfigurationUtil.addFromArgs(
-        SQLArtifactIndexDbManager.PARAM_DATASOURCE_USER, "postgres",
-        SQLArtifactIndexDbManager.PARAM_DATASOURCE_PASSWORD, "postgresx");
-
-    ConfigurationUtil.addFromArgs(
-        SQLArtifactIndexDbManager.DATASOURCE_ROOT + ".dbcp.enabled", "true",
-        SQLArtifactIndexDbManager.DATASOURCE_ROOT + ".dbcp.initialSize", "2");
-
-    ConfigurationUtil.addFromArgs(
-        SQLArtifactIndexDbManager.PARAM_MAX_RETRY_COUNT, "0",
-        SQLArtifactIndexDbManager.PARAM_RETRY_DELAY, "0");
-
-    ConfigurationUtil.addFromArgs(
-        SQLArtifactIndexDbManager.PARAM_DATASOURCE_CLASSNAME, PGSimpleDataSource.class.getCanonicalName(),
-        SQLArtifactIndexDbManager.PARAM_DATASOURCE_PASSWORD, "postgres");
-
-    idxDbManager = new SQLArtifactIndexDbManager();
-    startEmbeddedPgDbManager(idxDbManager);
-    idxDbManager.initService(getMockLockssDaemon());
-
-    idxDbManager.setTargetDatabaseVersion(4);
-    idxDbManager.startService();
-
-    theDaemon.setSQLArtifactIndexDbManager(idxDbManager);
-  }
-
-  private void initializeDatabase() throws Exception {
-    initializePostgreSQL();
   }
 
   private static ArtifactSpec makeArtifactSpec(String ns, String auid, String url, int version) {
