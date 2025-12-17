@@ -154,7 +154,7 @@ public class TestSQLArtifactIndexManagerSqlPaging extends LockssTestCase4 {
    */
   private SQLArtifactIndexManagerSql createIndexManagerSql() {
     SQLArtifactIndexManagerSql idxdb = new SQLArtifactIndexManagerSql(idxDbManager);
-    idxdb.setPagingPageSize(TEST_PAGE_SIZE);
+    idxdb.setPageSize(TEST_PAGE_SIZE);
     return idxdb;
   }
 

@@ -59,7 +59,7 @@ public class SQLArtifactIndexManagerSql {
   protected final SQLArtifactIndexDbManager idxDbManager;
 
   /** Page size for PagingArtifactIterator. Default is PagingArtifactIterator.DEFAULT_PAGE_SIZE. */
-  private int pagingPageSize = PagingArtifactIterator.DEFAULT_PAGE_SIZE;
+  private int pageSize = PagingArtifactIterator.DEFAULT_PAGE_SIZE;
 
   private static final String EMPTY_STRING = "";
 
@@ -1065,11 +1065,11 @@ public class SQLArtifactIndexManagerSql {
    * @param pageSize the page size (must be at least 1)
    * @throws IllegalArgumentException if pageSize < 1
    */
-  public void setPagingPageSize(int pageSize) {
+  public void setPageSize(int pageSize) {
     if (pageSize < 1) {
       throw new IllegalArgumentException("Page size must be at least 1");
     }
-    this.pagingPageSize = pageSize;
+    this.pageSize = pageSize;
   }
 
   /**
@@ -1077,8 +1077,8 @@ public class SQLArtifactIndexManagerSql {
    *
    * @return the page size
    */
-  public int getPagingPageSize() {
-    return pagingPageSize;
+  public int getPageSize() {
+    return pageSize;
   }
 
   /**
@@ -1777,7 +1777,7 @@ public class SQLArtifactIndexManagerSql {
       rs = idxDbManager.executeQuery(ps);
 
       // Collect results
-      List<Artifact> artifacts = new ArrayList<>(Math.min(limit, 1000));
+      List<Artifact> artifacts = new ArrayList<>(Math.min(limit, pageSize));
       while (rs.next()) {
         artifacts.add(getArtifactFromCurrentRow(rs));
       }
@@ -1854,7 +1854,7 @@ public class SQLArtifactIndexManagerSql {
 
       rs = idxDbManager.executeQuery(ps);
 
-      List<Artifact> artifacts = new ArrayList<>(Math.min(limit, 1000));
+      List<Artifact> artifacts = new ArrayList<>(Math.min(limit, pageSize));
       while (rs.next()) {
         artifacts.add(getArtifactFromCurrentRow(rs));
       }
@@ -1939,7 +1939,7 @@ public class SQLArtifactIndexManagerSql {
 
       rs = idxDbManager.executeQuery(ps);
 
-      List<Artifact> artifacts = new ArrayList<>(Math.min(limit, 1000));
+      List<Artifact> artifacts = new ArrayList<>(Math.min(limit, pageSize));
       while (rs.next()) {
         artifacts.add(getArtifactFromCurrentRow(rs));
       }
@@ -2038,7 +2038,7 @@ public class SQLArtifactIndexManagerSql {
 
       rs = idxDbManager.executeQuery(ps);
 
-      List<Artifact> artifacts = new ArrayList<>(Math.min(limit, 1000));
+      List<Artifact> artifacts = new ArrayList<>(Math.min(limit, pageSize));
       while (rs.next()) {
         artifacts.add(getArtifactFromCurrentRow(rs));
       }
@@ -2143,7 +2143,7 @@ public class SQLArtifactIndexManagerSql {
 
       rs = idxDbManager.executeQuery(ps);
 
-      List<Artifact> artifacts = new ArrayList<>(Math.min(limit, 1000));
+      List<Artifact> artifacts = new ArrayList<>(Math.min(limit, pageSize));
       while (rs.next()) {
         artifacts.add(getArtifactFromCurrentRow(rs));
       }
@@ -2234,7 +2234,7 @@ public class SQLArtifactIndexManagerSql {
 
       rs = idxDbManager.executeQuery(ps);
 
-      List<Artifact> artifacts = new ArrayList<>(Math.min(limit, 1000));
+      List<Artifact> artifacts = new ArrayList<>(Math.min(limit, pageSize));
       while (rs.next()) {
         artifacts.add(getArtifactFromCurrentRow(rs));
       }
@@ -2327,7 +2327,7 @@ public class SQLArtifactIndexManagerSql {
 
       rs = idxDbManager.executeQuery(ps);
 
-      List<Artifact> artifacts = new ArrayList<>(Math.min(limit, 1000));
+      List<Artifact> artifacts = new ArrayList<>(Math.min(limit, pageSize));
       while (rs.next()) {
         artifacts.add(getArtifactFromCurrentRow(rs));
       }
@@ -2360,7 +2360,7 @@ public class SQLArtifactIndexManagerSql {
     PagingArtifactIterator.PageFetcher fetcher = (cursor, limit) ->
         fetchLatestArtifactsPage(namespace, auid, includeUncommitted, cursor, limit);
 
-    return IteratorUtils.asIterable(new PagingArtifactIterator(fetcher, pagingPageSize));
+    return IteratorUtils.asIterable(new PagingArtifactIterator(fetcher, pageSize));
   }
 
   public Iterable<Artifact> findArtifactsAllVersionsOfAllUrlsWithNamespaceAndAuid(String namespace, String auid, boolean includeUncommitted) throws DbException {
@@ -2372,7 +2372,7 @@ public class SQLArtifactIndexManagerSql {
     PagingArtifactIterator.PageFetcher fetcher = (cursor, limit) ->
         fetchAllVersionsArtifactsPage(namespace, auid, includeUncommitted, cursor, limit);
 
-    return IteratorUtils.asIterable(new PagingArtifactIterator(fetcher, pagingPageSize));
+    return IteratorUtils.asIterable(new PagingArtifactIterator(fetcher, pageSize));
   }
 
   public Iterable<Artifact> findArtifactsAllCommittedVersionsOfUrlWithNamespaceAndAuid(String namespace, String auid, String url)
@@ -2386,7 +2386,7 @@ public class SQLArtifactIndexManagerSql {
     PagingArtifactIterator.PageFetcher fetcher = (cursor, limit) ->
         fetchArtifactsForUrlPage(namespace, auid, url, cursor, limit);
 
-    return IteratorUtils.asIterable(new PagingArtifactIterator(fetcher, pagingPageSize));
+    return IteratorUtils.asIterable(new PagingArtifactIterator(fetcher, pageSize));
   }
 
   public Iterable<Artifact> findArtifactsAllCommittedVersionsOfUrlAllAuidsInNamespace(
@@ -2401,7 +2401,7 @@ public class SQLArtifactIndexManagerSql {
     PagingArtifactIterator.PageFetcher fetcher = (cursor, limit) ->
         fetchArtifactsForUrlAllAuidsPage(namespace, url, versions, cursor, limit);
 
-    return IteratorUtils.asIterable(new PagingArtifactIterator(fetcher, pagingPageSize,
+    return IteratorUtils.asIterable(new PagingArtifactIterator(fetcher, pageSize,
         PagingArtifactIterator.ALL_AUIDS_CURSOR_EXTRACTOR));
   }
 
@@ -2417,7 +2417,7 @@ public class SQLArtifactIndexManagerSql {
     PagingArtifactIterator.PageFetcher fetcher = (cursor, limit) ->
         fetchArtifactsByPrefixAllAuidsPage(namespace, prefix, versions, cursor, limit);
 
-    return IteratorUtils.asIterable(new PagingArtifactIterator(fetcher, pagingPageSize,
+    return IteratorUtils.asIterable(new PagingArtifactIterator(fetcher, pageSize,
         PagingArtifactIterator.ALL_AUIDS_CURSOR_EXTRACTOR));
   }
 
@@ -2432,7 +2432,7 @@ public class SQLArtifactIndexManagerSql {
     PagingArtifactIterator.PageFetcher fetcher = (cursor, limit) ->
         fetchLatestArtifactsWithPrefixPage(namespace, auid, urlPrefix, cursor, limit);
 
-    return IteratorUtils.asIterable(new PagingArtifactIterator(fetcher, pagingPageSize));
+    return IteratorUtils.asIterable(new PagingArtifactIterator(fetcher, pageSize));
   }
 
   public Iterable<Artifact> findArtifactsAllCommittedVersionsOfAllUrlsMatchingPrefixWithNamespaceAndAuid(
@@ -2446,7 +2446,7 @@ public class SQLArtifactIndexManagerSql {
     PagingArtifactIterator.PageFetcher fetcher = (cursor, limit) ->
         fetchAllVersionsArtifactsWithPrefixPage(namespace, auid, urlPrefix, cursor, limit);
 
-    return IteratorUtils.asIterable(new PagingArtifactIterator(fetcher, pagingPageSize));
+    return IteratorUtils.asIterable(new PagingArtifactIterator(fetcher, pageSize));
   }
 
   private static class ArtifactIteratorCleaner implements Runnable {
