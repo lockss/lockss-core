@@ -31,27 +31,69 @@ POSSIBILITY OF SUCH DAMAGE.
 */
 package org.lockss.rs.io.index.db;
 
+import io.zonky.test.db.postgres.embedded.EmbeddedPostgres;
+import org.junit.AfterClass;
+import org.junit.BeforeClass;
 import org.junit.Test;
 import org.lockss.db.DbException;
-import org.lockss.repository.RepositoryDbManager;
 import org.lockss.test.ConfigurationUtil;
 import org.lockss.test.LockssTestCase4;
 import org.lockss.test.MockLockssDaemon;
-import org.lockss.test.TcpTestUtil;
 import org.lockss.util.Logger;
+import org.lockss.util.StringUtil;
 import org.lockss.util.rest.repo.model.Artifact;
 import org.lockss.util.rest.repo.model.VersionsEnum;
 import org.lockss.util.rest.repo.util.ArtifactSpec;
 import org.lockss.util.time.TimeBase;
 import org.postgresql.ds.PGSimpleDataSource;
 
+import javax.sql.DataSource;
 import java.io.File;
 import java.io.IOException;
 import java.net.URI;
+import java.sql.Connection;
+import java.sql.DriverManager;
+import java.sql.SQLException;
+import java.sql.Statement;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
 import java.util.stream.Stream;
 
+/**
+ * Tests for {@link SQLArtifactIndexDbManager} and {@link SQLArtifactIndexManagerSql}.
+ *
+ * <p>This test class verifies core artifact index functionality including:
+ * <ul>
+ *   <li><b>Core CRUD Operations</b> - Adding, retrieving, updating, committing, and deleting
+ *       artifacts ({@code testAddArtifact}, {@code testGetArtifact}, {@code testCommitArtifact},
+ *       {@code testUpdateStorageUrl}, {@code testDeleteArtifact}, etc.)</li>
+ *   <li><b>Collection Operations</b> - Listing namespaces and AUIDs
+ *       ({@code testGetNamespaces}, {@code testFindAuids})</li>
+ *   <li><b>Query Methods</b> - Finding artifacts by various criteria including namespace, AUID,
+ *       URL, URL prefix, and version filters ({@code testFindLatestArtifactsOfAllUrlsWithNamespaceAndAuid},
+ *       {@code testFindArtifactsAllVersionsOfAllUrlsWithNamespaceAndAuid}, etc.)</li>
+ *   <li><b>Namespace Isolation</b> - Verifying queries correctly filter by namespace</li>
+ *   <li><b>AUID Isolation</b> - Verifying queries correctly filter by AUID</li>
+ *   <li><b>Uncommitted Artifact Handling</b> - Verifying committed vs uncommitted artifact
+ *       filtering behavior</li>
+ *   <li><b>Other Query Logic</b> - Edge cases like special character URLs and empty prefixes</li>
+ * </ul>
+ *
+ * <h3>Embedded PostgreSQL Lifecycle</h3>
+ * <p>This test class uses a shared embedded PostgreSQL instance for efficiency:
+ * <ol>
+ *   <li>{@code @BeforeClass setUpClass()} - Starts the shared embedded PostgreSQL instance once
+ *       before any tests run.</li>
+ *   <li>{@code @Before setUp()} - Creates a unique database for each test and initializes
+ *       {@link SQLArtifactIndexDbManager}. The {@code @Before} annotation is inherited from
+ *       {@link LockssTestCase4}.</li>
+ *   <li>{@code @After tearDown()} - Stops the {@link SQLArtifactIndexDbManager} and daemon after
+ *       each test. The {@code @After} annotation is inherited from {@link LockssTestCase4}.</li>
+ *   <li>{@code @AfterClass tearDownClass()} - Stops the shared PostgreSQL instance after all
+ *       tests complete.</li>
+ * </ol>
+ */
 public class TestSQLArtifactIndexDbManager extends LockssTestCase4 {
   private static final Logger log = Logger.getLogger();
 
@@ -884,5 +926,523 @@ public class TestSQLArtifactIndexDbManager extends LockssTestCase4 {
     deleteSpecs(idxdb, specs, 0);
     assertEquals(2, idxdb.getSizeOfArtifacts(ns1, auid1, VersionsEnum.ALL));
     assertEquals(2, idxdb.getSizeOfArtifacts(ns1, auid1, VersionsEnum.LATEST));
+  }
+
+  // ============================================================================
+  // Namespace Isolation Tests
+  // ============================================================================
+
+  @Test
+  public void testFindLatestArtifacts_NamespaceIsolation() throws Exception {
+    SQLArtifactIndexManagerSql idxdb = new SQLArtifactIndexManagerSql(idxDbManager);
+
+    String ns1 = "namespace1";
+    String ns2 = "namespace2";
+    String auid = "auid1";
+
+    ArtifactSpec spec1 = makeArtifactSpec(ns1, auid, "http://example.com/path", 1);
+    ArtifactSpec spec2 = makeArtifactSpec(ns2, auid, "http://example.com/path", 1);
+
+    idxdb.addArtifact(spec1.getArtifact());
+    idxdb.addArtifact(spec2.getArtifact());
+    idxdb.commitArtifact(spec1.getArtifactUuid());
+    idxdb.commitArtifact(spec2.getArtifactUuid());
+
+    // Query ns1 only
+    List<Artifact> artifacts = toList(
+        idxdb.findLatestArtifactsOfAllUrlsWithNamespaceAndAuid(ns1, auid, false));
+
+    assertEquals(1, artifacts.size());
+    assertEquals(ns1, artifacts.get(0).getNamespace());
+  }
+
+  @Test
+  public void testFindAllVersions_NamespaceIsolation() throws Exception {
+    SQLArtifactIndexManagerSql idxdb = new SQLArtifactIndexManagerSql(idxDbManager);
+
+    String ns1 = "namespace1";
+    String ns2 = "namespace2";
+    String auid = "auid1";
+
+    ArtifactSpec spec1 = makeArtifactSpec(ns1, auid, "http://example.com/path", 1);
+    ArtifactSpec spec2 = makeArtifactSpec(ns2, auid, "http://example.com/path", 1);
+
+    idxdb.addArtifact(spec1.getArtifact());
+    idxdb.addArtifact(spec2.getArtifact());
+    idxdb.commitArtifact(spec1.getArtifactUuid());
+    idxdb.commitArtifact(spec2.getArtifactUuid());
+
+    List<Artifact> artifacts = toList(
+        idxdb.findArtifactsAllVersionsOfAllUrlsWithNamespaceAndAuid(ns1, auid, false));
+
+    assertEquals(1, artifacts.size());
+    assertEquals(ns1, artifacts.get(0).getNamespace());
+  }
+
+  @Test
+  public void testFindVersionsOfUrl_NamespaceIsolation() throws Exception {
+    SQLArtifactIndexManagerSql idxdb = new SQLArtifactIndexManagerSql(idxDbManager);
+
+    String ns1 = "namespace1";
+    String ns2 = "namespace2";
+    String auid = "auid1";
+    String url = "http://example.com/shared";
+
+    ArtifactSpec spec1 = makeArtifactSpec(ns1, auid, url, 1);
+    ArtifactSpec spec2 = makeArtifactSpec(ns2, auid, url, 1);
+
+    idxdb.addArtifact(spec1.getArtifact());
+    idxdb.addArtifact(spec2.getArtifact());
+    idxdb.commitArtifact(spec1.getArtifactUuid());
+    idxdb.commitArtifact(spec2.getArtifactUuid());
+
+    List<Artifact> artifacts = toList(
+        idxdb.findArtifactsAllCommittedVersionsOfUrlWithNamespaceAndAuid(ns1, auid, url));
+
+    assertEquals(1, artifacts.size());
+    assertEquals(ns1, artifacts.get(0).getNamespace());
+  }
+
+  @Test
+  public void testFindUrlAllAuids_NamespaceIsolation() throws Exception {
+    SQLArtifactIndexManagerSql idxdb = new SQLArtifactIndexManagerSql(idxDbManager);
+
+    String ns1 = "namespace1";
+    String ns2 = "namespace2";
+    String url = "http://example.com/shared";
+
+    ArtifactSpec spec1 = makeArtifactSpec(ns1, "auid1", url, 1);
+    ArtifactSpec spec2 = makeArtifactSpec(ns2, "auid1", url, 1);
+
+    idxdb.addArtifact(spec1.getArtifact());
+    idxdb.addArtifact(spec2.getArtifact());
+    idxdb.commitArtifact(spec1.getArtifactUuid());
+    idxdb.commitArtifact(spec2.getArtifactUuid());
+
+    List<Artifact> artifacts = toList(
+        idxdb.findArtifactsAllCommittedVersionsOfUrlAllAuidsInNamespace(ns1, url, VersionsEnum.ALL));
+
+    assertEquals(1, artifacts.size());
+    assertEquals(ns1, artifacts.get(0).getNamespace());
+  }
+
+  @Test
+  public void testFindByPrefixAllAuids_NamespaceIsolation() throws Exception {
+    SQLArtifactIndexManagerSql idxdb = new SQLArtifactIndexManagerSql(idxDbManager);
+
+    String ns1 = "namespace1";
+    String ns2 = "namespace2";
+    String prefix = "http://example.com/prefix/";
+
+    ArtifactSpec spec1 = makeArtifactSpec(ns1, "auid1", prefix + "file", 1);
+    ArtifactSpec spec2 = makeArtifactSpec(ns2, "auid1", prefix + "file", 1);
+
+    idxdb.addArtifact(spec1.getArtifact());
+    idxdb.addArtifact(spec2.getArtifact());
+    idxdb.commitArtifact(spec1.getArtifactUuid());
+    idxdb.commitArtifact(spec2.getArtifactUuid());
+
+    List<Artifact> artifacts = toList(
+        idxdb.findArtifactsAllCommittedVersionsOfUrlByPrefixAllAuidsInNamespace(ns1, prefix, VersionsEnum.ALL));
+
+    assertEquals(1, artifacts.size());
+    assertEquals(ns1, artifacts.get(0).getNamespace());
+  }
+
+  @Test
+  public void testFindLatestByPrefix_NamespaceIsolation() throws Exception {
+    SQLArtifactIndexManagerSql idxdb = new SQLArtifactIndexManagerSql(idxDbManager);
+
+    String ns1 = "namespace1";
+    String ns2 = "namespace2";
+    String auid = "auid1";
+    String prefix = "http://example.com/prefix/";
+
+    ArtifactSpec spec1 = makeArtifactSpec(ns1, auid, prefix + "file", 1);
+    ArtifactSpec spec2 = makeArtifactSpec(ns2, auid, prefix + "file", 1);
+
+    idxdb.addArtifact(spec1.getArtifact());
+    idxdb.addArtifact(spec2.getArtifact());
+    idxdb.commitArtifact(spec1.getArtifactUuid());
+    idxdb.commitArtifact(spec2.getArtifactUuid());
+
+    List<Artifact> artifacts = toList(
+        idxdb.findArtifactsLatestCommittedVersionsOfAllUrlsMatchingPrefixWithNamespaceAndAuid(ns1, auid, prefix));
+
+    assertEquals(1, artifacts.size());
+    assertEquals(ns1, artifacts.get(0).getNamespace());
+  }
+
+  @Test
+  public void testFindAllVersionsByPrefix_NamespaceIsolation() throws Exception {
+    SQLArtifactIndexManagerSql idxdb = new SQLArtifactIndexManagerSql(idxDbManager);
+
+    String ns1 = "namespace1";
+    String ns2 = "namespace2";
+    String auid = "auid1";
+    String prefix = "http://example.com/prefix/";
+
+    ArtifactSpec spec1 = makeArtifactSpec(ns1, auid, prefix + "file", 1);
+    ArtifactSpec spec2 = makeArtifactSpec(ns2, auid, prefix + "file", 1);
+
+    idxdb.addArtifact(spec1.getArtifact());
+    idxdb.addArtifact(spec2.getArtifact());
+    idxdb.commitArtifact(spec1.getArtifactUuid());
+    idxdb.commitArtifact(spec2.getArtifactUuid());
+
+    List<Artifact> artifacts = toList(
+        idxdb.findArtifactsAllCommittedVersionsOfAllUrlsMatchingPrefixWithNamespaceAndAuid(ns1, auid, prefix));
+
+    assertEquals(1, artifacts.size());
+    assertEquals(ns1, artifacts.get(0).getNamespace());
+  }
+
+  // ============================================================================
+  // AUID Isolation Tests
+  // ============================================================================
+
+  @Test
+  public void testFindLatestArtifacts_AuidIsolation() throws Exception {
+    SQLArtifactIndexManagerSql idxdb = new SQLArtifactIndexManagerSql(idxDbManager);
+
+    String ns = "ns1";
+    String auid1 = "auid1";
+    String auid2 = "auid2";
+
+    ArtifactSpec spec1 = makeArtifactSpec(ns, auid1, "http://example.com/path", 1);
+    ArtifactSpec spec2 = makeArtifactSpec(ns, auid2, "http://example.com/path", 1);
+
+    idxdb.addArtifact(spec1.getArtifact());
+    idxdb.addArtifact(spec2.getArtifact());
+    idxdb.commitArtifact(spec1.getArtifactUuid());
+    idxdb.commitArtifact(spec2.getArtifactUuid());
+
+    List<Artifact> artifacts = toList(
+        idxdb.findLatestArtifactsOfAllUrlsWithNamespaceAndAuid(ns, auid1, false));
+
+    assertEquals(1, artifacts.size());
+    assertEquals(auid1, artifacts.get(0).getAuid());
+  }
+
+  @Test
+  public void testFindAllVersions_AuidIsolation() throws Exception {
+    SQLArtifactIndexManagerSql idxdb = new SQLArtifactIndexManagerSql(idxDbManager);
+
+    String ns = "ns1";
+    String auid1 = "auid1";
+    String auid2 = "auid2";
+
+    ArtifactSpec spec1 = makeArtifactSpec(ns, auid1, "http://example.com/path", 1);
+    ArtifactSpec spec2 = makeArtifactSpec(ns, auid2, "http://example.com/path", 1);
+
+    idxdb.addArtifact(spec1.getArtifact());
+    idxdb.addArtifact(spec2.getArtifact());
+    idxdb.commitArtifact(spec1.getArtifactUuid());
+    idxdb.commitArtifact(spec2.getArtifactUuid());
+
+    List<Artifact> artifacts = toList(
+        idxdb.findArtifactsAllVersionsOfAllUrlsWithNamespaceAndAuid(ns, auid1, false));
+
+    assertEquals(1, artifacts.size());
+    assertEquals(auid1, artifacts.get(0).getAuid());
+  }
+
+  @Test
+  public void testFindVersionsOfUrl_AuidIsolation() throws Exception {
+    SQLArtifactIndexManagerSql idxdb = new SQLArtifactIndexManagerSql(idxDbManager);
+
+    String ns = "ns1";
+    String auid1 = "auid1";
+    String auid2 = "auid2";
+    String url = "http://example.com/shared";
+
+    ArtifactSpec spec1 = makeArtifactSpec(ns, auid1, url, 1);
+    ArtifactSpec spec2 = makeArtifactSpec(ns, auid2, url, 1);
+
+    idxdb.addArtifact(spec1.getArtifact());
+    idxdb.addArtifact(spec2.getArtifact());
+    idxdb.commitArtifact(spec1.getArtifactUuid());
+    idxdb.commitArtifact(spec2.getArtifactUuid());
+
+    List<Artifact> artifacts = toList(
+        idxdb.findArtifactsAllCommittedVersionsOfUrlWithNamespaceAndAuid(ns, auid1, url));
+
+    assertEquals(1, artifacts.size());
+    assertEquals(auid1, artifacts.get(0).getAuid());
+  }
+
+  @Test
+  public void testFindLatestByPrefix_AuidIsolation() throws Exception {
+    SQLArtifactIndexManagerSql idxdb = new SQLArtifactIndexManagerSql(idxDbManager);
+
+    String ns = "ns1";
+    String auid1 = "auid1";
+    String auid2 = "auid2";
+    String prefix = "http://example.com/shared/";
+
+    ArtifactSpec spec1 = makeArtifactSpec(ns, auid1, prefix + "file", 1);
+    ArtifactSpec spec2 = makeArtifactSpec(ns, auid2, prefix + "file", 1);
+
+    idxdb.addArtifact(spec1.getArtifact());
+    idxdb.addArtifact(spec2.getArtifact());
+    idxdb.commitArtifact(spec1.getArtifactUuid());
+    idxdb.commitArtifact(spec2.getArtifactUuid());
+
+    List<Artifact> artifacts = toList(
+        idxdb.findArtifactsLatestCommittedVersionsOfAllUrlsMatchingPrefixWithNamespaceAndAuid(ns, auid1, prefix));
+
+    assertEquals(1, artifacts.size());
+    assertEquals(auid1, artifacts.get(0).getAuid());
+  }
+
+  @Test
+  public void testFindAllVersionsByPrefix_AuidIsolation() throws Exception {
+    SQLArtifactIndexManagerSql idxdb = new SQLArtifactIndexManagerSql(idxDbManager);
+
+    String ns = "ns1";
+    String auid1 = "auid1";
+    String auid2 = "auid2";
+    String prefix = "http://example.com/prefix/";
+
+    ArtifactSpec spec1 = makeArtifactSpec(ns, auid1, prefix + "file", 1);
+    ArtifactSpec spec2 = makeArtifactSpec(ns, auid2, prefix + "file", 1);
+
+    idxdb.addArtifact(spec1.getArtifact());
+    idxdb.addArtifact(spec2.getArtifact());
+    idxdb.commitArtifact(spec1.getArtifactUuid());
+    idxdb.commitArtifact(spec2.getArtifactUuid());
+
+    List<Artifact> artifacts = toList(
+        idxdb.findArtifactsAllCommittedVersionsOfAllUrlsMatchingPrefixWithNamespaceAndAuid(ns, auid1, prefix));
+
+    assertEquals(1, artifacts.size());
+    assertEquals(auid1, artifacts.get(0).getAuid());
+  }
+
+  // ============================================================================
+  // Uncommitted Artifact Tests
+  // ============================================================================
+
+  @Test
+  public void testFindLatestArtifacts_IncludeUncommitted() throws Exception {
+    SQLArtifactIndexManagerSql idxdb = new SQLArtifactIndexManagerSql(idxDbManager);
+
+    String ns = "ns1";
+    String auid = "auid1";
+    String url = "http://example.com/path";
+
+    // v1 committed, v2 uncommitted
+    ArtifactSpec specV1 = makeArtifactSpec(ns, auid, url, 1);
+    ArtifactSpec specV2 = makeArtifactSpec(ns, auid, url, 2);
+
+    idxdb.addArtifact(specV1.getArtifact());
+    idxdb.addArtifact(specV2.getArtifact());
+    idxdb.commitArtifact(specV1.getArtifactUuid());
+
+    // Excluding uncommitted - should get v1
+    List<Artifact> committed = toList(
+        idxdb.findLatestArtifactsOfAllUrlsWithNamespaceAndAuid(ns, auid, false));
+    assertEquals(1, committed.size());
+    assertEquals(Integer.valueOf(1), committed.get(0).getVersion());
+
+    // Including uncommitted - should get v2
+    List<Artifact> all = toList(
+        idxdb.findLatestArtifactsOfAllUrlsWithNamespaceAndAuid(ns, auid, true));
+    assertEquals(1, all.size());
+    assertEquals(Integer.valueOf(2), all.get(0).getVersion());
+  }
+
+  @Test
+  public void testFindAllVersions_IncludeUncommitted() throws Exception {
+    SQLArtifactIndexManagerSql idxdb = new SQLArtifactIndexManagerSql(idxDbManager);
+
+    String ns = "ns1";
+    String auid = "auid1";
+    String url = "http://example.com/path";
+
+    // v1 committed, v2 uncommitted
+    ArtifactSpec specV1 = makeArtifactSpec(ns, auid, url, 1);
+    ArtifactSpec specV2 = makeArtifactSpec(ns, auid, url, 2);
+
+    idxdb.addArtifact(specV1.getArtifact());
+    idxdb.addArtifact(specV2.getArtifact());
+    idxdb.commitArtifact(specV1.getArtifactUuid());
+
+    // Excluding uncommitted
+    List<Artifact> committed = toList(
+        idxdb.findArtifactsAllVersionsOfAllUrlsWithNamespaceAndAuid(ns, auid, false));
+    assertEquals(1, committed.size());
+
+    // Including uncommitted
+    List<Artifact> all = toList(
+        idxdb.findArtifactsAllVersionsOfAllUrlsWithNamespaceAndAuid(ns, auid, true));
+    assertEquals(2, all.size());
+  }
+
+  @Test
+  public void testFindVersionsOfUrl_OnlyCommitted() throws Exception {
+    SQLArtifactIndexManagerSql idxdb = new SQLArtifactIndexManagerSql(idxDbManager);
+
+    String ns = "ns1";
+    String auid = "auid1";
+    String url = "http://example.com/test-url";
+
+    // v1 and v2 committed, v3 uncommitted
+    ArtifactSpec specV1 = makeArtifactSpec(ns, auid, url, 1);
+    ArtifactSpec specV2 = makeArtifactSpec(ns, auid, url, 2);
+    ArtifactSpec specV3 = makeArtifactSpec(ns, auid, url, 3);
+
+    idxdb.addArtifact(specV1.getArtifact());
+    idxdb.addArtifact(specV2.getArtifact());
+    idxdb.addArtifact(specV3.getArtifact());
+    idxdb.commitArtifact(specV1.getArtifactUuid());
+    idxdb.commitArtifact(specV2.getArtifactUuid());
+
+    List<Artifact> artifacts = toList(
+        idxdb.findArtifactsAllCommittedVersionsOfUrlWithNamespaceAndAuid(ns, auid, url));
+
+    assertEquals(2, artifacts.size());
+    for (Artifact a : artifacts) {
+      assertTrue(a.getVersion() <= 2);
+    }
+  }
+
+  @Test
+  public void testFindUrlAllAuids_LatestVersionOnly() throws Exception {
+    SQLArtifactIndexManagerSql idxdb = new SQLArtifactIndexManagerSql(idxDbManager);
+
+    String ns = "ns1";
+    String url = "http://example.com/shared-url";
+
+    // Create 2 AUIDs with 3 versions each
+    for (String auid : new String[]{"auid1", "auid2"}) {
+      for (int v = 1; v <= 3; v++) {
+        ArtifactSpec spec = makeArtifactSpec(ns, auid, url, v);
+        idxdb.addArtifact(spec.getArtifact());
+        idxdb.commitArtifact(spec.getArtifactUuid());
+      }
+    }
+
+    // ALL versions
+    List<Artifact> all = toList(
+        idxdb.findArtifactsAllCommittedVersionsOfUrlAllAuidsInNamespace(ns, url, VersionsEnum.ALL));
+    assertEquals(6, all.size());
+
+    // LATEST version only
+    List<Artifact> latest = toList(
+        idxdb.findArtifactsAllCommittedVersionsOfUrlAllAuidsInNamespace(ns, url, VersionsEnum.LATEST));
+    assertEquals(2, latest.size());
+    for (Artifact a : latest) {
+      assertEquals(Integer.valueOf(3), a.getVersion());
+    }
+  }
+
+  @Test
+  public void testFindByPrefixAllAuids_LatestVersionOnly() throws Exception {
+    SQLArtifactIndexManagerSql idxdb = new SQLArtifactIndexManagerSql(idxDbManager);
+
+    String ns = "ns1";
+    String prefix = "http://example.com/data/";
+
+    // Create artifacts with multiple versions
+    for (int v = 1; v <= 3; v++) {
+      ArtifactSpec spec = makeArtifactSpec(ns, "auid1", prefix + "file", v);
+      idxdb.addArtifact(spec.getArtifact());
+      idxdb.commitArtifact(spec.getArtifactUuid());
+    }
+
+    // ALL versions
+    List<Artifact> all = toList(
+        idxdb.findArtifactsAllCommittedVersionsOfUrlByPrefixAllAuidsInNamespace(ns, prefix, VersionsEnum.ALL));
+    assertEquals(3, all.size());
+
+    // LATEST version only
+    List<Artifact> latest = toList(
+        idxdb.findArtifactsAllCommittedVersionsOfUrlByPrefixAllAuidsInNamespace(ns, prefix, VersionsEnum.LATEST));
+    assertEquals(1, latest.size());
+    assertEquals(Integer.valueOf(3), latest.get(0).getVersion());
+  }
+
+  @Test
+  public void testFindAllVersionsByPrefix_OnlyCommitted() throws Exception {
+    SQLArtifactIndexManagerSql idxdb = new SQLArtifactIndexManagerSql(idxDbManager);
+
+    String ns = "ns1";
+    String auid = "auid1";
+    String prefix = "http://example.com/test/";
+
+    // v1 committed, v2 uncommitted
+    ArtifactSpec specV1 = makeArtifactSpec(ns, auid, prefix + "file", 1);
+    ArtifactSpec specV2 = makeArtifactSpec(ns, auid, prefix + "file", 2);
+
+    idxdb.addArtifact(specV1.getArtifact());
+    idxdb.addArtifact(specV2.getArtifact());
+    idxdb.commitArtifact(specV1.getArtifactUuid());
+
+    List<Artifact> artifacts = toList(
+        idxdb.findArtifactsAllCommittedVersionsOfAllUrlsMatchingPrefixWithNamespaceAndAuid(ns, auid, prefix));
+
+    assertEquals(1, artifacts.size());
+    assertEquals(Integer.valueOf(1), artifacts.get(0).getVersion());
+  }
+
+  // ============================================================================
+  // Other Query Logic Tests
+  // ============================================================================
+
+  @Test
+  public void testFindLatestArtifacts_SpecialCharacterUrls() throws Exception {
+    SQLArtifactIndexManagerSql idxdb = new SQLArtifactIndexManagerSql(idxDbManager);
+
+    String ns = "ns1";
+    String auid = "auid1";
+
+    String[] urls = {
+        "http://example.com/path/with spaces/file.html",
+        "http://example.com/path/with?query=param",
+        "http://example.com/path/with#fragment",
+        "http://example.com/unicode/资源/file"
+    };
+
+    for (String url : urls) {
+      ArtifactSpec spec = makeArtifactSpec(ns, auid, url, 1);
+      idxdb.addArtifact(spec.getArtifact());
+      idxdb.commitArtifact(spec.getArtifactUuid());
+    }
+
+    List<Artifact> artifacts = toList(
+        idxdb.findLatestArtifactsOfAllUrlsWithNamespaceAndAuid(ns, auid, false));
+
+    assertEquals(urls.length, artifacts.size());
+  }
+
+  @Test
+  public void testFindAllVersionsByPrefix_EmptyPrefix() throws Exception {
+    SQLArtifactIndexManagerSql idxdb = new SQLArtifactIndexManagerSql(idxDbManager);
+
+    String ns = "ns1";
+    String auid = "auid1";
+
+    ArtifactSpec spec1 = makeArtifactSpec(ns, auid, "http://example.com/path1", 1);
+    ArtifactSpec spec2 = makeArtifactSpec(ns, auid, "http://other.com/path2", 1);
+
+    idxdb.addArtifact(spec1.getArtifact());
+    idxdb.addArtifact(spec2.getArtifact());
+    idxdb.commitArtifact(spec1.getArtifactUuid());
+    idxdb.commitArtifact(spec2.getArtifactUuid());
+
+    // Empty prefix should match all
+    List<Artifact> artifacts = toList(
+        idxdb.findArtifactsAllCommittedVersionsOfAllUrlsMatchingPrefixWithNamespaceAndAuid(ns, auid, ""));
+
+    assertEquals(2, artifacts.size());
+  }
+
+  private static <T> List<T> toList(Iterable<T> iterable) {
+    List<T> list = new ArrayList<>();
+    for (T item : iterable) {
+      list.add(item);
+    }
+    return list;
   }
 }
