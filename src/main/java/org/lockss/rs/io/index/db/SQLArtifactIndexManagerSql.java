@@ -1777,7 +1777,7 @@ public class SQLArtifactIndexManagerSql {
       rs = idxDbManager.executeQuery(ps);
 
       // Collect results
-      List<Artifact> artifacts = new ArrayList<>(Math.min(limit, pageSize));
+      List<Artifact> artifacts = new ArrayList<>(limit);
       while (rs.next()) {
         artifacts.add(getArtifactFromCurrentRow(rs));
       }
@@ -1854,7 +1854,7 @@ public class SQLArtifactIndexManagerSql {
 
       rs = idxDbManager.executeQuery(ps);
 
-      List<Artifact> artifacts = new ArrayList<>(Math.min(limit, pageSize));
+      List<Artifact> artifacts = new ArrayList<>(limit);
       while (rs.next()) {
         artifacts.add(getArtifactFromCurrentRow(rs));
       }
@@ -1939,7 +1939,7 @@ public class SQLArtifactIndexManagerSql {
 
       rs = idxDbManager.executeQuery(ps);
 
-      List<Artifact> artifacts = new ArrayList<>(Math.min(limit, pageSize));
+      List<Artifact> artifacts = new ArrayList<>(limit);
       while (rs.next()) {
         artifacts.add(getArtifactFromCurrentRow(rs));
       }
@@ -2038,7 +2038,7 @@ public class SQLArtifactIndexManagerSql {
 
       rs = idxDbManager.executeQuery(ps);
 
-      List<Artifact> artifacts = new ArrayList<>(Math.min(limit, pageSize));
+      List<Artifact> artifacts = new ArrayList<>(limit);
       while (rs.next()) {
         artifacts.add(getArtifactFromCurrentRow(rs));
       }
@@ -2143,7 +2143,7 @@ public class SQLArtifactIndexManagerSql {
 
       rs = idxDbManager.executeQuery(ps);
 
-      List<Artifact> artifacts = new ArrayList<>(Math.min(limit, pageSize));
+      List<Artifact> artifacts = new ArrayList<>(limit);
       while (rs.next()) {
         artifacts.add(getArtifactFromCurrentRow(rs));
       }
@@ -2234,7 +2234,7 @@ public class SQLArtifactIndexManagerSql {
 
       rs = idxDbManager.executeQuery(ps);
 
-      List<Artifact> artifacts = new ArrayList<>(Math.min(limit, pageSize));
+      List<Artifact> artifacts = new ArrayList<>(limit);
       while (rs.next()) {
         artifacts.add(getArtifactFromCurrentRow(rs));
       }
@@ -2327,7 +2327,7 @@ public class SQLArtifactIndexManagerSql {
 
       rs = idxDbManager.executeQuery(ps);
 
-      List<Artifact> artifacts = new ArrayList<>(Math.min(limit, pageSize));
+      List<Artifact> artifacts = new ArrayList<>(limit);
       while (rs.next()) {
         artifacts.add(getArtifactFromCurrentRow(rs));
       }
