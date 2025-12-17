@@ -335,7 +335,7 @@ public class SQLArtifactIndexManagerSql {
       + ", a." + ARTIFACT_LENGTH_COLUMN
       + ", a." + ARTIFACT_DIGEST_COLUMN
       + ", a." + ARTIFACT_CRAWL_TIME_COLUMN
-      + ", replace(concat(u." + URL_COLUMN + ", " + LONG_URL_COLUMN + "), '/', '\u0009') sortUri"
+      + ", replace(concat(u." + URL_COLUMN + ", " + LONG_URL_COLUMN + "), '/', '\u0009') COLLATE \"C\" sortUri"
       + " FROM " + NAMESPACE_TABLE + " ns"
       + "," + AUID_TABLE + " auid"
       + "," + URL_TABLE + " u"
@@ -351,7 +351,6 @@ public class SQLArtifactIndexManagerSql {
       + " AND a." + URL_SEQ_COLUMN + " = u." + URL_SEQ_COLUMN
       + " --KeysetCondition-- "
       + " ORDER BY "
-//      + "u." + URL_COLUMN + " COLLATE \"C\","
       + " sortUri ASC,"
       + ARTIFACT_VERSION_COLUMN + " DESC";
 
@@ -366,7 +365,7 @@ public class SQLArtifactIndexManagerSql {
       + ", a." + ARTIFACT_LENGTH_COLUMN
       + ", a." + ARTIFACT_DIGEST_COLUMN
       + ", a." + ARTIFACT_CRAWL_TIME_COLUMN
-      + ", replace(concat(u." + URL_COLUMN + ", " + LONG_URL_COLUMN + "), '/', '\u0009') sortUri"
+      + ", replace(concat(u." + URL_COLUMN + ", " + LONG_URL_COLUMN + "), '/', '\u0009') COLLATE \"C\" sortUri"
       + " FROM " + NAMESPACE_TABLE + " ns"
       + "," + AUID_TABLE + " auid"
       + "," + URL_TABLE + " u"
@@ -380,7 +379,6 @@ public class SQLArtifactIndexManagerSql {
       + " --CommittedStatusCondition-- "
       + " --KeysetCondition-- "
       + " ORDER BY "
-//      + "u." + URL_COLUMN + " ASC,"
       + " sortUri ASC,"
       + ARTIFACT_VERSION_COLUMN + " DESC";
 
@@ -395,7 +393,7 @@ public class SQLArtifactIndexManagerSql {
       + ", a." + ARTIFACT_LENGTH_COLUMN
       + ", a." + ARTIFACT_DIGEST_COLUMN
       + ", a." + ARTIFACT_CRAWL_TIME_COLUMN
-      + ", replace(u." + URL_COLUMN + ", '/', '\u0009') sortUri"
+      + ", replace(u." + URL_COLUMN + ", '/', '\u0009') COLLATE \"C\" sortUri"
       + " FROM " + ARTIFACT_TABLE + " a"
       + "," + NAMESPACE_TABLE + " ns"
       + "," + AUID_TABLE + " auid"
@@ -409,7 +407,6 @@ public class SQLArtifactIndexManagerSql {
       + ARTIFACT_COMMITTED_STATUS_CONDITION_TRUE
       + " --KeysetCondition-- "
       + " ORDER BY "
-//      + "u." + URL_COLUMN + " ASC,"
       + " sortUri ASC,"
       + ARTIFACT_VERSION_COLUMN + " DESC";
 
@@ -424,7 +421,7 @@ public class SQLArtifactIndexManagerSql {
       + ", a." + ARTIFACT_LENGTH_COLUMN
       + ", a." + ARTIFACT_DIGEST_COLUMN
       + ", a." + ARTIFACT_CRAWL_TIME_COLUMN
-      + ", replace(concat(u." + URL_COLUMN + ", " + LONG_URL_COLUMN + "), '/', '\u0009') sortUri"
+      + ", replace(concat(u." + URL_COLUMN + ", " + LONG_URL_COLUMN + "), '/', '\u0009') COLLATE \"C\" sortUri"
       + " FROM " + NAMESPACE_TABLE + " ns"
       + "," + AUID_TABLE + " auid"
       + "," + URL_TABLE + " u"
@@ -440,7 +437,6 @@ public class SQLArtifactIndexManagerSql {
       + ARTIFACT_COMMITTED_STATUS_CONDITION_TRUE
       + " --KeysetCondition-- "
       + " ORDER BY "
-//      + "u." + URL_COLUMN + " ASC,"
       + " sortUri ASC,"
       + ARTIFACT_VERSION_COLUMN + " DESC";
 
@@ -535,7 +531,7 @@ public class SQLArtifactIndexManagerSql {
       + ", a." + ARTIFACT_LENGTH_COLUMN
       + ", a." + ARTIFACT_DIGEST_COLUMN
       + ", a." + ARTIFACT_CRAWL_TIME_COLUMN
-      + ", replace(u." + URL_COLUMN + ", '/', '\u0009') sortUri"
+      + ", replace(u." + URL_COLUMN + ", '/', '\u0009') COLLATE \"C\" sortUri"
       + " FROM " + ARTIFACT_TABLE + " a"
       + "," + NAMESPACE_TABLE + " ns"
       + "," + AUID_TABLE + " auid"
@@ -548,7 +544,6 @@ public class SQLArtifactIndexManagerSql {
       + ARTIFACT_COMMITTED_STATUS_CONDITION_TRUE
       + " --KeysetCondition-- "
       + " ORDER BY "
-//      + " u." + URL_COLUMN + " ASC,"
       + " sortUri ASC,"
       + " auid." + AUID_COLUMN + " ASC,"
       + " a." + ARTIFACT_VERSION_COLUMN + " DESC";
@@ -564,7 +559,7 @@ public class SQLArtifactIndexManagerSql {
       + ", a." + ARTIFACT_LENGTH_COLUMN
       + ", a." + ARTIFACT_DIGEST_COLUMN
       + ", a." + ARTIFACT_CRAWL_TIME_COLUMN
-      + ", replace(concat(u." + URL_COLUMN + ", " + LONG_URL_COLUMN + "), '/', '\u0009') sortUri"
+      + ", replace(concat(u." + URL_COLUMN + ", " + LONG_URL_COLUMN + "), '/', '\u0009') COLLATE \"C\" sortUri"
       + " FROM " + NAMESPACE_TABLE + " ns"
       + "," + AUID_TABLE + " auid"
       + "," + URL_TABLE + " u"
@@ -579,7 +574,6 @@ public class SQLArtifactIndexManagerSql {
       + ARTIFACT_COMMITTED_STATUS_CONDITION_TRUE
       + " --KeysetCondition-- "
       + " ORDER BY "
-//      + " u." + URL_COLUMN + " ASC,"
       + " sortUri ASC,"
       + " auid." + AUID_COLUMN + " ASC,"
       + " a." + ARTIFACT_VERSION_COLUMN + " DESC";
@@ -595,7 +589,7 @@ public class SQLArtifactIndexManagerSql {
       + ", a." + ARTIFACT_LENGTH_COLUMN
       + ", a." + ARTIFACT_DIGEST_COLUMN
       + ", a." + ARTIFACT_CRAWL_TIME_COLUMN
-      + ", replace(concat(u." + URL_COLUMN + ", " + LONG_URL_COLUMN + "), '/', '\u0009') sortUri"
+      + ", replace(concat(u." + URL_COLUMN + ", " + LONG_URL_COLUMN + "), '/', '\u0009') COLLATE \"C\" sortUri"
       + " FROM " + NAMESPACE_TABLE + " ns"
       + "," + AUID_TABLE + " auid"
       + "," + URL_TABLE + " u"
@@ -609,7 +603,6 @@ public class SQLArtifactIndexManagerSql {
       + ARTIFACT_COMMITTED_STATUS_CONDITION_TRUE
       + " --KeysetCondition-- "
       + " ORDER BY "
-//          + " u." + URL_COLUMN + " ASC,"
       + " sortUri ASC,"
       + " auid." + AUID_COLUMN + " ASC,"
       + " a." + ARTIFACT_VERSION_COLUMN + " DESC";
@@ -625,7 +618,7 @@ public class SQLArtifactIndexManagerSql {
       + ", a." + ARTIFACT_LENGTH_COLUMN
       + ", a." + ARTIFACT_DIGEST_COLUMN
       + ", a." + ARTIFACT_CRAWL_TIME_COLUMN
-      + ", replace(concat(u." + URL_COLUMN + ", " + LONG_URL_COLUMN + "), '/', '\u0009') sortUri"
+      + ", replace(concat(u." + URL_COLUMN + ", " + LONG_URL_COLUMN + "), '/', '\u0009') COLLATE \"C\" sortUri"
       + " FROM " + NAMESPACE_TABLE + " ns"
       + "," + AUID_TABLE + " auid"
       + "," + URL_TABLE + " u"
@@ -655,7 +648,7 @@ public class SQLArtifactIndexManagerSql {
       + ", a." + ARTIFACT_LENGTH_COLUMN
       + ", a." + ARTIFACT_DIGEST_COLUMN
       + ", a." + ARTIFACT_CRAWL_TIME_COLUMN
-      + ", replace(u." + URL_COLUMN + ", '/', '\u0009') sortUri"
+      + ", replace(u." + URL_COLUMN + ", '/', '\u0009') COLLATE \"C\" sortUri"
       + " FROM " + NAMESPACE_TABLE + " ns"
       + "," + AUID_TABLE + " auid"
       + "," + URL_TABLE + " u"
@@ -670,7 +663,6 @@ public class SQLArtifactIndexManagerSql {
       + " AND a." + URL_SEQ_COLUMN + " = u." + URL_SEQ_COLUMN
       + " --KeysetCondition-- "
       + " ORDER BY "
-//          + " u." + URL_COLUMN + " ASC,"
       + " sortUri ASC,"
       + " auid." + AUID_COLUMN + " ASC,"
       + " a." + ARTIFACT_VERSION_COLUMN + " DESC";
@@ -686,7 +678,7 @@ public class SQLArtifactIndexManagerSql {
       + ", a." + ARTIFACT_LENGTH_COLUMN
       + ", a." + ARTIFACT_DIGEST_COLUMN
       + ", a." + ARTIFACT_CRAWL_TIME_COLUMN
-      + ", replace(concat(u." + URL_COLUMN + ", " + LONG_URL_COLUMN + "), '/', '\u0009') sortUri"
+      + ", replace(concat(u." + URL_COLUMN + ", " + LONG_URL_COLUMN + "), '/', '\u0009') COLLATE \"C\" sortUri"
       + " FROM " + NAMESPACE_TABLE + " ns"
       + "," + AUID_TABLE + " auid"
       + "," + URL_TABLE + " u"
@@ -702,7 +694,6 @@ public class SQLArtifactIndexManagerSql {
       + " AND a." + URL_SEQ_COLUMN + " = u." + URL_SEQ_COLUMN
       + " --KeysetCondition-- "
       + " ORDER BY "
-//          + " u." + URL_COLUMN + " ASC,"
       + " sortUri ASC,"
       + " auid." + AUID_COLUMN + " ASC,"
       + " a." + ARTIFACT_VERSION_COLUMN + " DESC";
@@ -718,7 +709,7 @@ public class SQLArtifactIndexManagerSql {
       + ", a." + ARTIFACT_LENGTH_COLUMN
       + ", a." + ARTIFACT_DIGEST_COLUMN
       + ", a." + ARTIFACT_CRAWL_TIME_COLUMN
-      + ", replace(concat(u." + URL_COLUMN + ", " + LONG_URL_COLUMN + "), '/', '\u0009') sortUri"
+      + ", replace(concat(u." + URL_COLUMN + ", " + LONG_URL_COLUMN + "), '/', '\u0009') COLLATE \"C\" sortUri"
       + " FROM " + NAMESPACE_TABLE + " ns"
       + "," + AUID_TABLE + " auid"
       + "," + URL_TABLE + " u"
@@ -734,7 +725,6 @@ public class SQLArtifactIndexManagerSql {
       + " AND a." + URL_SEQ_COLUMN + " = u." + URL_SEQ_COLUMN
       + " --KeysetCondition-- "
       + " ORDER BY "
-//          + " u." + URL_COLUMN + " ASC,"
       + " sortUri ASC,"
       + " auid." + AUID_COLUMN + " ASC,"
       + " a." + ARTIFACT_VERSION_COLUMN + " DESC";
@@ -750,7 +740,7 @@ public class SQLArtifactIndexManagerSql {
       + ", a." + ARTIFACT_LENGTH_COLUMN
       + ", a." + ARTIFACT_DIGEST_COLUMN
       + ", a." + ARTIFACT_CRAWL_TIME_COLUMN
-      + ", replace(concat(u." + URL_COLUMN + ", " + LONG_URL_COLUMN + "), '/', '\u0009') sortUri"
+      + ", replace(concat(u." + URL_COLUMN + ", " + LONG_URL_COLUMN + "), '/', '\u0009') COLLATE \"C\" sortUri"
       + " FROM " + NAMESPACE_TABLE + " ns"
       + "," + AUID_TABLE + " auid"
       + "," + URL_TABLE + " u"
@@ -781,7 +771,7 @@ public class SQLArtifactIndexManagerSql {
       + ", a." + ARTIFACT_LENGTH_COLUMN
       + ", a." + ARTIFACT_DIGEST_COLUMN
       + ", a." + ARTIFACT_CRAWL_TIME_COLUMN
-      + ", replace(concat(u." + URL_COLUMN + ", " + LONG_URL_COLUMN + "), '/', '\u0009') sortUri"
+      + ", replace(concat(u." + URL_COLUMN + ", " + LONG_URL_COLUMN + "), '/', '\u0009') COLLATE \"C\" sortUri"
       + " FROM " + NAMESPACE_TABLE + " ns"
       + "," + AUID_TABLE + " auid"
       + "," + URL_TABLE + " u"
@@ -810,7 +800,7 @@ public class SQLArtifactIndexManagerSql {
       + ", a." + ARTIFACT_LENGTH_COLUMN
       + ", a." + ARTIFACT_DIGEST_COLUMN
       + ", a." + ARTIFACT_CRAWL_TIME_COLUMN
-      + ", replace(concat(u." + URL_COLUMN + ", " + LONG_URL_COLUMN + "), '/', '\u0009') sortUri"
+      + ", replace(concat(u." + URL_COLUMN + ", " + LONG_URL_COLUMN + "), '/', '\u0009') COLLATE \"C\" sortUri"
       + " FROM " + NAMESPACE_TABLE + " ns"
       + "," + AUID_TABLE + " auid"
       + "," + URL_TABLE + " u"
@@ -884,7 +874,7 @@ public class SQLArtifactIndexManagerSql {
       + ", a." + ARTIFACT_LENGTH_COLUMN
       + ", a." + ARTIFACT_DIGEST_COLUMN
       + ", a." + ARTIFACT_CRAWL_TIME_COLUMN
-      + ", replace(concat(u." + URL_COLUMN + ", " + LONG_URL_COLUMN + "), '/', '\u0009') sortUri"
+      + ", replace(concat(u." + URL_COLUMN + ", " + LONG_URL_COLUMN + "), '/', '\u0009') COLLATE \"C\" sortUri"
       + " FROM " + NAMESPACE_TABLE + " ns"
       + "," + AUID_TABLE + " auid"
       + "," + URL_TABLE + " u"
@@ -900,7 +890,6 @@ public class SQLArtifactIndexManagerSql {
       + " AND a." + URL_SEQ_COLUMN + " = u." + URL_SEQ_COLUMN
       + " --KeysetCondition-- "
       + " ORDER BY "
-//      + "u." + URL_COLUMN + " ASC,"
       + " sortUri ASC,"
       + ARTIFACT_VERSION_COLUMN + " DESC";
 
@@ -915,7 +904,7 @@ public class SQLArtifactIndexManagerSql {
       + ", a." + ARTIFACT_LENGTH_COLUMN
       + ", a." + ARTIFACT_DIGEST_COLUMN
       + ", a." + ARTIFACT_CRAWL_TIME_COLUMN
-      + ", replace(concat(u." + URL_COLUMN + ", " + LONG_URL_COLUMN + "), '/', '\u0009') sortUri"
+      + ", replace(concat(u." + URL_COLUMN + ", " + LONG_URL_COLUMN + "), '/', '\u0009') COLLATE \"C\" sortUri"
       + " FROM " + NAMESPACE_TABLE + " ns"
       + "," + AUID_TABLE + " auid"
       + "," + URL_TABLE + " u"
@@ -931,7 +920,6 @@ public class SQLArtifactIndexManagerSql {
       + " AND a." + URL_SEQ_COLUMN + " = u." + URL_SEQ_COLUMN
       + " --KeysetCondition-- "
       + " ORDER BY "
-//      + "u." + URL_COLUMN + " ASC,"
       + " sortUri ASC,"
       + ARTIFACT_VERSION_COLUMN + " DESC";
 
@@ -1042,12 +1030,14 @@ public class SQLArtifactIndexManagerSql {
       + " OR (--SortUriExpr-- = ? AND auid." + AUID_COLUMN + " = ? AND " + ARTIFACT_VERSION_COLUMN + " < ?))";
 
   // sortUri expression for queries using long URLs (with LEFT JOIN to long_url table)
+  // COLLATE "C" ensures byte-order sorting consistent across all PostgreSQL locales
   private static final String SORT_URI_EXPR_LONG_URL =
-      "replace(concat(u." + URL_COLUMN + ", " + LONG_URL_COLUMN + "), '/', '\u0009')";
+      "replace(concat(u." + URL_COLUMN + ", " + LONG_URL_COLUMN + "), '/', '\u0009') COLLATE \"C\"";
 
   // sortUri expression for queries using short URLs only
+  // COLLATE "C" ensures byte-order sorting consistent across all PostgreSQL locales
   private static final String SORT_URI_EXPR_SHORT_URL =
-      "replace(u." + URL_COLUMN + ", '/', '\u0009')";
+      "replace(u." + URL_COLUMN + ", '/', '\u0009') COLLATE \"C\"";
 
   /**
    * Constructor.
