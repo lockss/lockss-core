@@ -31,21 +31,97 @@ POSSIBILITY OF SUCH DAMAGE.
 */
 package org.lockss.rs.io.index.db;
 
+import io.zonky.test.db.postgres.embedded.EmbeddedPostgres;
+import org.junit.jupiter.api.AfterAll;
+import org.junit.jupiter.api.BeforeAll;
 import org.lockss.log.L4JLogger;
 import org.lockss.rs.io.index.AbstractArtifactIndexTest;
 import org.lockss.test.ConfigurationUtil;
 import org.lockss.test.MockLockssDaemon;
+import org.lockss.util.StringUtil;
 import org.postgresql.ds.PGSimpleDataSource;
 
+import javax.sql.DataSource;
 import java.io.File;
-import java.io.IOException;
+import java.sql.Connection;
+import java.sql.DriverManager;
+import java.sql.SQLException;
+import java.sql.Statement;
+import java.util.UUID;
 
+/**
+ * Tests for {@link SQLArtifactIndex}.
+ *
+ * <p>This test class uses a shared embedded PostgreSQL instance for efficiency:
+ * <ol>
+ *   <li>{@code @BeforeAll setUpClass()} - Starts the shared embedded PostgreSQL instance once
+ *       before any tests run.</li>
+ *   <li>{@code makeArtifactIndex()} - Creates a unique database for each test within the shared
+ *       PostgreSQL instance and initializes {@link SQLArtifactIndexDbManager}.</li>
+ *   <li>{@code @AfterAll tearDownClass()} - Stops the shared PostgreSQL instance after all
+ *       tests complete.</li>
+ * </ol>
+ */
 public class TestSQLArtifactIndex extends AbstractArtifactIndexTest<SQLArtifactIndex> {
   private static L4JLogger log = L4JLogger.getLogger();
+
+  /** Shared embedded PostgreSQL instance for all tests in this class */
+  private static EmbeddedPostgres embeddedPg;
 
   private SQLArtifactIndexDbManager idxDbManager;
   private MockLockssDaemon theDaemon;
   private String tempDirPath;
+
+  /**
+   * Start the shared PostgreSQL instance once before any tests run.
+   */
+  @BeforeAll
+  public static void setUpClass() throws Exception {
+    EmbeddedPostgres.Builder builder = EmbeddedPostgres.builder();
+    String extemp = System.getProperty("org.lockss.executableTempDir");
+    if (!StringUtil.isNullString(extemp)) {
+      builder.setOverrideWorkingDirectory(new File(extemp));
+    }
+    embeddedPg = builder.start();
+    log.info("Started embedded PostgreSQL on port " + embeddedPg.getPort());
+  }
+
+  /**
+   * Stop the shared PostgreSQL instance after all tests complete.
+   */
+  @AfterAll
+  public static void tearDownClass() throws Exception {
+    if (embeddedPg != null) {
+      embeddedPg.close();
+      embeddedPg = null;
+    }
+  }
+
+  /**
+   * Creates a new database with the given name and returns a DataSource for it.
+   */
+  private static DataSource createDatabase(String dbName) throws SQLException {
+    int port = embeddedPg.getPort();
+    String host = "localhost";
+    String adminDb = "postgres";
+    String username = "postgres";
+
+    // Connect to admin database and create the new database
+    String adminUrl = String.format("jdbc:postgresql://%s:%d/%s", host, port, adminDb);
+    try (Connection adminConn = DriverManager.getConnection(adminUrl, username, "");
+         Statement stmt = adminConn.createStatement()) {
+      String createQuery = String.format("CREATE DATABASE %s TEMPLATE template0", dbName);
+      stmt.executeUpdate(createQuery);
+    }
+
+    // Return a DataSource connected to the new database
+    PGSimpleDataSource ds = new PGSimpleDataSource();
+    ds.setServerNames(new String[]{host});
+    ds.setPortNumbers(new int[]{port});
+    ds.setDatabaseName(dbName);
+    ds.setUser(username);
+    return ds;
+  }
 
   @Override
   protected SQLArtifactIndex makeArtifactIndex() throws Exception {
@@ -56,60 +132,29 @@ public class TestSQLArtifactIndex extends AbstractArtifactIndexTest<SQLArtifactI
     // Get the temporary directory used during the test
     tempDirPath = setUpDiskSpace();
 
-//    initializeDerby();
     initializePostgreSQL();
 
-    return new EmbeddedSQLArtifactIndex();
-  }
-
-  class EmbeddedSQLArtifactIndex extends SQLArtifactIndex {
-    @Override
-    public void stop() {
-      try {
-        stopEmbeddedPgDbManager();
-      } catch (IOException e) {
-        log.warn("Failed to close embedded PostgreSQL");
-      }
-      super.stop();
-    }
+    return new SQLArtifactIndex();
   }
 
   protected void initializePostgreSQL() throws Exception {
     ConfigurationUtil.addFromArgs(
         SQLArtifactIndexDbManager.PARAM_DATASOURCE_USER, "postgres",
-        SQLArtifactIndexDbManager.PARAM_DATASOURCE_PASSWORD, "postgresx");
-
+        SQLArtifactIndexDbManager.PARAM_DATASOURCE_PASSWORD, "postgres",
+        SQLArtifactIndexDbManager.DATASOURCE_ROOT + ".dbcp.enabled", "false",
+        SQLArtifactIndexDbManager.PARAM_MAX_RETRY_COUNT, "0");
     ConfigurationUtil.addFromArgs(
-        SQLArtifactIndexDbManager.DATASOURCE_ROOT + ".dbcp.enabled", "true",
-        SQLArtifactIndexDbManager.DATASOURCE_ROOT + ".dbcp.initialSize", "2");
+        SQLArtifactIndexDbManager.PARAM_RETRY_DELAY, "0",
+        SQLArtifactIndexDbManager.PARAM_DATASOURCE_CLASSNAME, PGSimpleDataSource.class.getCanonicalName());
 
-    ConfigurationUtil.addFromArgs(
-        SQLArtifactIndexDbManager.PARAM_MAX_RETRY_COUNT, "0",
-        SQLArtifactIndexDbManager.PARAM_RETRY_DELAY, "0");
+    // Create a unique database for this test
+    String dbName = "test_" + UUID.randomUUID().toString().replace("-", "");
+    DataSource ds = createDatabase(dbName);
 
-    ConfigurationUtil.addFromArgs(
-        SQLArtifactIndexDbManager.PARAM_DATASOURCE_CLASSNAME, PGSimpleDataSource.class.getCanonicalName(),
-        SQLArtifactIndexDbManager.PARAM_DATASOURCE_PASSWORD, "postgres");
-
+    // Initialize the DbManager with the test database
     idxDbManager = new SQLArtifactIndexDbManager();
-    startEmbeddedPgDbManager(idxDbManager);
-    idxDbManager.initService(getMockLockssDaemon());
-
-    idxDbManager.setTargetDatabaseVersion(4);
-    idxDbManager.startService();
-
-    theDaemon.setSQLArtifactIndexDbManager(idxDbManager);
-  }
-
-  private void initializeDerby() throws IOException {
-    // Set the database log.
-    System.setProperty("derby.stream.error.file",
-        new File(tempDirPath, "derby.log").getAbsolutePath());
-
-    // Create the database manager.
-    idxDbManager = new SQLArtifactIndexDbManager();
+    idxDbManager.setTestingDataSource(ds);
     idxDbManager.initService(theDaemon);
-
     idxDbManager.setTargetDatabaseVersion(4);
     idxDbManager.startService();
 
