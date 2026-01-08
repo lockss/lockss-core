@@ -299,7 +299,8 @@ public class RepositoryManager
         // Create repo only once
 	try {
           RepoSpec rs = RepoSpec.fromSpec(spec);
-	  rs.setRepository(createLockssRepository(rs)); setV2Repo(rs);
+	  rs.setRepository(createLockssRepository(rs));
+          setV2Repo(rs);
           return true;
 	} catch (Exception e) {
 	  log.fatal("Can't create V2 repo", e);
