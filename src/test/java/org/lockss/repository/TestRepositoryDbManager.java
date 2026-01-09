@@ -31,9 +31,12 @@ POSSIBILITY OF SUCH DAMAGE.
 */
 package org.lockss.repository;
 
+import io.zonky.test.db.postgres.embedded.EmbeddedPostgres;
 import org.junit.Test;
+import org.lockss.config.Configuration;
 import org.lockss.db.DbManager;
 import org.lockss.db.SqlConstants;
+import org.lockss.rs.io.index.db.SQLArtifactIndexDbManager;
 import org.lockss.test.ConfigurationUtil;
 import org.lockss.test.LockssTestCase4;
 import org.lockss.test.MockLockssDaemon;
@@ -44,6 +47,7 @@ import java.io.File;
 import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
+import java.util.UUID;
 
 public class TestRepositoryDbManager extends LockssTestCase4 {
   private static final Logger log = Logger.getLogger();
@@ -220,13 +224,31 @@ public class TestRepositoryDbManager extends LockssTestCase4 {
    * Creates a PostgreSQL database.
    */
   protected void createPgsqlDb() throws Exception {
+    EmbeddedPostgres embeddedPg = startEmbeddedPostgres();
+
+    // Create a unique database for this test
+    String dbName = "test_" + UUID.randomUUID().toString().replace("-", "");
+
+    // Configure DbManager settings
+    ConfigurationUtil.addFromArgs(
+        RepositoryDbManager.PARAM_DATASOURCE_CLASSNAME, "org.postgresql.ds.PGSimpleDataSource",
+        SQLArtifactIndexDbManager.PARAM_DATASOURCE_DATABASENAME, dbName,
+        RepositoryDbManager.PARAM_DATASOURCE_SERVERNAME, "localhost",
+        RepositoryDbManager.PARAM_DATASOURCE_PORTNUMBER, String.valueOf(embeddedPg.getPort()));
+
+    ConfigurationUtil.addFromArgs(
+        RepositoryDbManager.PARAM_DATASOURCE_USER, "postgres",
+        RepositoryDbManager.PARAM_DATASOURCE_PASSWORD, "postgres");
+
     ConfigurationUtil.addFromArgs(
         RepositoryDbManager.PARAM_MAX_RETRY_COUNT, "0",
         RepositoryDbManager.PARAM_RETRY_DELAY, "0");
 
     repositoryDbManager = new RepositoryDbManager();
-    startEmbeddedPgDbManager(repositoryDbManager);
     repositoryDbManager.initService(getMockLockssDaemon());
     repositoryDbManager.startService();
+    theDaemon.setRepositoryDbManager(repositoryDbManager);
+
+    stopEmbeddedPostgre();
   }
 }

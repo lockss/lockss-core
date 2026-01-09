@@ -40,21 +40,12 @@ import org.lockss.test.ConfigurationUtil;
 import org.lockss.test.LockssTestCase4;
 import org.lockss.test.MockLockssDaemon;
 import org.lockss.util.Logger;
-import org.lockss.util.StringUtil;
 import org.lockss.util.rest.repo.model.Artifact;
 import org.lockss.util.rest.repo.model.VersionsEnum;
 import org.lockss.util.rest.repo.util.ArtifactSpec;
 import org.lockss.util.time.TimeBase;
-import org.postgresql.ds.PGSimpleDataSource;
 
-import javax.sql.DataSource;
-import java.io.File;
-import java.io.IOException;
 import java.net.URI;
-import java.sql.Connection;
-import java.sql.DriverManager;
-import java.sql.SQLException;
-import java.sql.Statement;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
@@ -81,18 +72,9 @@ import java.util.stream.Stream;
  * </ul>
  *
  * <h3>Embedded PostgreSQL Lifecycle</h3>
- * <p>This test class uses a shared embedded PostgreSQL instance for efficiency:
- * <ol>
- *   <li>{@code @BeforeClass setUpClass()} - Starts the shared embedded PostgreSQL instance once
- *       before any tests run.</li>
- *   <li>{@code @Before setUp()} - Creates a unique database for each test and initializes
- *       {@link SQLArtifactIndexDbManager}. The {@code @Before} annotation is inherited from
- *       {@link LockssTestCase4}.</li>
- *   <li>{@code @After tearDown()} - Stops the {@link SQLArtifactIndexDbManager} and daemon after
- *       each test. The {@code @After} annotation is inherited from {@link LockssTestCase4}.</li>
- *   <li>{@code @AfterClass tearDownClass()} - Stops the shared PostgreSQL instance after all
- *       tests complete.</li>
- * </ol>
+ * <p>This test class uses the shared embedded PostgreSQL instance from
+ * {@link LockssTestCase4} for efficiency. Each test gets a unique database
+ * within the shared PostgreSQL instance for isolation.
  */
 public class TestSQLArtifactIndexDbManager extends LockssTestCase4 {
   private static final Logger log = Logger.getLogger();
@@ -104,55 +86,14 @@ public class TestSQLArtifactIndexDbManager extends LockssTestCase4 {
   private String tempDirPath;
   private SQLArtifactIndexDbManager idxDbManager;
 
-  /**
-   * Start the shared PostgreSQL instance once before any tests run.
-   */
   @BeforeClass
   public static void setUpClass() throws Exception {
-    EmbeddedPostgres.Builder builder = EmbeddedPostgres.builder();
-    String extemp = System.getProperty("org.lockss.executableTempDir");
-    if (!StringUtil.isNullString(extemp)) {
-      builder.setOverrideWorkingDirectory(new File(extemp));
-    }
-    embeddedPg = builder.start();
-    log.info("Started embedded PostgreSQL on port " + embeddedPg.getPort());
+    embeddedPg = startEmbeddedPostgres();
   }
 
-  /**
-   * Stop the shared PostgreSQL instance after all tests complete.
-   */
   @AfterClass
   public static void tearDownClass() throws Exception {
-    if (embeddedPg != null) {
-      embeddedPg.close();
-      embeddedPg = null;
-    }
-  }
-
-  /**
-   * Creates a new database with the given name and returns a DataSource for it.
-   */
-  private static DataSource createDatabase(String dbName) throws SQLException {
-    int port = embeddedPg.getPort();
-    String host = "localhost";
-    String adminDb = "postgres";
-    String username = "postgres";
-
-    // Connect to admin database and create the new database
-    String adminUrl = String.format("jdbc:postgresql://%s:%d/%s", host, port, adminDb);
-    try (Connection adminConn = DriverManager.getConnection(adminUrl, username, "");
-         Statement stmt = adminConn.createStatement()) {
-      String createQuery = String.format("CREATE DATABASE %s TEMPLATE template0", dbName);
-      stmt.executeUpdate(createQuery);
-    }
-
-    // Return a DataSource connected to the new database
-    PGSimpleDataSource ds = new PGSimpleDataSource();
-    ds.setServerNames(new String[]{host});
-    ds.setPortNumbers(new int[]{port});
-    ds.setDatabaseName(dbName);
-    ds.setUser(username);
-    return ds;
+    stopEmbeddedPostgre();
   }
 
   @Override
@@ -162,23 +103,26 @@ public class TestSQLArtifactIndexDbManager extends LockssTestCase4 {
     theDaemon = getMockLockssDaemon();
     theDaemon.setDaemonInited(true);
 
-    // Configure DbManager settings
-    ConfigurationUtil.addFromArgs(
-        SQLArtifactIndexDbManager.PARAM_DATASOURCE_USER, "postgres",
-        SQLArtifactIndexDbManager.PARAM_DATASOURCE_PASSWORD, "postgres",
-        SQLArtifactIndexDbManager.DATASOURCE_ROOT + ".dbcp.enabled", "false",
-        SQLArtifactIndexDbManager.PARAM_MAX_RETRY_COUNT, "0");
-    ConfigurationUtil.addFromArgs(
-        SQLArtifactIndexDbManager.PARAM_RETRY_DELAY, "0",
-        SQLArtifactIndexDbManager.PARAM_DATASOURCE_CLASSNAME, PGSimpleDataSource.class.getCanonicalName());
-
     // Create a unique database for this test
     String dbName = "test_" + UUID.randomUUID().toString().replace("-", "");
-    DataSource ds = createDatabase(dbName);
 
-    // Initialize the DbManager with the test database
+    // Configure DbManager settings
+    ConfigurationUtil.addFromArgs(
+        SQLArtifactIndexDbManager.PARAM_DATASOURCE_CLASSNAME, "org.postgresql.ds.PGSimpleDataSource",
+        SQLArtifactIndexDbManager.PARAM_DATASOURCE_DATABASENAME, dbName,
+        SQLArtifactIndexDbManager.PARAM_DATASOURCE_SERVERNAME, "localhost",
+        SQLArtifactIndexDbManager.PARAM_DATASOURCE_PORTNUMBER, String.valueOf(embeddedPg.getPort()));
+
+    ConfigurationUtil.addFromArgs(
+        SQLArtifactIndexDbManager.PARAM_DATASOURCE_USER, "postgres",
+        SQLArtifactIndexDbManager.PARAM_DATASOURCE_PASSWORD, "postgres");
+
+    ConfigurationUtil.addFromArgs(
+        SQLArtifactIndexDbManager.PARAM_MAX_RETRY_COUNT, "0",
+        SQLArtifactIndexDbManager.PARAM_RETRY_DELAY, "0");
+
+    // Initialize the DbManager with a unique database for this test
     idxDbManager = new SQLArtifactIndexDbManager();
-    idxDbManager.setTestingDataSource(ds);
     idxDbManager.initService(theDaemon);
     idxDbManager.setTargetDatabaseVersion(4);
     idxDbManager.startService();

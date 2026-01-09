@@ -1429,14 +1429,6 @@ public abstract class DbManager extends BaseLockssManager
     final String DEBUG_HEADER = "initializePostgresqlDbIfNeeded(): ";
     if (log.isDebug2()) log.debug2(DEBUG_HEADER + "Starting...");
 
-    // Skip database initialization when using a testing datasource.
-    // The testing datasource is already configured to connect to the correct
-    // database, and we must not modify it (e.g., by changing databaseName to template1).
-    if (testingDataSource != null) {
-      if (log.isDebug2()) log.debug2(DEBUG_HEADER + "Skipping - using testingDataSource");
-      return;
-    }
-
     // Create a datasource.
     DataSource ds = createDataSource(dsConfig.get("className"));
 
