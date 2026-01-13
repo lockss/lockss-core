@@ -65,10 +65,7 @@ import org.lockss.scheduler.SchedService;
 import org.lockss.state.ArchivalUnitStatus;
 import org.lockss.state.StateManager;
 import org.lockss.subscription.SubscriptionManager;
-import org.lockss.util.CollectionUtil;
-import org.lockss.util.ListUtil;
-import org.lockss.util.Logger;
-import org.lockss.util.OneShotSemaphore;
+import org.lockss.util.*;
 import org.lockss.util.time.Deadline;
 import org.lockss.util.rest.status.*;
 
@@ -775,10 +772,17 @@ public class LockssDaemon extends LockssApp {
 
   protected void startApp() throws Exception {
     super.startApp();
-    log.info("Started");
+    log.info("Starting");
     if (CurrentConfig.getBooleanParam(PARAM_START_PLUGINS,
 				      DEFAULT_START_PLUGINS)) {
       getPluginManager().startLoadablePlugins();
+    }
+    String uptime =
+      StringUtil.timeIntervalToString(TimeBase.msSince(getStartDate().getTime()));
+    // Log "Started" before threads waiting for ausStarted semaphore can run
+    log.info("Started in " + uptime);
+    if (CurrentConfig.getBooleanParam(PARAM_START_PLUGINS,
+				      DEFAULT_START_PLUGINS)) {
       ausStarted.fill();
     }
 
@@ -786,7 +790,7 @@ public class LockssDaemon extends LockssApp {
     alertMgr.raiseAlert(Alert.cacheAlert(Alert.DAEMON_STARTED),
 			"LOCKSS daemon " +
 			ConfigManager.getDaemonVersion().displayString() +
-			" started");
+			" started in " + uptime);
   }
 
 

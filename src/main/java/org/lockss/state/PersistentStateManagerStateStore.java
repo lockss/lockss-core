@@ -48,6 +48,7 @@ import java.util.Objects;
 import java.util.Set;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
+import org.lockss.util.os.*;
 
 import static org.lockss.account.AccountManager.DELETED_REASON;
 
@@ -144,8 +145,14 @@ public class PersistentStateManagerStateStore extends DbStateManagerSql {
     if (log.isDebug2()) log.debug2("Storing account in " + file);
     ObjectWriter writer = UserAccount.getUserAccountObjectWriter()
         .withFeatures(SerializationFeature.INDENT_OUTPUT);
-    writer.writeValue(file, acct);
-    FileUtil.setOwnerRW(file);
+    File tmpFile = FileUtil.createTempFile(file.getName(), ".tmp", file.getParentFile());
+    try {
+      writer.writeValue(tmpFile, acct);
+      PlatformUtil.updateAtomically(tmpFile, file);
+      FileUtil.setOwnerRW(file);
+    } finally {
+      FileUtil.safeDeleteFile(tmpFile);
+    }
   }
 
   UserAccount loadUser(File file) {
