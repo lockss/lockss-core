@@ -33,6 +33,8 @@ import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
+
+import org.junit.Test;
 import org.lockss.daemon.Cron;
 import org.lockss.db.DbException;
 import org.lockss.db.DbManager;
@@ -184,6 +186,7 @@ public class TestCounterReportsRequestRecorder extends LockssTestCase4 {
    * 
    * @throws Exception if there are problems running the test.
    */
+  @Test
   public void testRecordMultipleRequests() throws Exception {
 
     CounterReportsRequestRecorder recorder =

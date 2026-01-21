@@ -363,7 +363,8 @@ public abstract class AbstractArtifactIndexTest<AI extends ArtifactIndex> extend
     assertEquals(spec.isCommitted(), index.getArtifact(spec.getArtifactUuid()).isCommitted());
   }
 
-  public void testIndexUnicodeArtfact_artifactRepoState() throws Exception {
+  @Test
+  public void testIndexUnicodeArtifact_artifactRepoState() throws Exception {
     ArtifactSpec spec = new ArtifactSpec()
         .setArtifactUuid(UUID.randomUUID().toString())
         .setNamespace("namespace")
@@ -373,7 +374,7 @@ public abstract class AbstractArtifactIndexTest<AI extends ArtifactIndex> extend
         .setCollectionDate(TimeBase.nowMs())
         .setStorageUrl(new URI("storageUrl"))
         .setContentLength(1232L)
-        .setCommitted(true)
+        .setCommitted(false)
         .setDeleted(false);
 
     spec.generateContent();
@@ -386,6 +387,7 @@ public abstract class AbstractArtifactIndexTest<AI extends ArtifactIndex> extend
 //    ad.setArtifactState(state);
 
     index.indexArtifact(WarcArtifactDataUtil.getArtifact(ad));
+
 
     assertEquals(spec.isCommitted(), index.getArtifact(spec.getArtifactUuid()).isCommitted());
   }

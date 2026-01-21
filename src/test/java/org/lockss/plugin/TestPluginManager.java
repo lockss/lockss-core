@@ -2560,7 +2560,7 @@ public class TestPluginManager extends LockssTestCase4 {
   }
 
   /** Runtime errors loading plugins should be caught. */
-// XXX  @Test
+  @Test
   public void testErrorProcessingRegistryAu() throws Exception {
     mgr.startService();
     Properties p = new Properties();
