@@ -37,11 +37,12 @@ import org.lockss.rs.io.index.VolatileArtifactIndex;
 import org.lockss.rs.io.storage.warc.LocalWarcArtifactDataStore;
 import org.lockss.util.io.FileUtil;
 import org.lockss.util.rest.repo.LockssRepository;
-import org.lockss.util.rest.repo.model.RepositoryInfo;
+import org.lockss.util.rest.repo.model.*;
+import org.lockss.util.rest.repo.util.ArtifactSpec;
 import org.lockss.util.storage.StorageInfo;
 import org.springframework.util.FileSystemUtils;
 
-import java.io.File;
+import java.io.*;
 
 /**
  * Test class for {@link LocalLockssRepository}
@@ -103,4 +104,138 @@ public class TestLocalLockssRepository extends AbstractBaseLockssRepositoryTest 
     assertEquals("foo>", repo.realRecordUri("foo>"));
     assertEquals("http://foo.bar/path", repo.realRecordUri("<http://foo.bar/path>"));
   }
+
+  @Test
+  public void testRuntimeErrorInjection() throws Exception {
+    BaseLockssRepository repo = (BaseLockssRepository)repository;
+    String u1 = "http://host1.com/path1/bar";
+    String rules = """
+      {"cond": { "op" : "AddArtifact", "uri":".*path1.*"},
+       "action":{"ex":"IllegalArgumentException", "msg":"path1 add error"}
+      }
+    """;
+    repo.setErrorInjectionRulesFromSpecs(rules);
+    ArtifactSpec spec = ArtifactSpec.forNsAuUrl(NS1, AUID1, u1)
+      .setContentLength(10);
+    assertThrowsMatch(IllegalArgumentException.class, "path1 add error",
+                      () -> addUncommitted(spec));
+  }
+
+  @Test
+  public void testRuntimeErrorInjection2() throws Exception {
+    // This is a different code path due to the fq class name
+    BaseLockssRepository repo = (BaseLockssRepository)repository;
+    String u1 = "http://host1.com/path1/bar";
+    String rules = """
+      {"cond": { "op" : "AddArtifact", "uri":".*path1.*"},
+       "action":{"ex":"java.lang.IllegalArgumentException", "msg":"path1 add error"}
+      }
+    """;
+    repo.setErrorInjectionRulesFromSpecs(rules);
+    ArtifactSpec spec = ArtifactSpec.forNsAuUrl(NS1, AUID1, u1)
+      .setContentLength(10);
+    assertThrowsMatch(IllegalArgumentException.class, "path1 add error",
+                      () -> addUncommitted(spec));
+  }
+
+  @Test
+  public void testErrorInjection() throws Exception {
+    BaseLockssRepository repo = (BaseLockssRepository)repository;
+
+    String u1 = "http://host1.com/path1/bar";
+    String u2 = "http://host1.com/path2/bar";
+
+    String badRule = """
+      {"cond": { "op" : "CommitArtifact", "uri":".*path2.*", "ords":2,4"},
+       "action":{"ex":"IOException", "msg":"path2 error"}
+    }
+    """;
+
+    try {
+      repo.setErrorInjectionRulesFromSpecs(badRule);
+      fail("Bad error injection rules should throw IllegalArgumentException: "
+           + badRule);
+    } catch (IllegalArgumentException e) {
+    }
+
+    // The Get error will trigger on version 3 because the second
+    // added artifact isn't committed
+
+    String rules = """
+      {"cond": { "op" : "AddArtifact", "uri":".*path1.*"},
+       "action":{"ex":"IOException", "msg":"path1 add error"}
+      };
+    {"cond": { "op" : "CommitArtifact", "uri":".*path2.*", "ords":"2,4"},
+        "action":{"ex":"IOException", "msg":"path2 commit error"}
+    };
+    {"cond": { "op" : "GetArtifact", "uri":".*path2.*", "version":"3"},
+        "action":{"ex":"IOException", "msg":"path2 get error"}
+    }
+    """;
+
+    repo.setErrorInjectionRulesFromSpecs(rules);
+    ArtifactSpec spec1 = ArtifactSpec.forNsAuUrl(NS1, AUID1, u1)
+      .setContentLength(10);
+    assertThrowsMatch(IOException.class, "path1 add error", () -> addUncommitted(spec1));
+
+    ArtifactSpec spec2a = ArtifactSpec.forNsAuUrl(NS1, AUID1, u2)
+      .setContentLength(10);
+    // Need to make multiple ArtifactSpecs as the version and
+    // committed status get modified when adding and/or committing
+    ArtifactSpec spec2b = ArtifactSpec.forNsAuUrl(NS1, AUID1, u2)
+      .setContentLength(10);
+    ArtifactSpec spec2c = ArtifactSpec.forNsAuUrl(NS1, AUID1, u2)
+      .setContentLength(10);
+    ArtifactSpec spec2d = ArtifactSpec.forNsAuUrl(NS1, AUID1, u2)
+      .setContentLength(10);
+    ArtifactSpec spec2e = ArtifactSpec.forNsAuUrl(NS1, AUID1, u2)
+      .setContentLength(10);
+    // And one used just for gets
+    ArtifactSpec spec2 = ArtifactSpec.forNsAuUrl(NS1, AUID1, u2);
+
+    Artifact newArt2a = add(spec2a);
+    commit(newArt2a);
+    getArtifact(repository, spec2, false);
+    Artifact newArt2b = add(spec2b);
+    assertThrowsMatch(IOException.class, "path2 commit error", () -> commit(newArt2b));
+    // This is version 2 but returns null because it isn't committed
+    getArtifact(repository, spec2, false);
+    Artifact newArt2c = add(spec2c);
+    commit(newArt2c);
+    // version 3 should trigger an error
+    assertThrowsMatch(IOException.class, "path2 get error",
+                      () -> getArtifact(repository, spec2, false));
+    Artifact newArt2d = add(spec2d);
+    assertThrowsMatch(IOException.class, "path2 commit error", () -> commit(newArt2d));
+    // version 3 still current
+    assertThrowsMatch(IOException.class, "path2 get error",
+                      () -> getArtifact(repository, spec2, false));
+    Artifact newArt2e = add(spec2e);
+    commit(newArt2e);
+    getArtifact(repository, spec2, false);
+
+    getArtifact(repository, spec2a, false);
+    getArtifact(repository, spec2b, false);
+    assertThrowsMatch(IOException.class, "path2 get error",
+                      () -> getArtifact(repository, spec2c, false));
+    getArtifact(repository, spec2d, false);
+
+  }
+
+  private Artifact add(ArtifactSpec spec) throws IOException {
+    if (!spec.hasContent()) {
+      spec.generateContent();
+    }
+    log.info("adding: " + spec);
+
+    ArtifactData ad = spec.getArtifactData();
+    Artifact res = repository.addArtifact(ad);
+    spec.setVersion(res.getVersion());
+    return res;
+  }
+
+  private Artifact commit(Artifact art) throws IOException {
+    return repository.commitArtifact(art.getNamespace(), art.getUuid());
+  }
+
 }

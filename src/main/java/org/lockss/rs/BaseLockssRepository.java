@@ -53,6 +53,7 @@ import org.lockss.rs.io.storage.warc.WarcArtifactDataStore;
 import org.lockss.rs.io.storage.warc.WarcArtifactDataUtil;
 import org.lockss.util.BuildInfo;
 import org.lockss.util.ByteArray;
+import org.lockss.util.ListUtil;
 import org.lockss.util.StreamUtil;
 import org.lockss.util.io.DeferredTempFileOutputStream;
 import org.lockss.util.io.FileUtil;
@@ -72,11 +73,15 @@ import org.lockss.util.time.TimeUtil;
 import java.io.*;
 import java.nio.file.Path;
 import java.util.Arrays;
+import java.util.List;
 import java.util.UUID;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 import java.util.regex.Pattern;
+
+import org.lockss.rs.ErrorHarness.TestingErrorOp;
+import org.lockss.rs.ErrorHarness.ErrorInjectionRule;
 
 /**
  * Base implementation of the LOCKSS Repository service.
@@ -443,6 +448,7 @@ public class BaseLockssRepository implements LockssRepository, JmsFactorySource 
           artifactId.getUri(),
           nextVersion);
 
+      injectTestingAction(newId, TestingErrorOp.AddArtifact);
       // Set the new artifact identifier
       artifactData.setIdentifier(newId);
 
@@ -678,6 +684,7 @@ public class BaseLockssRepository implements LockssRepository, JmsFactorySource 
     }
 
     if (!artifact.getCommitted()) {
+      injectTestingAction(artifact.getIdentifier(), TestingErrorOp.CommitArtifact);
       // Commit artifact in data store and index
       store.commitArtifactData(artifact);
       index.commitArtifact(artifactUuid);
@@ -916,8 +923,18 @@ public class BaseLockssRepository implements LockssRepository, JmsFactorySource 
     if (auid == null || url == null) {
       throw new IllegalArgumentException("Null AUID or URL");
     }
-
-    return index.getArtifact(namespace, auid, url);
+    // Versionless error injection rule might trigger before add
+    boolean errorActionApplied =
+      injectTestingAction(new ArtifactIdentifier(namespace, auid, url, 0),
+                          TestingErrorOp.GetArtifact);
+    Artifact res = index.getArtifact(namespace, auid, url);
+    // if no error action triggered, need to check version-full pattern.
+    if (!errorActionApplied && res != null) {
+      injectTestingAction(new ArtifactIdentifier(namespace, auid, url,
+                                                 res.getVersion()),
+                          TestingErrorOp.GetArtifact);
+    }
+    return res;
   }
 
   /**
@@ -939,6 +956,8 @@ public class BaseLockssRepository implements LockssRepository, JmsFactorySource 
     if (auid == null || url == null || version == null) {
       throw new IllegalArgumentException("Null AUID, URL or version");
     }
+    injectTestingAction(new ArtifactIdentifier(namespace, auid, url, version),
+                        TestingErrorOp.GetArtifact);
 
     return index.getArtifactVersion(namespace, auid, url, version,
         includeUncommitted);
@@ -985,4 +1004,44 @@ public class BaseLockssRepository implements LockssRepository, JmsFactorySource 
   public synchronized void incTimeSpentReiterating(long msAmount) {
     timeSpentReiterating += msAmount;
   }
+
+  // Testing harness
+  private List<ErrorInjectionRule> errorRules;
+
+  /** Set or clear error injection rules */
+  public void setErrorInjectionRules(List<ErrorInjectionRule> rules) {
+    errorRules = rules;
+  }
+
+  /** Set error injection rules from text specification.  See  */
+  public void setErrorInjectionRulesFromSpecs(String specs) {
+    List<ErrorInjectionRule> oldRules = errorRules;
+    try {
+      errorRules = ErrorHarness.fromSpecs(specs);
+      if (oldRules != null && !oldRules.isEmpty() && errorRules.isEmpty()) {
+        log.debug("Error injection rules cleared");
+      } else if (!errorRules.isEmpty()) {
+        log.debug("Error injection rules: {}", errorRules);
+      }
+    } catch (IllegalArgumentException e) {
+      log.error("Error parsing error injection rules: {}, exising rules (if any) unchanged.", specs);
+      throw e;
+    }
+  }
+
+  /** Trigger any applicable error action.
+   * @return true if an action was triggered (in case it's a
+   * non-throwing action & the colling code needs to know
+   */
+  private boolean injectTestingAction(ArtifactIdentifier artifactId,
+                                      TestingErrorOp op) throws IOException {
+    if (errorRules == null) return false;
+    for (ErrorInjectionRule eir : errorRules) {
+      if (eir.apply(artifactId, op)) {
+        return true;
+      }
+    }
+    return false;
+  }
+
 }
