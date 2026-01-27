@@ -1053,6 +1053,13 @@ POSSIBILITY OF SUCH DAMAGE.
       <scope>test</scope>
     </dependency>
 
+    <dependency>
+      <groupId>org.projectlombok</groupId>
+      <artifactId>lombok</artifactId>
+      <version>${version.plugin.lombok-plugin}</version>
+      <scope>provided</scope>
+    </dependency>
+
   </dependencies>
 
   <build>
@@ -1083,6 +1090,7 @@ POSSIBILITY OF SUCH DAMAGE.
               <goal>run</goal>
             </goals>
             <configuration>
+              <skip>${skipTestingKeystore}</skip>
               <target>
                 <copy file="${basedir}/src/main/java/org/lockss/plugin/lockss.keystore"
                       tofile="${basedir}/target/classes/org/lockss/plugin/lockss-testing.keystore"
