@@ -48,6 +48,10 @@ import java.text.MessageFormat;
 import java.util.*;
 import java.util.concurrent.*;
 
+// TODO: All the port logic is obsolete and should be removed.  What
+// was once done by listing ports is now done by labeling pods and
+// using podSelector insteads.
+
 public class NetworkPolicyManager extends BaseLockssManager implements ConfigurableManager {
 
   private final L4JLogger log = L4JLogger.getLogger();
