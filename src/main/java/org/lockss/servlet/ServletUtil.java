@@ -738,36 +738,13 @@ public class ServletUtil {
     page.add(frm);
   }
 
-  public static void layoutEnablePortRow(LockssServlet servlet,
-                                         Table table,
-                                         String enableFieldName,
-                                         boolean defaultEnable,
-                                         String enableDescription,
-                                         String enableFootnote,
-                                         String filterFootnote,
-                                         String portFieldName,
-                                         String defaultPort,
-                                         List usablePorts) {
-    layoutEnablePortRow(servlet,
-			table,
-			enableFieldName,
-			defaultEnable,
-			enableDescription,
-			enableFootnote,
-			filterFootnote,
-			portFieldName,
-			null,
-			defaultPort,
-			null,
-			usablePorts);
-  }
-
   private static final String SSL_FOOT =
     "SSL port used internally on loopback interface.  -1 to disable";
 
   public static void layoutEnablePortRow(LockssServlet servlet,
                                          Table table,
                                          String enableFieldName,
+                                         boolean isReadOnly,
                                          boolean defaultEnable,
                                          String enableDescription,
                                          String enableFootnote,
@@ -800,10 +777,15 @@ public class ServletUtil {
       sslPortFieldId = "id_" + sslPortFieldName;
       sslPortElem.setSize(6);
       sslPortElem.attribute("id", sslPortFieldId);
-    }    
-    enaElem.attribute("onchange",
-		      "selectEnable(this,'" +
-		      portFieldId + "','" + sslPortFieldId + "')");
+    }
+    if (!isReadOnly) {
+      enaElem.attribute("onchange",
+          "selectEnable(this,'" +
+          portFieldId + "','" + sslPortFieldId + "')");
+    } else {
+      enaElem.attribute("onchange",
+          "selectEnable(this,null,'" + sslPortFieldId + "')");
+    }
     servlet.setTabOrder(enaElem);
 
     table.newCell("align=\"right\" valign=\"bottom\"");
@@ -815,8 +797,13 @@ public class ServletUtil {
     // "port" element
     portElem.setSize(6);
     portElem.attribute("id", portFieldId);
+
+    portElem.attribute("disabled", isReadOnly);
+    portElem.attribute("readonly", isReadOnly);
+
     servlet.setTabOrder(portElem);
     table.add(portElem);
+
     if (sslPortElem != null) {
       table.newCell("align=\"left\" valign=\"bottom\"");
       table.add("SSL port&nbsp;");
