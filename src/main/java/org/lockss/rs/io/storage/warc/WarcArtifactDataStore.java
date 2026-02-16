@@ -894,7 +894,7 @@ public abstract class WarcArtifactDataStore implements ArtifactDataStore, WARCCo
 
     if (basePath == null) {
       log.error("No content base path has enough free space for a new WARC file; needed {} bytes", minFree);
-      throw new IOException("Not enough free space on any content base path");
+      throw new LockssDiskFullException("Not enough free space on any content base path");
     }
 
     // Generate and initialize a new permanent WARC file for this AU under the base path
@@ -1908,6 +1908,11 @@ public abstract class WarcArtifactDataStore implements ArtifactDataStore, WARCCo
 
       try {
         return copyArtifact();
+      } catch (IOException e) {
+        log.error("Error copying arftifact to perm WARC", e);
+        // XXX recognize No space left of device, set state so that
+        // createArtifact can return 50x on next call.
+        throw e;
       } finally {
         // Remove task from queued copy map
         queuedCopyTasks.remove(artifact.getIdentifier());
