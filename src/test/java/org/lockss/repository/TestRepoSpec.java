@@ -28,9 +28,12 @@ in this Software without prior written authorization from Stanford University.
 
 package org.lockss.repository;
 
+import java.io.*;
 import org.junit.*;
 import org.lockss.log.*;
 import org.lockss.test.*;
+import org.lockss.util.rest.repo.LockssRepository;
+import org.lockss.rs.*;
 
 public class TestRepoSpec extends LockssTestCase4 {
   static L4JLogger log = L4JLogger.getLogger();
@@ -41,18 +44,39 @@ public class TestRepoSpec extends LockssTestCase4 {
     log.info("rs1: {}", rs1);
     assertEquals("volatile", rs1.getType());
     assertEquals("ns1", rs1.getNamespace());
+    assertEquals("volatile:", rs1.getRepositoryKey());
 
     RepoSpec rs2 = RepoSpec.fromSpec("local:ns_2:/path/to/it");
     log.info("rs2: {}", rs2);
     assertEquals("local", rs2.getType());
     assertEquals("ns_2", rs2.getNamespace());
     assertEquals("/path/to/it", rs2.getPath());
+    assertEquals("local:/path/to/it", rs2.getRepositoryKey());
 
     RepoSpec rs3 = RepoSpec.fromSpec("rest:lockss:http://lockss-repository-service:24610");
     log.info("rs3: {}", rs3);
     assertEquals("rest", rs3.getType());
     assertEquals("lockss", rs3.getNamespace());
     assertEquals("http://lockss-repository-service:24610", rs3.getUrl());
+    assertEquals("rest:http://lockss-repository-service:24610",
+                 rs3.getRepositoryKey());
+  }
+
+  @Test
+  public void testWithNamespace() throws IOException {
+    RepoSpec rs1 = RepoSpec.fromSpec("local:ns22:/shining/path");
+    RepoSpec rs2 = rs1.withNamespace("ns33");
+    assertEquals("local", rs2.getType());
+    assertEquals("ns33", rs2.getNamespace());
+    assertEquals("/shining/path", rs2.getPath());
+    assertEquals("local:ns33:/shining/path", rs2.getSpec());
+    assertNull(rs2.getRepository());
+    File tmpdir = getTempDir();
+    LockssRepository lr = new LocalLockssRepository(tmpdir, tmpdir, "index");
+    rs1.setRepository(lr);
+    RepoSpec rs3 = rs1.withNamespace("ns33");
+    assertSame(lr, rs3.getRepository());
+    assertNull(rs2.getRepository());
   }
 
   @Test

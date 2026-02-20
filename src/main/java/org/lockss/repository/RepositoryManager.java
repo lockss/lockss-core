@@ -276,41 +276,47 @@ public class RepositoryManager
       tmpDir = (config.containsKey(PARAM_RESPONSE_TMP_DIR)) ?
           new File(config.get(PARAM_RESPONSE_TMP_DIR)) : DEFAULT_RESPONSE_TMP_DIR;
 
-      if (!processV2RepoSpec(config.get(PARAM_V2_REPOSITORY,
-                                        DEFAULT_V2_REPOSITORY))) {
-        reconfigureRepos(config, changedKeys);
-      }
+      RepoSpec rs =
+        ensureRepo(config.get(PARAM_V2_REPOSITORY, DEFAULT_V2_REPOSITORY));
+      // Interim: the repo configured by this param is the "default"
+      // one to use for all AUs for now.
+      v2Repo = rs;
+
+      // This may unnecessarily reconfigure a repo that's just been
+      // created, but that's harmless
+      reconfigureRepos(config, changedKeys);
     }
   }
 
-  static Pattern REPO_SPEC_PATTERN =
-    Pattern.compile("([^:]+):([^:]+)(?::(.*$))?");
-
-  /** Parse the repo spec, create the repo if necessary and return
-   * true, else return false */
-  private boolean processV2RepoSpec(String spec) {
-    if (!StringUtil.isNullString(System.getProperty("oldrepo"))) {
-      return false;
+  /** Parse the repo spec and create the repo iff necessary. */
+  private RepoSpec ensureRepo(String spec) {
+    if (StringUtil.isNullString(spec)) {
+      throw new IllegalArgumentException("Repo spec must not be null");
     }
-    if (!StringUtil.isNullString(spec)) {
-      if (repoSpecMap.containsKey(spec)) {
-        return false;
-      } else {
-        // Create repo only once
-	try {
-          RepoSpec rs = RepoSpec.fromSpec(spec);
-	  rs.setRepository(createLockssRepository(rs));
-          setV2Repo(rs);
-          return true;
-	} catch (Exception e) {
-	  log.fatal("Can't create V2 repo", e);
-	}
+    RepoSpec rs = repoSpecMap.get(spec);
+    if (rs == null) {
+      // No cached RepoSpec, must create one
+      try {
+        rs = RepoSpec.fromSpec(spec);
+        // See if a LockssRepository for this type/path
+        String rkey = rs.getRepositoryKey();
+        LockssRepository repo = repoMap.get(rkey);
+        if (repo == null) {
+          // No, create it and associate with the namespace-less key
+          repo = createLockssRepository(rs);
+          repoMap.put(rkey, repo);
+        }
+        // Store the LockssRepository in the RepoSpec
+        rs.setRepository(repo);
+        // and put the new RepoSpec in the map
+        repoSpecMap.put(spec, rs);
+        return rs;
+      } catch (RuntimeException e) {
+        log.fatal("Can't create V2 repo", e);
+        throw e;
       }
-    } else {
-      repoSpecMap.remove(spec);
-      v2Repo = null;
     }
-    return false;
+    return rs;
   }
 
   private void setV2Repo(RepoSpec rs) {
@@ -324,7 +330,13 @@ public class RepositoryManager
     return rs != null && rs.getRepository() != null;
   }
 
+  /** Maps RepoSpec string to RepoSpec */
   Map<String,RepoSpec> repoSpecMap = new HashMap<>();
+
+  /** Maps repository key to LockssRepository (because
+   * LockssRepository instances handle multiple namespaces, but
+   * RepoSpec insludes namespace */
+  Map<String,LockssRepository> repoMap = new HashMap<>();
 
   /** Temporary until multiple repos */
   public RepoSpec getV2Repository() {
@@ -332,14 +344,41 @@ public class RepositoryManager
   }
 
   public RepoSpec getV2Repository(String spec) {
-    return repoSpecMap.get(spec);
+    RepoSpec res = ensureRepo(spec);
+    return res;
   }
 
-  /** Return list of known repository names.  Needs a registration
+  /** Return list of known repositories.  Needs a registration
    * mechanism if ever another repository implementation. */
-  public Collection<RepoSpec> getV2RepositoryList() {
+  public Collection<LockssRepository> getV2RepositoryList() {
+    return repoMap.values();
+  }
+
+  /** Return list of known RepoSpecs.  Ensures that a RepoSpec for
+   * each existing namespace is included, even if not already known */
+  public synchronized Collection<RepoSpec> getAllRepoSpecs() {
+    for (RepoSpec rs : repoSpecMap.values()) {
+      findAllNamespaces(rs);
+    }
     return repoSpecMap.values();
   }
+
+  private void findAllNamespaces(RepoSpec rs) {
+    try {
+      for (String ns : rs.getRepository().getNamespaces()) {
+        if (!ns.equals(rs.getNamespace())) {
+          RepoSpec rsn = rs.withNamespace(ns);
+          String rsnSpec = rsn.getSpec();
+          if (!repoSpecMap.containsKey(rsnSpec)) {
+            repoSpecMap.put(rsnSpec, rsn);
+          }
+        }
+      }
+    } catch (IOException e) {
+      log.error("Can't fetch namespaces from {}", rs, e);
+    }
+  }
+
 
   /** Return the repository containing the specified AU. */
   public RepoSpec findAuRepository(ArchivalUnit au) {
@@ -476,9 +515,8 @@ public class RepositoryManager
 
   private void reconfigureRepos(Configuration config,
                                 Configuration.Differences changedKeys) {
-    for (RepoSpec rs : getV2RepositoryList()) {
-      if (rs.getRepository() instanceof RestLockssRepository) {
-        RestLockssRepository repoClient = (RestLockssRepository) rs.getRepository();
+    for (LockssRepository repo : getV2RepositoryList()) {
+      if (repo instanceof RestLockssRepository repoClient) {
 	configureArtifactCache(repoClient, config);
         repoClient.setUseMultipartEndpoint(useMultipartEndpoint);
         if (changedKeys.contains(PARAM_READ_TIMEOUT) ||

@@ -152,60 +152,43 @@ public class LockssRepositoryStatus {
     // users.
     private List getRows() {
       List rows = new ArrayList();
-      for (RepoSpec rs : repoMgr.getV2RepositoryList()) {
+      for (RepoSpec rs : repoMgr.getAllRepoSpecs()) {
 	LockssRepository repo = rs.getRepository();
 	PlatformUtil.DF repoDf = repoMgr.getRepositoryDF(rs.getSpec());
-	String NO_NAMESPACES = " (none) ";
-	try {
-	  Iterator<String> nsIter = repo.getNamespaces().iterator();
-	  if (!nsIter.hasNext()) {
-	    nsIter = ListUtil.list(NO_NAMESPACES).iterator();
-	  }
-	  for (String ns : new IteratorIterable<String>(nsIter)) {
-	    Map row = new HashMap();
-	    if (repoDf != null) {
-	      row.put("size", StringUtil.sizeKBToString(repoDf.getSize()));
-	      row.put("free", StringUtil.sizeKBToString(repoDf.getAvail()));
-	      row.put("full", repoDf.getPercentString());
-	      repoDf = null;
-	    }
-	    row.put("type", rs.getType());
-	    if (!StringUtil.isNullString(rs.getPath())) {
-	      StatusTable.Reference path =
-		new StatusTable.Reference(rs.getPath(),
-					  REPO_STATUS_TABLE_NAME,
-					  rs.getSpec());
-	      row.put("path", path);
-	    }
-	    if (NO_NAMESPACES.equals(ns)) {
-	      row.put("ns", ns);
-	    } else {
-	      row.put("ns",
-		      new StatusTable.Reference(ns,
-						AUIDS_STATUS_TABLE_NAME,
-						rs.getSpec()));
-	      try {
-		row.put("aus",
-			new StatusTable.Reference(IterableUtils.size(repo.getAuIds(ns)),
-						  AUIDS_STATUS_TABLE_NAME,
-						  rs.getSpec()));
-	      } catch (IOException e) {
-		log.warning("Couldn't get AU count", e);
-	      }
-	    }
-	    rows.add(row);
-	  }
-	} catch (IOException e) {
-	  log.warning("Couldn't get namespace IDs from: " + rs.getSpec(),
-		      e);
-	}
+        Map row = new HashMap();
+        if (repoDf != null) {
+          row.put("size", StringUtil.sizeKBToString(repoDf.getSize()));
+          row.put("free", StringUtil.sizeKBToString(repoDf.getAvail()));
+          row.put("full", repoDf.getPercentString());
+          repoDf = null;
+        }
+        row.put("type", rs.getType());
+        if (!StringUtil.isNullString(rs.getPath())) {
+          StatusTable.Reference path =
+            new StatusTable.Reference(rs.getPath(),
+                                      REPO_STATUS_TABLE_NAME,
+                                      rs.getSpec());
+          row.put("path", path);
+        }
+        String ns = rs.getNamespace();
+        RepoSpec rsn = rs.withNamespace(ns);
+        row.put("ns",
+                new StatusTable.Reference(ns,
+                                          AUIDS_STATUS_TABLE_NAME,
+                                          rsn.getSpec()));
+        try {
+          row.put("aus",
+                  new StatusTable.Reference(IterableUtils.size(repo.getAuIds(ns)),
+                                            AUIDS_STATUS_TABLE_NAME,
+                                            rsn.getSpec()));
+        } catch (IOException e) {
+          log.warning("Couldn't get AU count", e);
+        }
+        rows.add(row);
       }
       return rows;
     }
 
-    protected String getTitle(String key) {
-      return "Repository Namespaces";
-    }
   }
 
   /** Display scalar info about a LockssRepository */
@@ -393,6 +376,7 @@ public class LockssRepositoryStatus {
         throws StatusService.NoSuchTableException {
       String key = table.getKey();
       RepoSpec rs = repoMgr.getV2Repository(key);
+      table.setTitle("AUIDs in Namespace " + rs.getNamespace());
       table.setColumnDescriptors(columnDescriptors);
       table.setDefaultSortRules(sortRules);
       SizeStats stats = new SizeStats();
@@ -408,7 +392,8 @@ public class LockssRepositoryStatus {
       LockssRepository repo = rs.getRepository();
       List rows = new ArrayList();
       try {
-	for (String auid : repo.getAuIds(rs.getNamespace())) {
+        String ns = rs.getNamespace();
+	for (String auid : repo.getAuIds(ns)) {
 	  Map row = new HashMap();
 	  StatusTable.Reference auidRef =
 	    new StatusTable.Reference(auid,

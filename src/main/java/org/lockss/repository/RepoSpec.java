@@ -74,6 +74,9 @@ public class RepoSpec {
 
   /** Return the original spec string */
   public String getSpec() {
+    if (spec == null) {
+      spec = makeSpec();
+    }
     return spec;
   }
 
@@ -105,10 +108,27 @@ public class RepoSpec {
     return namespace;
   }
 
+  public RepoSpec withNamespace(String ns) {
+    return new RepoSpec(null, type, ns, path).setRepository(getRepository());
+  }
+
   public String toString() {
     return spec;
   }
 
+  private String makeSpec() {
+    StringBuilder sb = new StringBuilder();
+    sb.append(type);
+    sb.append(":");
+    sb.append(namespace);
+    if (!StringUtil.isNullString(path)) {
+      sb.append(":");
+      sb.append(path);
+    }
+    return sb.toString();
+  }
+
+  // rest:ns:url or local:ns:path or volatile:ns
   static Pattern REPO_SPEC_PATTERN =
     Pattern.compile("([^:]+):([^:]+)(?::(.*$))?");
 
@@ -155,5 +175,20 @@ public class RepoSpec {
   public LockssRepository getRepository() {
     return repo;
   }
+
+  /** Return a string that uniquely identifies a LockssRepository
+   * instance to use.  Effectively the spec minus the namespace. */
+  public String getRepositoryKey() {
+    switch (type) {
+    case "volatile":
+      return "volatile:";
+    case "local":
+    case "rest":
+      return type + ":" + path;
+    default:
+      throw new IllegalArgumentException("Illegal V2 repository spec; unknown type: " + spec);
+    }
+  }
+
 }
 
