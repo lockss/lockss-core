@@ -394,6 +394,7 @@ public class ErrorHarness {
       }
       ActionSpec as = rs.action;
       if (as == null) {
+        log.error("Action must be specified: {}", spec);
         throw new IllegalArgumentException("Action must be specified");
       }
       if (!StringUtil.isNullString(cs.op)) {
@@ -428,11 +429,13 @@ public class ErrorHarness {
       }
 
       if (act == null) {
-        throw new IllegalArgumentException("Action must be specified");
+        log.error("Unsupported action: {}", spec);
+        throw new IllegalArgumentException("Unsupported action");
       }
       return new ErrorInjectionRule(cond, act);
     } catch (JsonProcessingException e) {
-      throw new IllegalArgumentException("Couldn't parse error injection rules", e);
+      log.error("Couldn't parse error injection rule: {}", spec);
+      throw new IllegalArgumentException("Couldn't parse error injection rule", e);
     }
 
   }
