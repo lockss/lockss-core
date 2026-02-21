@@ -768,13 +768,13 @@ public class RestConfigClient {
       UriComponentsBuilder builder =
           UriComponentsBuilder.fromUriString(serviceLocation + "/aus");
 
-      Map<String,String> params = new HashMap<>();
       if (continuationToken != null) {
-        builder.queryParam("continuationToken", "{continuationToken}");
-        params.put("continuationToken", continuationToken);
+        builder.queryParam("continuationToken", continuationToken);
       }
 
-      URI uri = builder.encode().build().expand(params).toUri(),
+      UriComponents uriComponents = builder.build();
+      URI uri = UriComponentsBuilder.newInstance().uriComponents(uriComponents)
+          .build().encode().toUri();
       if (log.isDebug3()) log.debug3("uri = " + uri);
 
       // Initialize the request headers.
