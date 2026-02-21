@@ -591,7 +591,7 @@ public abstract class AbstractLockssRepositoryTest extends LockssCoreTestCase5 {
 
   @VariantTest
   @EnumSource(StdVariants.class)
-  public void testAuSize() throws IOException {
+  public void testAuSize() throws IOException, InterruptedException {
     // Illegal args
     assertThrowsMatch(IllegalArgumentException.class,
 		      "Invalid namespace",
@@ -626,13 +626,25 @@ public abstract class AbstractLockssRepositoryTest extends LockssCoreTestCase5 {
             .mapToLong(ArtifactSpec::getContentLength)
             .sum();
 
-        long expTotalWarcSize = ((BaseLockssRepository)repository)
-            .getArtifactDataStore().auWarcSize(ns, auid);
-
         AuSize auSize = repository.auSize(ns, auid);
 
         assertEquals((long) expTotalAllVersions, (long) auSize.getTotalAllVersions());
         assertEquals((long) expTotalLatestVersions, (long) auSize.getTotalLatestVersions());
+        long expTotalWarcSize = ((BaseLockssRepository)repository)
+            .getArtifactDataStore().auWarcSize(ns, auid);
+
+        // Might take a little time to reach expected state because of
+        // background copies?
+        for (int cnt = 5; cnt > 0; cnt--) {
+          if (expTotalWarcSize == auSize.getTotalWarcSize()) {
+            break;
+          }
+          Thread.sleep(1000);
+
+          expTotalWarcSize = ((BaseLockssRepository)repository)
+            .getArtifactDataStore().auWarcSize(ns, auid);
+          auSize = repository.auSize(ns, auid);
+        }
         assertEquals((long) expTotalWarcSize, (long) auSize.getTotalWarcSize());
       }
     }
