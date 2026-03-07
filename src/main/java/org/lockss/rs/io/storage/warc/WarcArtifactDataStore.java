@@ -1910,8 +1910,6 @@ public abstract class WarcArtifactDataStore implements ArtifactDataStore, WARCCo
         return copyArtifact();
       } catch (IOException e) {
         log.error("Error copying arftifact to perm WARC", e);
-        // XXX recognize No space left of device, set state so that
-        // createArtifact can return 50x on next call.
         throw e;
       } finally {
         // Remove task from queued copy map
