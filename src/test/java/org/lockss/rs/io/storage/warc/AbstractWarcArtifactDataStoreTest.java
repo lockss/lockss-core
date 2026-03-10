@@ -59,6 +59,7 @@ import org.lockss.rs.VariantState;
 import org.lockss.rs.io.index.ArtifactIndex;
 import org.lockss.rs.io.index.VolatileArtifactIndex;
 import org.lockss.rs.io.storage.ArtifactDataStore;
+import org.lockss.rs.io.storage.warc.WarcArtifactDataStore.StorageUrlPathPolicy;
 import org.lockss.util.ListUtil;
 import org.lockss.util.MapUtil;
 import org.lockss.util.io.FileUtil;
@@ -2228,6 +2229,9 @@ public abstract class AbstractWarcArtifactDataStoreTest<WADS extends WarcArtifac
     when(ds.getInputStreamFromStorageUrl(spec.getStorageUrl()))
         .thenReturn(new ByteArrayInputStream(warcFile));
 
+    // Allow storage path checks to pass on mock
+    when(ds.isStoragePathAllowed(ArgumentMatchers.any(), ArgumentMatchers.any())).thenReturn(true);
+
     // Call real getArtifactData method
     doCallRealMethod()
         .when(ds).getArtifactData(spec.getArtifact());
@@ -2482,17 +2486,243 @@ public abstract class AbstractWarcArtifactDataStoreTest<WADS extends WarcArtifac
 
     // Mock behavior
     doCallRealMethod().when(ds).getInputStreamFromStorageUrl(storageUrl);
+    doCallRealMethod().when(ds).isStoragePathAllowed(ArgumentMatchers.any(), ArgumentMatchers.any());
+    doCallRealMethod().when(ds).isPathUnderConfiguredBasePaths(ArgumentMatchers.any());
     when(ds.getInputStreamAndSeek(Paths.get("/lockss/test"), 1234L)).thenReturn(input);
+    when(ds.getBasePaths()).thenReturn(new Path[]{Paths.get("/lockss")});
 
     // Assert we get back the mocked InputStream if getInputStreamAndSeek() is called
     assertEquals(input, ds.getInputStreamFromStorageUrl(storageUrl));
   }
 
+  @Test
+  public void testGetInputStreamFromStorageUrl_strictPolicy() throws Exception {
+    URI storageUrl = new URI("fake:///other/test?offset=1234&length=5678");
+
+    WarcArtifactDataStore ds = mock(WarcArtifactDataStore.class);
+    doCallRealMethod().when(ds).setStorageUrlPathPolicy("strict");
+    doCallRealMethod().when(ds).getInputStreamFromStorageUrl(storageUrl);
+    when(ds.getBasePaths()).thenReturn(new Path[]{Paths.get("/lockss")});
+
+    ds.setStorageUrlPathPolicy("strict");
+    assertThrows(IOException.class, () -> ds.getInputStreamFromStorageUrl(storageUrl));
+  }
+
   // *******************************************************************************************************************
-  // * INNER CLASSES
+  // * STORAGE URL PATH POLICY TESTS
   // *******************************************************************************************************************
 
-  // TODO
+  @Test
+  public void testFromString_validValues() {
+    assertEquals(StorageUrlPathPolicy.OFF, StorageUrlPathPolicy.fromString("off"));
+    assertEquals(StorageUrlPathPolicy.WARN, StorageUrlPathPolicy.fromString("warn"));
+    assertEquals(StorageUrlPathPolicy.STRICT, StorageUrlPathPolicy.fromString("strict"));
+  }
+
+  @Test
+  public void testFromString_caseInsensitive() {
+    assertEquals(StorageUrlPathPolicy.OFF, StorageUrlPathPolicy.fromString("OFF"));
+    assertEquals(StorageUrlPathPolicy.OFF, StorageUrlPathPolicy.fromString("Off"));
+    assertEquals(StorageUrlPathPolicy.WARN, StorageUrlPathPolicy.fromString("WARN"));
+    assertEquals(StorageUrlPathPolicy.WARN, StorageUrlPathPolicy.fromString("Warn"));
+    assertEquals(StorageUrlPathPolicy.STRICT, StorageUrlPathPolicy.fromString("STRICT"));
+    assertEquals(StorageUrlPathPolicy.STRICT, StorageUrlPathPolicy.fromString("Strict"));
+  }
+
+  @Test
+  public void testFromString_nullOrBlank_defaultsToWarn() {
+    assertEquals(StorageUrlPathPolicy.WARN, StorageUrlPathPolicy.fromString(null));
+    assertEquals(StorageUrlPathPolicy.WARN, StorageUrlPathPolicy.fromString(""));
+    assertEquals(StorageUrlPathPolicy.WARN, StorageUrlPathPolicy.fromString("   "));
+    assertEquals(StorageUrlPathPolicy.WARN, StorageUrlPathPolicy.fromString("\t"));
+    assertEquals(StorageUrlPathPolicy.WARN, StorageUrlPathPolicy.fromString("\n"));
+  }
+
+  @Test
+  public void testFromString_invalidValue_throwsIllegalArgumentException() {
+    assertThrows(IllegalArgumentException.class,
+        () -> StorageUrlPathPolicy.fromString("invalid"));
+    assertThrows(IllegalArgumentException.class,
+        () -> StorageUrlPathPolicy.fromString("none"));
+    assertThrows(IllegalArgumentException.class,
+        () -> StorageUrlPathPolicy.fromString("on"));
+  }
+
+  @Test
+  public void testIsPathUnderConfiguredBasePaths_nullPath_returnsFalse() {
+    WarcArtifactDataStore ds = mock(WarcArtifactDataStore.class);
+    doCallRealMethod().when(ds).isPathUnderConfiguredBasePaths(ArgumentMatchers.any());
+    when(ds.getBasePaths()).thenReturn(new Path[]{Paths.get("/lockss")});
+
+    assertFalse(ds.isPathUnderConfiguredBasePaths(null));
+  }
+
+  @Test
+  public void testIsPathUnderConfiguredBasePaths_nullBasePaths_returnsFalse() {
+    WarcArtifactDataStore ds = mock(WarcArtifactDataStore.class);
+    doCallRealMethod().when(ds).isPathUnderConfiguredBasePaths(ArgumentMatchers.any());
+    when(ds.getBasePaths()).thenReturn(null);
+
+    assertFalse(ds.isPathUnderConfiguredBasePaths(Paths.get("/lockss/data")));
+  }
+
+  @Test
+  public void testIsPathUnderConfiguredBasePaths_emptyBasePaths_returnsFalse() {
+    WarcArtifactDataStore ds = mock(WarcArtifactDataStore.class);
+    doCallRealMethod().when(ds).isPathUnderConfiguredBasePaths(ArgumentMatchers.any());
+    when(ds.getBasePaths()).thenReturn(new Path[]{});
+
+    assertFalse(ds.isPathUnderConfiguredBasePaths(Paths.get("/lockss/data")));
+  }
+
+  @Test
+  public void testIsPathUnderConfiguredBasePaths_pathUnderBasePath_returnsTrue() {
+    WarcArtifactDataStore ds = mock(WarcArtifactDataStore.class);
+    doCallRealMethod().when(ds).isPathUnderConfiguredBasePaths(ArgumentMatchers.any());
+    when(ds.getBasePaths()).thenReturn(new Path[]{Paths.get("/lockss")});
+
+    assertTrue(ds.isPathUnderConfiguredBasePaths(Paths.get("/lockss/data/file.warc")));
+  }
+
+  @Test
+  public void testIsPathUnderConfiguredBasePaths_pathNotUnderBasePath_returnsFalse() {
+    WarcArtifactDataStore ds = mock(WarcArtifactDataStore.class);
+    doCallRealMethod().when(ds).isPathUnderConfiguredBasePaths(ArgumentMatchers.any());
+    when(ds.getBasePaths()).thenReturn(new Path[]{Paths.get("/lockss")});
+
+    assertFalse(ds.isPathUnderConfiguredBasePaths(Paths.get("/other/data/file.warc")));
+  }
+
+  @Test
+  public void testIsPathUnderConfiguredBasePaths_multipleBasePaths_pathUnderSecond_returnsTrue() {
+    WarcArtifactDataStore ds = mock(WarcArtifactDataStore.class);
+    doCallRealMethod().when(ds).isPathUnderConfiguredBasePaths(ArgumentMatchers.any());
+    when(ds.getBasePaths()).thenReturn(new Path[]{Paths.get("/lockss"), Paths.get("/data")});
+
+    assertTrue(ds.isPathUnderConfiguredBasePaths(Paths.get("/data/some/file.warc")));
+  }
+
+  @Test
+  public void testIsStoragePathAllowed_pathUnderBasePaths_returnsTrue() throws Exception {
+    WarcArtifactDataStore ds = mock(WarcArtifactDataStore.class);
+    doCallRealMethod().when(ds).isStoragePathAllowed(ArgumentMatchers.any(), ArgumentMatchers.any());
+    when(ds.isPathUnderConfiguredBasePaths(ArgumentMatchers.any())).thenReturn(true);
+
+    assertTrue(ds.isStoragePathAllowed(Paths.get("/lockss/data"), "test-uuid"));
+  }
+
+  @Test
+  public void testIsStoragePathAllowed_pathOutside_policyOff_returnsTrue() throws Exception {
+    WarcArtifactDataStore ds = mock(WarcArtifactDataStore.class);
+    doCallRealMethod().when(ds).isStoragePathAllowed(ArgumentMatchers.any(), ArgumentMatchers.any());
+    doCallRealMethod().when(ds).setStorageUrlPathPolicy(ArgumentMatchers.anyString());
+    when(ds.isPathUnderConfiguredBasePaths(ArgumentMatchers.any())).thenReturn(false);
+
+    ds.setStorageUrlPathPolicy("off");
+    assertTrue(ds.isStoragePathAllowed(Paths.get("/other/path"), "test-uuid"));
+  }
+
+  @Test
+  public void testIsStoragePathAllowed_pathOutside_policyWarn_returnsTrue() throws Exception {
+    WarcArtifactDataStore ds = mock(WarcArtifactDataStore.class);
+    doCallRealMethod().when(ds).isStoragePathAllowed(ArgumentMatchers.any(), ArgumentMatchers.any());
+    doCallRealMethod().when(ds).setStorageUrlPathPolicy(ArgumentMatchers.anyString());
+    when(ds.isPathUnderConfiguredBasePaths(ArgumentMatchers.any())).thenReturn(false);
+
+    ds.setStorageUrlPathPolicy("warn");
+    assertTrue(ds.isStoragePathAllowed(Paths.get("/other/path"), "test-uuid"));
+  }
+
+  @Test
+  public void testIsStoragePathAllowed_pathOutside_policyStrict_returnsFalse() throws Exception {
+    WarcArtifactDataStore ds = mock(WarcArtifactDataStore.class);
+    doCallRealMethod().when(ds).isStoragePathAllowed(ArgumentMatchers.any(), ArgumentMatchers.any());
+    doCallRealMethod().when(ds).setStorageUrlPathPolicy(ArgumentMatchers.anyString());
+    when(ds.isPathUnderConfiguredBasePaths(ArgumentMatchers.any())).thenReturn(false);
+
+    ds.setStorageUrlPathPolicy("strict");
+    assertFalse(ds.isStoragePathAllowed(Paths.get("/other/path"), "test-uuid"));
+  }
+
+  // *******************************************************************************************************************
+  // * BASE PATH CHANGE DETECTION TESTS
+  // *******************************************************************************************************************
+
+  @Test
+  public void testDidConfiguredBasePathsChange_firstRun_recordsAndReturnsFalse() throws Exception {
+    File stateDir = getTempDir();
+    stateDir.mkdirs();
+
+    BaseLockssRepository repo = mock(BaseLockssRepository.class);
+    when(repo.getRepositoryStateDirPath()).thenReturn(stateDir.toPath());
+
+    ArtifactIndex index = new VolatileArtifactIndex();
+    index.init();
+    WADS ds = makeWarcArtifactDataStore(index);
+    ds.setLockssRepository(repo);
+    ds.init();
+
+    // First run: no state file exists, should record and return false
+    assertFalse(ds.didConfiguredBasePathsChange());
+
+    // Verify the state file was created
+    File stateFile = stateDir.toPath()
+        .resolve(WarcArtifactDataStore.CONFIGURED_BASE_PATHS_FILE).toFile();
+    assertTrue(stateFile.exists());
+
+    ds.stop();
+    index.stop();
+  }
+
+  @Test
+  public void testDidConfiguredBasePathsChange_samePathsOnSecondRun_returnsFalse() throws Exception {
+    File stateDir = getTempDir();
+    stateDir.mkdirs();
+
+    BaseLockssRepository repo = mock(BaseLockssRepository.class);
+    when(repo.getRepositoryStateDirPath()).thenReturn(stateDir.toPath());
+
+    ArtifactIndex index = new VolatileArtifactIndex();
+    index.init();
+    WADS ds = makeWarcArtifactDataStore(index);
+    ds.setLockssRepository(repo);
+    ds.init();
+
+    // First call to record the state file
+    assertFalse(ds.didConfiguredBasePathsChange());
+
+    // Second call with same paths should return false
+    assertFalse(ds.didConfiguredBasePathsChange());
+
+    ds.stop();
+    index.stop();
+  }
+
+  @Test
+  public void testDidConfiguredBasePathsChange_pathsChanged_returnsTrue() throws Exception {
+    File stateDir = getTempDir();
+    new File(stateDir, WarcArtifactDataStore.DATASTORE_STATE_DIR).mkdirs();
+
+    BaseLockssRepository repo = mock(BaseLockssRepository.class);
+    when(repo.getRepositoryStateDirPath()).thenReturn(stateDir.toPath());
+
+    ArtifactIndex index = new VolatileArtifactIndex();
+    index.init();
+    WADS ds = makeWarcArtifactDataStore(index);
+    ds.setLockssRepository(repo);
+    ds.init();
+
+    // Write a different set of paths to the state file to simulate a change
+    File stateFile = stateDir.toPath()
+        .resolve(WarcArtifactDataStore.CONFIGURED_BASE_PATHS_FILE).toFile();
+    FileUtils.writeStringToFile(stateFile, "[\"/some/other/path\"]", "UTF-8");
+
+    // Should detect the change
+    assertTrue(ds.didConfiguredBasePathsChange());
+
+    ds.stop();
+    index.stop();
+  }
 
   // *******************************************************************************************************************
   // * INDEX REBUILD FROM DATA STORE

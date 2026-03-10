@@ -126,6 +126,7 @@ public abstract class WarcArtifactDataStore implements ArtifactDataStore, WARCCo
   public final static String DATASTORE_STATE_DIR = "store";
   public final static String DATASTORE_VERSION_FILE = DATASTORE_STATE_DIR + "/version";
   public final static String REINDEXED_WARCS_FILE = DATASTORE_STATE_DIR + "/reindexed-warcs";
+  public final static String CONFIGURED_BASE_PATHS_FILE = DATASTORE_STATE_DIR + "/configured-base-paths";
   public static String V0_STATE_FILE = "artifact_state" + WARCConstants.DOT_WARC_FILE_EXTENSION;
 
   @Override
@@ -182,6 +183,31 @@ public abstract class WarcArtifactDataStore implements ArtifactDataStore, WARCCo
   private final Map<ArtifactIdentifier, CopyArtifactTask> queuedCopyTasks = new ConcurrentHashMap<>();
 
   private BaseLockssRepository repo;
+
+  public enum StorageUrlPathPolicy {
+    OFF,
+    WARN,
+    STRICT;
+
+    public static StorageUrlPathPolicy fromString(String val) {
+      if (StringUtils.isBlank(val)) {
+        return WARN;
+      }
+
+      switch (val.trim().toLowerCase()) {
+        case "off":
+          return OFF;
+        case "warn":
+          return WARN;
+        case "strict":
+          return STRICT;
+        default:
+          throw new IllegalArgumentException("Unsupported storage URL path policy: " + val);
+      }
+    }
+  }
+
+  private volatile StorageUrlPathPolicy storageUrlPathPolicy = StorageUrlPathPolicy.WARN;
 
   protected DataStoreState dataStoreState = DataStoreState.STOPPED;
 
@@ -489,6 +515,44 @@ public abstract class WarcArtifactDataStore implements ArtifactDataStore, WARCCo
         .sorted(Comparator.reverseOrder()) // Q: Is this right?
         .findFirst()
         .orElseThrow(() -> new IllegalArgumentException("Storage URL has no common base path"));
+  }
+
+  protected boolean isPathUnderConfiguredBasePaths(Path path) {
+    if (path == null) {
+      return false;
+    }
+
+    Path[] configuredBasePaths = getBasePaths();
+    if (configuredBasePaths == null || configuredBasePaths.length == 0) {
+      return false;
+    }
+
+    Path normalizedPath = path.toAbsolutePath().normalize();
+    return Arrays.stream(configuredBasePaths)
+        .map(basePath -> basePath.toAbsolutePath().normalize())
+        .anyMatch(normalizedPath::startsWith);
+  }
+
+  protected boolean isStoragePathAllowed(Path path, String artifactUuid) throws IOException {
+    if (isPathUnderConfiguredBasePaths(path)) {
+      return true;
+    }
+
+    String msg = String.format("Artifact storage URL path is outside configured content paths [uuid: %s, path: %s]",
+        artifactUuid, path);
+
+    switch (storageUrlPathPolicy) {
+      case OFF:
+        return true;
+      case WARN:
+        log.warn(msg);
+        return true;
+      case STRICT:
+        log.warn("{} [policy: strict, read blocked]", msg);
+        return false;
+      default:
+        throw new RuntimeException("Unknown storage URL path policy");
+    }
   }
 
   /**
@@ -1624,6 +1688,9 @@ public abstract class WarcArtifactDataStore implements ArtifactDataStore, WARCCo
     }
 
     String artifactUuid = artifact.getUuid();
+    if (StringUtils.isBlank(artifact.getStorageUrl())) {
+      throw new FileNotFoundException("No storage URL");
+    }
     URI storageUrl = URI.create(artifact.getStorageUrl());
     ArtifactIdentifier artifactId = artifact.getIdentifier();
 
@@ -1638,6 +1705,11 @@ public abstract class WarcArtifactDataStore implements ArtifactDataStore, WARCCo
       try (SemaphoreLock lock = lockArtifact(artifactId)) {
         // Get storage URL and WARC path of artifact's WARC record
         warcFilePath = getPathFromStorageUrl(storageUrl);
+        if (!isStoragePathAllowed(warcFilePath, artifactUuid)) {
+          throw new IOException(
+              "WARC file path outside permitted storage locations: %s (artifact: %s)"
+                  .formatted(warcFilePath, artifactUuid));
+        }
         isTmpStorage = isTmpStorage(warcFilePath);
 
         if (isTmpStorage) {
@@ -2149,7 +2221,70 @@ public abstract class WarcArtifactDataStore implements ArtifactDataStore, WARCCo
   @Deprecated
   protected InputStream getInputStreamFromStorageUrl(URI storageUrl) throws IOException {
     WarcRecordLocation loc = WarcRecordLocation.fromStorageUrl(storageUrl);
+    if (!isStoragePathAllowed(loc.getPath(), null)) {
+      throw new IOException("Storage URL path is not allowed");
+    }
     return getInputStreamAndSeek(loc.getPath(), loc.getOffset());
+  }
+
+  public void setStorageUrlPathPolicy(String policy) {
+    storageUrlPathPolicy = StorageUrlPathPolicy.fromString(policy);
+    log.info("Configured storage URL path policy: {}", storageUrlPathPolicy);
+  }
+
+  public boolean didConfiguredBasePathsChange() {
+    try {
+      List<String> current = getConfiguredBasePathStrings();
+      Path basePathsStateFilePath = repo.getRepositoryStateDirPath().resolve(CONFIGURED_BASE_PATHS_FILE);
+      File basePathsStateFile = basePathsStateFilePath.toFile();
+
+      if (!basePathsStateFile.exists()) {
+        recordConfiguredBasePaths();
+        // Q: Is this right? It could be argued that the initial transition from blank/new
+        //    state to configured is a change in content base paths that needs attention.
+        //    How do we distinguish it from a (transient) error?
+        return false;
+      }
+
+      List<String> previous;
+      try (InputStream is = new BufferedInputStream(new FileInputStream(basePathsStateFile))) {
+        previous = mapper.readValue(is, List.class);
+      }
+
+      if (previous == null) {
+        previous = Collections.emptyList();
+      }
+
+      boolean changed = !previous.equals(current);
+      if (changed) {
+        log.info("Configured content base paths changed; recording new list");
+        recordConfiguredBasePaths();
+      }
+      return changed;
+    } catch (Exception e) {
+      log.error("Could not compare configured base paths", e);
+      return false;
+    }
+  }
+
+  private List<String> getConfiguredBasePathStrings() {
+    List<String> result = Arrays.stream(getBasePaths())
+        .map(path -> path.toAbsolutePath().normalize().toString())
+        .sorted()
+        .toList();
+    return result;
+  }
+
+  private void recordConfiguredBasePaths() throws IOException {
+    Path basePathsStateFilePath = repo.getRepositoryStateDirPath().resolve(CONFIGURED_BASE_PATHS_FILE);
+    File basePathsStateFile = basePathsStateFilePath.toFile();
+    List<String> current = getConfiguredBasePathStrings();
+
+    try (FileOutputStream fos = FileUtils.openOutputStream(basePathsStateFile)) {
+      try (BufferedOutputStream bos = new BufferedOutputStream(fos)) {
+        mapper.writeValue(bos, current);
+      }
+    }
   }
 
   /**

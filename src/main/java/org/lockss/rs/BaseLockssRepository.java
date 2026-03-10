@@ -44,6 +44,8 @@ import org.archive.io.ArchiveRecord;
 import org.archive.io.ArchiveRecordHeader;
 import org.lockss.app.LockssDaemon;
 import org.lockss.log.L4JLogger;
+import org.lockss.rs.ErrorHarness.ErrorInjectionRule;
+import org.lockss.rs.ErrorHarness.TestingErrorOp;
 import org.lockss.rs.io.index.AbstractArtifactIndex;
 import org.lockss.rs.io.index.ArtifactIndex;
 import org.lockss.rs.io.index.ArtifactIndexVersion;
@@ -53,7 +55,6 @@ import org.lockss.rs.io.storage.warc.WarcArtifactDataStore;
 import org.lockss.rs.io.storage.warc.WarcArtifactDataUtil;
 import org.lockss.util.BuildInfo;
 import org.lockss.util.ByteArray;
-import org.lockss.util.ListUtil;
 import org.lockss.util.StreamUtil;
 import org.lockss.util.io.DeferredTempFileOutputStream;
 import org.lockss.util.io.FileUtil;
@@ -65,12 +66,14 @@ import org.lockss.util.rest.repo.model.*;
 import org.lockss.util.rest.repo.util.ImportStatusIterable;
 import org.lockss.util.rest.repo.util.JmsFactorySource;
 import org.lockss.util.rest.repo.util.LockssRepositoryUtil;
-import org.lockss.util.rest.repo.model.RepositoryStatistics;
 import org.lockss.util.storage.StorageInfo;
 import org.lockss.util.time.TimeBase;
 import org.lockss.util.time.TimeUtil;
 
-import java.io.*;
+import java.io.BufferedInputStream;
+import java.io.File;
+import java.io.IOException;
+import java.io.InputStream;
 import java.nio.file.Path;
 import java.util.Arrays;
 import java.util.List;
@@ -79,9 +82,6 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 import java.util.regex.Pattern;
-
-import org.lockss.rs.ErrorHarness.TestingErrorOp;
-import org.lockss.rs.ErrorHarness.ErrorInjectionRule;
 
 /**
  * Base implementation of the LOCKSS Repository service.
@@ -210,9 +210,19 @@ public class BaseLockssRepository implements LockssRepository, JmsFactorySource 
       updateDatastoreIfNeeded();
       updateIndexIfNeeded();
 
+      boolean contentPathListChanged = false;
+      if (store instanceof WarcArtifactDataStore wads) {
+        contentPathListChanged = wads.didConfiguredBasePathsChange();
+      }
+
       // Start the components
       index.start();
       store.start();
+
+      // if (contentPathListChanged && store instanceof WarcArtifactDataStore) {
+      // If/when further processing is needed following a change in the list of
+      // content base paths, do it here...
+      // }
     } catch (InterruptedException e) {
       throw new IllegalStateException("Interrupted while waiting for LOCKSS daemon", e);
     }
