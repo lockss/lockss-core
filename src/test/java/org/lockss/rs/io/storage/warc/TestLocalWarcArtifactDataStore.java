@@ -59,6 +59,7 @@ import org.springframework.web.util.UriComponentsBuilder;
 import java.io.*;
 import java.net.URI;
 import java.net.URL;
+import java.nio.file.NoSuchFileException;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.*;
@@ -674,5 +675,79 @@ public class TestLocalWarcArtifactDataStore extends AbstractWarcArtifactDataStor
         }
       }
     }
+  }
+
+  // *******************************************************************************************************************
+  // * TRUNCATION TESTS
+  // *******************************************************************************************************************
+
+  @Test
+  public void testTruncateWarc_truncatesFileToSpecifiedLength() throws Exception {
+    // Create a temp file with known content
+    File warcFile = new File(getTempDir(), "test.warc");
+    byte[] data = new byte[1000];
+    Arrays.fill(data, (byte) 'A');
+    FileUtils.writeByteArrayToFile(warcFile, data);
+    assertEquals(1000, warcFile.length());
+
+    // Truncate to 500 bytes
+    store.truncateWarc(warcFile.toPath(), 500);
+
+    // Verify file length and content
+    assertEquals(500, warcFile.length());
+    byte[] remaining = FileUtils.readFileToByteArray(warcFile);
+    assertEquals(500, remaining.length);
+    for (byte b : remaining) {
+      assertEquals((byte) 'A', b);
+    }
+  }
+
+  @Test
+  public void testTruncateWarc_truncateToZero() throws Exception {
+    // Create a temp file with known content
+    File warcFile = new File(getTempDir(), "test.warc");
+    byte[] data = new byte[500];
+    Arrays.fill(data, (byte) 'B');
+    FileUtils.writeByteArrayToFile(warcFile, data);
+    assertEquals(500, warcFile.length());
+
+    // Truncate to zero
+    store.truncateWarc(warcFile.toPath(), 0);
+
+    // Verify file is empty
+    assertEquals(0, warcFile.length());
+    byte[] remaining = FileUtils.readFileToByteArray(warcFile);
+    assertEquals(0, remaining.length);
+  }
+
+  @Test
+  public void testTruncateWarc_truncateToCurrentLength() throws Exception {
+    // Create a temp file with known content
+    File warcFile = new File(getTempDir(), "test.warc");
+    byte[] data = new byte[750];
+    Arrays.fill(data, (byte) 'C');
+    FileUtils.writeByteArrayToFile(warcFile, data);
+    assertEquals(750, warcFile.length());
+
+    // Truncate to current length (no-op)
+    store.truncateWarc(warcFile.toPath(), 750);
+
+    // Verify file is unchanged
+    assertEquals(750, warcFile.length());
+    byte[] remaining = FileUtils.readFileToByteArray(warcFile);
+    assertEquals(750, remaining.length);
+    for (byte b : remaining) {
+      assertEquals((byte) 'C', b);
+    }
+  }
+
+  @Test
+  public void testTruncateWarc_nonExistentFile() throws Exception {
+    // Attempt to truncate a file that does not exist
+    File nonExistent = new File(getTempDir(), "nonexistent.warc");
+    assertFalse(nonExistent.exists());
+
+    assertThrows(NoSuchFileException.class,
+        () -> store.truncateWarc(nonExistent.toPath(), 100));
   }
 }

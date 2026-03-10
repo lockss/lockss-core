@@ -35,14 +35,15 @@ import org.archive.format.warc.WARCConstants;
 import org.lockss.log.L4JLogger;
 import org.lockss.util.io.FileUtil;
 import org.lockss.util.os.PlatformUtil;
-import org.lockss.util.rest.repo.model.NamespacedAuid;
 import org.lockss.util.storage.StorageInfo;
 import org.springframework.util.MultiValueMap;
 import org.springframework.web.util.UriComponentsBuilder;
 
 import java.io.*;
 import java.net.URI;
+import java.nio.channels.FileChannel;
 import java.nio.file.Path;
+import java.nio.file.StandardOpenOption;
 import java.util.*;
 import java.util.stream.Collectors;
 
@@ -319,6 +320,13 @@ public class LocalWarcArtifactDataStore extends WarcArtifactDataStore {
   @Override
   public boolean removeWarc(Path filePath) {
     return filePath == null || FileUtil.safeDeleteFile(filePath.toFile());
+  }
+
+  @Override
+  protected void truncateWarc(Path warcPath, long length) throws IOException {
+    try (FileChannel channel = FileChannel.open(warcPath, StandardOpenOption.WRITE)) {
+      channel.truncate(length);
+    }
   }
 
   /**
