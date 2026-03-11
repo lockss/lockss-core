@@ -79,6 +79,7 @@ import org.lockss.util.rest.repo.util.SemaphoreMap.SemaphoreLock;
 import org.lockss.util.storage.StorageInfo;
 import org.lockss.util.time.TimeBase;
 import org.lockss.util.time.TimeUtil;
+import org.lockss.util.time.TimerUtil;
 import org.springframework.http.HttpHeaders;
 import org.springframework.util.LinkedMultiValueMap;
 import org.springframework.util.MultiValueMap;
@@ -178,6 +179,10 @@ public abstract class WarcArtifactDataStore implements ArtifactDataStore, WARCCo
   protected static final String ENV_TMPWARCGC_INTERVAL = "REPO_TMPWARCGC_INTERVAL";
   protected static final long DEFAULT_TMPWARCGC_INTERVAL = 10 * TimeUtil.MINUTE;
   protected long tmpWarcGCInterval;
+
+  protected static final int MAX_COPY_ATTEMPTS = 5;
+  protected static final long COPY_RETRY_BASE_DELAY_MS = 5000L;
+  protected static final long COPY_RETRY_MAX_DELAY_MS = 60_000L;
 
   protected Path[] basePaths;
   protected WarcFilePool tmpWarcPool;
@@ -361,6 +366,16 @@ public abstract class WarcArtifactDataStore implements ArtifactDataStore, WARCCo
   protected abstract Collection<Path> findWarcs(Path basePath) throws IOException;
 
   protected abstract boolean removeWarc(Path warcPath) throws IOException;
+
+  /**
+   * Truncates the WARC file at the given path to the specified length.
+   * Used to roll back partial WARC records after a failed copy.
+   *
+   * @param warcPath Path to the WARC file.
+   * @param length   The byte offset to truncate to.
+   * @throws IOException if the truncation fails.
+   */
+  protected abstract void truncateWarc(Path warcPath, long length) throws IOException;
 
   protected abstract long getBlockSize();
 
@@ -1982,10 +1997,40 @@ public abstract class WarcArtifactDataStore implements ArtifactDataStore, WARCCo
       log.trace("Starting CopyArtifactTask: " + getStripe());
 
       try {
-        return copyArtifact();
-      } catch (IOException e) {
-        log.error("Error copying arftifact to perm WARC", e);
-        throw e;
+        IOException lastException = null;
+        for (int attempt = 1; attempt <= MAX_COPY_ATTEMPTS; attempt++) {
+          if (attempt > 1) {
+            long delay = Math.min(
+                COPY_RETRY_BASE_DELAY_MS << (attempt - 2),
+                COPY_RETRY_MAX_DELAY_MS);
+            log.warn(
+                "Retrying copy in {} (attempt {}/{}) [uuid: {}]",
+                TimeUtil.timeIntervalToString(delay),
+                delay, attempt, MAX_COPY_ATTEMPTS,
+                artifact.getIdentifier().getUuid());
+            TimerUtil.guaranteedSleep(delay);
+            if (isDeleted()) {
+              log.info(
+                  "Artifact deleted during retry backoff; aborting copy [uuid: {}]",
+                  artifact.getIdentifier().getUuid());
+              return artifact;
+            }
+          }
+          try {
+            return copyArtifact();
+          } catch (IOException e) {
+            lastException = e;
+            log.warn(
+                "Copy attempt {}/{} failed [uuid: {}]",
+                attempt, MAX_COPY_ATTEMPTS,
+                artifact.getIdentifier().getUuid(), e);
+          }
+        }
+        log.error(
+            "All {} copy attempts exhausted [uuid: {}]",
+            MAX_COPY_ATTEMPTS,
+            artifact.getIdentifier().getUuid());
+        throw lastException;
       } finally {
         // Remove task from queued copy map
         queuedCopyTasks.remove(artifact.getIdentifier());
@@ -2056,12 +2101,15 @@ public abstract class WarcArtifactDataStore implements ArtifactDataStore, WARCCo
                 warcLength + recordLength);
           }
         } catch (IOException e) {
-          // Encountered a problem reading or writing - there is a good chance the WARC record
-          // is corrupted so "seal" the WARC file from further writes:
-          sealPermanentWarcInAU(artifact.getNamespace(), artifact.getAuid(), dst);
-
-          // TODO: What else to do about IOExceptions thrown here?
-
+          // Attempt to rollback the partial WARC record by truncating to pre-copy length
+          try {
+            truncateWarc(dst, warcLength);
+            log.warn("Rolled back partial WARC record after copy failure [dst: {}, truncatedTo: {}]", dst, warcLength);
+          } catch (IOException truncateEx) {
+            // Truncation failed — seal the WARC to prevent further writes to a corrupted file
+            log.error("Failed to rollback partial WARC record; sealing WARC [dst: {}]", dst, truncateEx);
+            sealPermanentWarcInAU(artifact.getNamespace(), artifact.getAuid(), dst);
+          }
           throw e;
         }
 

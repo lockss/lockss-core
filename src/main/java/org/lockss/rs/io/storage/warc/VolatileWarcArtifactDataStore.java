@@ -32,7 +32,6 @@ package org.lockss.rs.io.storage.warc;
 
 import org.apache.commons.io.FileUtils;
 import org.apache.commons.io.output.ByteArrayOutputStream;
-import org.lockss.util.rest.repo.model.NamespacedAuid;
 import org.lockss.log.L4JLogger;
 import org.lockss.util.storage.StorageInfo;
 import org.springframework.util.MultiValueMap;
@@ -59,7 +58,7 @@ public class VolatileWarcArtifactDataStore extends WarcArtifactDataStore {
 
   public final static long DEFAULT_BLOCKSIZE = FileUtils.ONE_MB;
 
-  protected Map<Path, ByteArrayOutputStream> warcs;
+  protected Map<Path, TruncatableByteArrayOutputStream> warcs;
 
   // *******************************************************************************************************************
   // * CONSTRUCTORS
@@ -100,7 +99,7 @@ public class VolatileWarcArtifactDataStore extends WarcArtifactDataStore {
 
   protected void initFile(Path filePath) {
     synchronized (warcs) {
-      warcs.putIfAbsent(filePath, new ByteArrayOutputStream());
+      warcs.putIfAbsent(filePath, new TruncatableByteArrayOutputStream());
     }
   }
 
@@ -221,5 +220,29 @@ public class VolatileWarcArtifactDataStore extends WarcArtifactDataStore {
   @Override
   public StorageInfo getStorageInfo() {
     return StorageInfo.fromRuntime().setType(ARTIFACT_DATASTORE_TYPE);
+  }
+
+  @Override
+  protected void truncateWarc(Path warcPath, long length) throws IOException {
+    synchronized (warcs) {
+      TruncatableByteArrayOutputStream warc = warcs.get(warcPath);
+      if (warc == null) {
+        throw new FileNotFoundException("Volatile WARC not in map: " + warcPath);
+      }
+      warc.truncate((int) length);
+    }
+  }
+
+  /**
+   * A {@link ByteArrayOutputStream} subclass that supports truncation.
+   */
+  static class TruncatableByteArrayOutputStream extends ByteArrayOutputStream {
+    public synchronized void truncate(int length) {
+      if (length < 0 || length > count) {
+        throw new IllegalArgumentException(
+            "Truncate length " + length + " out of range [0, " + count + "]");
+      }
+      count = length;
+    }
   }
 }

@@ -30,7 +30,7 @@
 
 package org.lockss.rs.io.storage.warc;
 
-import org.apache.commons.io.output.ByteArrayOutputStream;
+import org.junit.jupiter.api.Test;
 import org.lockss.log.L4JLogger;
 import org.lockss.rs.BaseLockssRepository;
 import org.lockss.rs.io.index.ArtifactIndex;
@@ -39,6 +39,7 @@ import org.lockss.util.rest.repo.model.ArtifactIdentifier;
 import org.mockito.ArgumentMatchers;
 import org.springframework.util.MultiValueMap;
 
+import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.io.OutputStream;
 import java.net.URI;
@@ -209,7 +210,8 @@ public class TestVolatileWarcArtifactDataStore extends AbstractWarcArtifactDataS
     Path warcPath = mock(Path.class);
 
     ds.warcs = new HashMap<>();
-    ByteArrayOutputStream output = new ByteArrayOutputStream();
+    VolatileWarcArtifactDataStore.TruncatableByteArrayOutputStream output =
+        new VolatileWarcArtifactDataStore.TruncatableByteArrayOutputStream();
 
     // Write 123 bytes
     for (int i = 0; i < 123; i++) {
@@ -332,5 +334,152 @@ public class TestVolatileWarcArtifactDataStore extends AbstractWarcArtifactDataS
     Path expectedAuPath = Paths.get("/lockss/ns/ns1/au-116cf2bbfdcfbe0c9ad94987b00101cd");
     Path auPath = ds.initAuDir(basePath, NS1, AUID1);
     assertEquals(expectedAuPath, auPath);
+  }
+
+  // *******************************************************************************************************************
+  // * TRUNCATION TESTS
+  // *******************************************************************************************************************
+
+  /**
+   * Test that truncate() reduces size and retains the first M bytes.
+   */
+  @Test
+  public void testTruncate_reducesSize() throws Exception {
+    VolatileWarcArtifactDataStore.TruncatableByteArrayOutputStream out =
+        new VolatileWarcArtifactDataStore.TruncatableByteArrayOutputStream();
+
+    byte[] data = new byte[]{10, 20, 30, 40, 50};
+    out.write(data);
+    assertEquals(5, out.size());
+
+    out.truncate(3);
+    assertEquals(3, out.size());
+
+    byte[] result = out.toByteArray();
+    assertEquals(3, result.length);
+    assertEquals(10, result[0]);
+    assertEquals(20, result[1]);
+    assertEquals(30, result[2]);
+  }
+
+  /**
+   * Test that truncate(0) results in an empty stream.
+   */
+  @Test
+  public void testTruncate_toZero() throws Exception {
+    VolatileWarcArtifactDataStore.TruncatableByteArrayOutputStream out =
+        new VolatileWarcArtifactDataStore.TruncatableByteArrayOutputStream();
+
+    out.write(new byte[]{1, 2, 3});
+    assertEquals(3, out.size());
+
+    out.truncate(0);
+    assertEquals(0, out.size());
+    assertEquals(0, out.toByteArray().length);
+  }
+
+  /**
+   * Test that truncate(count) (current length) is a no-op.
+   */
+  @Test
+  public void testTruncate_toCurrentLength() throws Exception {
+    VolatileWarcArtifactDataStore.TruncatableByteArrayOutputStream out =
+        new VolatileWarcArtifactDataStore.TruncatableByteArrayOutputStream();
+
+    byte[] data = new byte[]{1, 2, 3, 4, 5};
+    out.write(data);
+    assertEquals(5, out.size());
+
+    out.truncate(5);
+    assertEquals(5, out.size());
+    assertArrayEquals(data, out.toByteArray());
+  }
+
+  /**
+   * Test that truncate() with a negative length throws IllegalArgumentException.
+   */
+  @Test
+  public void testTruncate_negativeLength() throws Exception {
+    VolatileWarcArtifactDataStore.TruncatableByteArrayOutputStream out =
+        new VolatileWarcArtifactDataStore.TruncatableByteArrayOutputStream();
+
+    out.write(new byte[]{1, 2, 3});
+
+    assertThrows(IllegalArgumentException.class, () -> out.truncate(-1));
+  }
+
+  /**
+   * Test that truncate() with length greater than count throws IllegalArgumentException.
+   */
+  @Test
+  public void testTruncate_lengthExceedsCount() throws Exception {
+    VolatileWarcArtifactDataStore.TruncatableByteArrayOutputStream out =
+        new VolatileWarcArtifactDataStore.TruncatableByteArrayOutputStream();
+
+    out.write(new byte[]{1, 2, 3});
+
+    assertThrows(IllegalArgumentException.class, () -> out.truncate(10));
+  }
+
+  /**
+   * Test that truncateWarc() throws FileNotFoundException when the WARC is not in the map.
+   */
+  @Test
+  public void testTruncateWarc_notInMap() throws Exception {
+    VolatileWarcArtifactDataStore ds = mock(VolatileWarcArtifactDataStore.class);
+    ds.warcs = new HashMap<>();
+    doCallRealMethod().when(ds).truncateWarc(ArgumentMatchers.any(), anyLong());
+
+    Path warcPath = Paths.get("/lockss/test.warc");
+
+    assertThrows(FileNotFoundException.class, () -> ds.truncateWarc(warcPath, 0));
+  }
+
+  /**
+   * Test that truncateWarc() correctly truncates bytes in a WARC present in the map.
+   */
+  @Test
+  public void testTruncateWarc_validTruncation() throws Exception {
+    VolatileWarcArtifactDataStore ds = mock(VolatileWarcArtifactDataStore.class);
+    ds.warcs = new HashMap<>();
+    doCallRealMethod().when(ds).truncateWarc(ArgumentMatchers.any(), anyLong());
+
+    Path warcPath = Paths.get("/lockss/test.warc");
+    VolatileWarcArtifactDataStore.TruncatableByteArrayOutputStream out =
+        new VolatileWarcArtifactDataStore.TruncatableByteArrayOutputStream();
+
+    byte[] data = new byte[]{10, 20, 30, 40, 50};
+    out.write(data);
+    ds.warcs.put(warcPath, out);
+
+    ds.truncateWarc(warcPath, 3);
+
+    assertEquals(3, out.size());
+    byte[] result = out.toByteArray();
+    assertEquals(10, result[0]);
+    assertEquals(20, result[1]);
+    assertEquals(30, result[2]);
+  }
+
+  /**
+   * Test that truncateWarc() with length 0 empties the WARC.
+   */
+  @Test
+  public void testTruncateWarc_toZero() throws Exception {
+    VolatileWarcArtifactDataStore ds = mock(VolatileWarcArtifactDataStore.class);
+    ds.warcs = new HashMap<>();
+    doCallRealMethod().when(ds).truncateWarc(ArgumentMatchers.any(), anyLong());
+
+    Path warcPath = Paths.get("/lockss/test.warc");
+    VolatileWarcArtifactDataStore.TruncatableByteArrayOutputStream out =
+        new VolatileWarcArtifactDataStore.TruncatableByteArrayOutputStream();
+
+    out.write(new byte[]{1, 2, 3, 4, 5});
+    ds.warcs.put(warcPath, out);
+
+    ds.truncateWarc(warcPath, 0);
+
+    assertEquals(0, out.size());
+    assertEquals(0, out.toByteArray().length);
   }
 }
