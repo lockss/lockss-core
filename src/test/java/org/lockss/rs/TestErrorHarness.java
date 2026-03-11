@@ -65,7 +65,7 @@ public class TestErrorHarness extends LockssTestCase4 {
     assertFalse(aip1.matches(ai2));
     ArtifactIdentifierPattern aip2 = new ArtifactIdentifierPattern()
       .setUriPattern("http://bar/.*")
-      .setVersion(2);
+      .setVersions(ListUtil.list(2));
     assertFalse(aip2.matches(ai1));
     assertFalse(aip2.matches(ai2));
     assertTrue(aip2.matches(ai3));
@@ -131,7 +131,7 @@ public class TestErrorHarness extends LockssTestCase4 {
                       () -> {ErrorHarness.fromOneSpec("""
                                                       {"cond": { "op" : "AddArtifact",
                                                             "uri":"foo.*",
-                                                            "version":"2",
+                                                            "vers":"2",
                                                             "ords":"1,2"
                                                             },
                                                           "action":{"ex":"NoClass",
@@ -156,7 +156,7 @@ public class TestErrorHarness extends LockssTestCase4 {
       ErrorHarness.fromOneSpec("""
                                {"cond": { "op" : "AddArtifact",
                                      "uri":"foo.*",
-                                     "version":"2",
+                                     "vers":"2,3",
                                      "ords":"1,2"
                                      },
                                    "action":{"ex":"IOException",
@@ -173,7 +173,7 @@ public class TestErrorHarness extends LockssTestCase4 {
                              {"cond": { "op" : "AddArtifact", "uri":"foo.*", "ords":"4,5"},
                                  "action":{"ex":"IOException", "msg":"mmm"}
                              };
-                             {"cond": { "op" : "CommitArtifact", "uri":"bar.*"},
+                             {"cond": { "op" : "CommitArtifact", "uri":"bar.*", "vers":"1,2"},
                                  "action":{"ex":"java.io.EOFException", "msg":"ddd"}
                              }
                              """);
@@ -191,7 +191,8 @@ public class TestErrorHarness extends LockssTestCase4 {
     ErrorInjectionRule r1 = new ErrorInjectionRule(c1, act1);
                        
     ArtifactIdentifierPattern aip2 = new ArtifactIdentifierPattern()
-      .setUriPattern("bar.*");
+      .setUriPattern("bar.*")
+      .setVersions(ListUtil.list(1,2));
     TestingCondition c2 = new TestingCondition()
       .setArtifactIdentifierPattern(aip2)
       .setTestingErrorOp(TestingErrorOp.CommitArtifact);

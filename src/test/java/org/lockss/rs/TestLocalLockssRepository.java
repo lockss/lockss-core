@@ -168,7 +168,7 @@ public class TestLocalLockssRepository extends AbstractBaseLockssRepositoryTest 
     {"cond": { "op" : "CommitArtifact", "uri":".*path2.*", "ords":"2,4"},
         "action":{"ex":"IOException", "msg":"path2 commit error"}
     };
-    {"cond": { "op" : "GetArtifact", "uri":".*path2.*", "version":"3"},
+    {"cond": { "op" : "GetArtifact", "uri":".*path2.*", "vers":"3"},
         "action":{"ex":"IOException", "msg":"path2 get error"}
     }
     """;

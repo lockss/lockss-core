@@ -241,7 +241,7 @@ public class ErrorHarness {
   }
 
   /** Pattern to match against an ArtifactIdentifier.  Regexps for the
-   * string fields, Integer for the version.  Any field not filled in
+   * string fields, Integers for the version.  Any field not filled in
    * matches anything. */
   @ToString
   @EqualsAndHashCode
@@ -258,7 +258,7 @@ public class ErrorHarness {
     private Pattern auidPat;
     @EqualsAndHashCode.Exclude
     private Pattern uriPat;
-    private Integer version;
+    private List<Integer> versions;
 
     public ArtifactIdentifierPattern() {
     }
@@ -268,7 +268,7 @@ public class ErrorHarness {
         && namespacePat == null
         && auidPat == null
         && uriPat == null
-        && version == null;
+        && versions == null;
     }
 
     public ArtifactIdentifierPattern setUuidPattern(String uuidPattern) {
@@ -295,12 +295,13 @@ public class ErrorHarness {
       return this;
     }
 
-    public ArtifactIdentifierPattern setVersion(Integer version) {
-      this.version = version;
+    public ArtifactIdentifierPattern setVersions(List<Integer> versions) {
+      this.versions = versions;
       return this;
     }
 
     public boolean matches(ArtifactIdentifier artifactId) {
+      log.debug2("Matching {} against {}", artifactId, this);
       if (uuidPat != null && !uuidPat.matcher(artifactId.getUuid()).matches()) {
         return false;
       }
@@ -313,10 +314,7 @@ public class ErrorHarness {
       if (uriPat != null && !uriPat.matcher(artifactId.getUri()).matches()) {
         return false;
       }
-      if (version != null) {
-        log.fatal("Version: {}, artver: {}", version, artifactId.getVersion());
-      }
-      if (version != null && artifactId.getVersion() != version) {
+      if (versions != null && !versions.contains(artifactId.getVersion())) {
         return false;
       }
       return true;
@@ -333,7 +331,7 @@ public class ErrorHarness {
                "uri": "foo.*",          // uri regexp
                "auid": "auid",          // auid regexp
                "uuid": "...",           // uuid regexp
-               "version": "2",          // Artifact version
+               "vers": "2",         // (List of) Artifact version
                "ords": "1,2"            // (List of) ordinals, matches the Nth
                                         // invocation that matches the other
                                         // criteria
@@ -356,7 +354,7 @@ public class ErrorHarness {
     public String auid;
     public String uuid;
     public String ords;
-    public Integer version;
+    public String vers;
   }
   static class ActionSpec {
     public String ex;
@@ -409,8 +407,10 @@ public class ErrorHarness {
       if (!StringUtil.isNullString(cs.uuid)) {
         aip.setUuidPattern(cs.uuid);
       }
-      if (cs.version != null) {
-        aip.setVersion(cs.version);
+      if (!StringUtil.isNullString(cs.vers)) {
+        aip.setVersions(StringUtil.breakAt(cs.vers, ",").stream()
+                        .map(Integer::valueOf)
+                        .collect(Collectors.toList()));
       }
       if (!aip.isEmpty()) {
         cond.setArtifactIdentifierPattern(aip);
