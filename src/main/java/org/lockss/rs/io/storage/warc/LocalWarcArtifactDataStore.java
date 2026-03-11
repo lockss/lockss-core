@@ -329,7 +329,6 @@ public class LocalWarcArtifactDataStore extends WarcArtifactDataStore {
   @Override
   public StorageInfo getStorageInfo() {
     // Build a StorageInfo
-    StorageInfo sum = new StorageInfo(ARTIFACT_DATASTORE_TYPE);
     Map<String,PlatformUtil.DF> mnts = new LinkedHashMap<>();
     List<StorageInfo> basePathSis = new ArrayList<>();
     PlatformUtil putil = PlatformUtil.getInstance();
@@ -346,28 +345,30 @@ public class LocalWarcArtifactDataStore extends WarcArtifactDataStore {
         basePathSis.add(si);
       }
     }
-    PlatformUtil.DF oneDF = null;
-    // Compute sum of DFs
-    for (PlatformUtil.DF df : mnts.values()) {
-      oneDF = df;
-      // Sizes in DF are KB, StorageInfo is bytes
-      sum.setSizeKB(sum.getSizeKB() + df.getSize());
-      sum.setUsedKB(sum.getUsedKB() + df.getUsed());
-      sum.setAvailKB(sum.getAvailKB() + df.getAvail());
-    }
-
-    // Set one-time StorageInfo fields
-    sum.setName(String.join(",", mnts.keySet()));
+    StorageInfo sum;
     if (mnts.size() == 1) {
-      // If only one, use percentages returns by DF
-      sum.setPercentUsed(oneDF.getPercent());
-      sum.setPercentUsedString(oneDF.getPercentString());
+      // If there's only one mount point, use that StorageInfo directly.
+      // (The summing loop below rounds/truncates and can cause the values
+      // to differ by one, which confuses clients that infer that index &
+      // datastore are the same fs by comparing them.)
+      sum = basePathSis.get(0);
+      sum.setType(ARTIFACT_DATASTORE_TYPE);
     } else {
+      sum = new StorageInfo(ARTIFACT_DATASTORE_TYPE);
+      // Compute sum of DFs
+      for (PlatformUtil.DF df : mnts.values()) {
+        // Sizes in DF are KB, StorageInfo is bytes
+        sum.setSizeKB(sum.getSizeKB() + df.getSize());
+        sum.setUsedKB(sum.getUsedKB() + df.getUsed());
+        sum.setAvailKB(sum.getAvailKB() + df.getAvail());
+      }
+
+      // Set one-time StorageInfo fields
+      sum.setName(String.join(",", mnts.keySet()));
       // Compute percent used as 1.0 - avail / size, as some FSs have a
       // "full" threshold that's lower than the total size
       sum.setPercentUsed(1.0d - (double)sum.getAvailKB() / (double)sum.getSizeKB());
-      sum.setPercentUsedString(Math.round(100.0 *
-          sum.getPercentUsed()) + "%");
+      sum.setPercentUsedString(Math.round(100.0 * sum.getPercentUsed()) + "%");
     }
     if (basePathSis.size() > 1) {
       sum.setComponents(basePathSis);
@@ -376,6 +377,5 @@ public class LocalWarcArtifactDataStore extends WarcArtifactDataStore {
     }
     // Return the sum
     return sum;
-
   }
 }
