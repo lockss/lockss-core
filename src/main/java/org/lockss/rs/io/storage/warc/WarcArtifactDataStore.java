@@ -87,6 +87,7 @@ import org.springframework.web.util.UriComponents;
 import org.springframework.web.util.UriComponentsBuilder;
 
 import java.io.*;
+import java.net.InetAddress;
 import java.net.URI;
 import java.net.URISyntaxException;
 import java.nio.charset.StandardCharsets;
@@ -126,7 +127,9 @@ public abstract class WarcArtifactDataStore implements ArtifactDataStore, WARCCo
   public final static String DATASTORE_STATE_DIR = "store";
   public final static String DATASTORE_VERSION_FILE = DATASTORE_STATE_DIR + "/version";
   public final static String REINDEXED_WARCS_FILE = DATASTORE_STATE_DIR + "/reindexed-warcs";
-  public final static String CONFIGURED_BASE_PATHS_FILE = DATASTORE_STATE_DIR + "/configured-base-paths";
+  protected static final String BASE_PATH_ID_FILE = "lockss-content-id.json";
+  public final static String CONFIGURED_BASE_PATH_UUIDS_FILE =
+      DATASTORE_STATE_DIR + "/configured-base-path-uuids";
   public static String V0_STATE_FILE = "artifact_state" + WARCConstants.DOT_WARC_FILE_EXTENSION;
 
   @Override
@@ -2232,32 +2235,88 @@ public abstract class WarcArtifactDataStore implements ArtifactDataStore, WARCCo
     log.info("Configured storage URL path policy: {}", storageUrlPathPolicy);
   }
 
+  /**
+   * Returns or creates a persistent UUID for the given content base path.
+   * <p>
+   * If a marker file ({@link #BASE_PATH_ID_FILE}) exists under {@code basePath},
+   * its UUID is read and returned. Otherwise a new UUID is generated, a marker
+   * file is written, and the new UUID is returned.
+   *
+   * @param basePath the content base path directory
+   * @return the UUID associated with this base path
+   * @throws IOException if the marker file cannot be read or written
+   */
+  protected UUID getOrCreateBasePathUuid(Path basePath) throws IOException {
+    Path idFilePath = basePath.resolve(BASE_PATH_ID_FILE);
+    File idFile = idFilePath.toFile();
+
+    if (idFile.exists()) {
+      try (InputStream is = new BufferedInputStream(new FileInputStream(idFile))) {
+        ContentBasePathInfo info = mapper.readValue(is, ContentBasePathInfo.class);
+        return UUID.fromString(info.uuid);
+      }
+    }
+
+    // Create new marker
+    UUID uuid = UUID.randomUUID();
+    ContentBasePathInfo info = new ContentBasePathInfo();
+    info.formatVersion = 1;
+    info.uuid = uuid.toString();
+    info.created = Instant.now().toString();
+    try {
+      info.hostname = InetAddress.getLocalHost().getHostName();
+    } catch (Exception e) {
+      info.hostname = "unknown";
+    }
+
+    // Ensure directory exists
+    idFile.getParentFile().mkdirs();
+
+    try (FileOutputStream fos = FileUtils.openOutputStream(idFile)) {
+      try (BufferedOutputStream bos = new BufferedOutputStream(fos)) {
+        mapper.writerWithDefaultPrettyPrinter().writeValue(bos, info);
+      }
+    }
+
+    return uuid;
+  }
+
+  /**
+   * Builds a map of UUID string to absolute path string for all currently
+   * configured base paths.
+   */
+  protected Map<String, String> getCurrentBasePathUuidMap() throws IOException {
+    Map<String, String> map = new LinkedHashMap<>();
+    for (Path basePath : getBasePaths()) {
+      UUID uuid = getOrCreateBasePathUuid(basePath);
+      map.put(uuid.toString(), basePath.toAbsolutePath().normalize().toString());
+    }
+    return map;
+  }
+
   public boolean didConfiguredBasePathsChange() {
     try {
-      List<String> current = getConfiguredBasePathStrings();
-      Path basePathsStateFilePath = repo.getRepositoryStateDirPath().resolve(CONFIGURED_BASE_PATHS_FILE);
-      File basePathsStateFile = basePathsStateFilePath.toFile();
+      Map<String, String> current = getCurrentBasePathUuidMap();
+      Path stateFilePath = repo.getRepositoryStateDirPath().resolve(CONFIGURED_BASE_PATH_UUIDS_FILE);
+      File stateFile = stateFilePath.toFile();
 
-      if (!basePathsStateFile.exists()) {
+      if (!stateFile.exists()) {
         recordConfiguredBasePaths();
-        // Q: Is this right? It could be argued that the initial transition from blank/new
-        //    state to configured is a change in content base paths that needs attention.
-        //    How do we distinguish it from a (transient) error?
         return false;
       }
 
-      List<String> previous;
-      try (InputStream is = new BufferedInputStream(new FileInputStream(basePathsStateFile))) {
-        previous = mapper.readValue(is, List.class);
+      Map<String, String> previous;
+      try (InputStream is = new BufferedInputStream(new FileInputStream(stateFile))) {
+        previous = mapper.readValue(is, Map.class);
       }
 
       if (previous == null) {
-        previous = Collections.emptyList();
+        previous = Collections.emptyMap();
       }
 
       boolean changed = !previous.equals(current);
       if (changed) {
-        log.info("Configured content base paths changed; recording new list");
+        log.info("Configured content base paths changed; recording new map");
         recordConfiguredBasePaths();
       }
       return changed;
@@ -2267,20 +2326,13 @@ public abstract class WarcArtifactDataStore implements ArtifactDataStore, WARCCo
     }
   }
 
-  private List<String> getConfiguredBasePathStrings() {
-    List<String> result = Arrays.stream(getBasePaths())
-        .map(path -> path.toAbsolutePath().normalize().toString())
-        .sorted()
-        .toList();
-    return result;
-  }
-
   private void recordConfiguredBasePaths() throws IOException {
-    Path basePathsStateFilePath = repo.getRepositoryStateDirPath().resolve(CONFIGURED_BASE_PATHS_FILE);
-    File basePathsStateFile = basePathsStateFilePath.toFile();
-    List<String> current = getConfiguredBasePathStrings();
+    Path stateFilePath = repo.getRepositoryStateDirPath().resolve(CONFIGURED_BASE_PATH_UUIDS_FILE);
+    File stateFile = stateFilePath.toFile();
+    Map<String, String> current = getCurrentBasePathUuidMap();
 
-    try (FileOutputStream fos = FileUtils.openOutputStream(basePathsStateFile)) {
+    stateFile.getParentFile().mkdirs();
+    try (FileOutputStream fos = FileUtils.openOutputStream(stateFile)) {
       try (BufferedOutputStream bos = new BufferedOutputStream(fos)) {
         mapper.writeValue(bos, current);
       }
@@ -2321,6 +2373,19 @@ public abstract class WarcArtifactDataStore implements ArtifactDataStore, WARCCo
   // *******************************************************************************************************************
   // * INNER CLASSES
   // *******************************************************************************************************************
+
+  /**
+   * JSON-serializable marker placed inside each content base path directory
+   * ({@link #BASE_PATH_ID_FILE}). Travels with the data if moved.
+   */
+  public static class ContentBasePathInfo {
+    public int formatVersion;
+    public String uuid;
+    public String created;
+    public String hostname;
+    public String name;
+    public String description;
+  }
 
   // TODO - Pull this out and along WarcFile?
   protected static class WarcRecordLocation {

@@ -2667,7 +2667,7 @@ public abstract class AbstractWarcArtifactDataStoreTest<WADS extends WarcArtifac
 
     // Verify the state file was created
     File stateFile = stateDir.toPath()
-        .resolve(WarcArtifactDataStore.CONFIGURED_BASE_PATHS_FILE).toFile();
+        .resolve(WarcArtifactDataStore.CONFIGURED_BASE_PATH_UUIDS_FILE).toFile();
     assertTrue(stateFile.exists());
 
     ds.stop();
@@ -2712,13 +2712,45 @@ public abstract class AbstractWarcArtifactDataStoreTest<WADS extends WarcArtifac
     ds.setLockssRepository(repo);
     ds.init();
 
-    // Write a different set of paths to the state file to simulate a change
+    // Write a UUID map with a fake UUID pointing to a different path
     File stateFile = stateDir.toPath()
-        .resolve(WarcArtifactDataStore.CONFIGURED_BASE_PATHS_FILE).toFile();
-    FileUtils.writeStringToFile(stateFile, "[\"/some/other/path\"]", "UTF-8");
+        .resolve(WarcArtifactDataStore.CONFIGURED_BASE_PATH_UUIDS_FILE).toFile();
+    stateFile.getParentFile().mkdirs();
+    FileUtils.writeStringToFile(stateFile,
+        "{\"00000000-0000-0000-0000-000000000000\":\"/some/other/path\"}", "UTF-8");
 
     // Should detect the change
     assertTrue(ds.didConfiguredBasePathsChange());
+
+    ds.stop();
+    index.stop();
+  }
+
+  @Test
+  public void testGetOrCreateBasePathUuid_persistsAcrossCalls() throws Exception {
+    File stateDir = getTempDir();
+    stateDir.mkdirs();
+
+    BaseLockssRepository repo = mock(BaseLockssRepository.class);
+    when(repo.getRepositoryStateDirPath()).thenReturn(stateDir.toPath());
+
+    ArtifactIndex index = new VolatileArtifactIndex();
+    index.init();
+    WADS ds = makeWarcArtifactDataStore(index);
+    ds.setLockssRepository(repo);
+    ds.init();
+
+    Path[] basePaths = ds.getBasePaths();
+    assertTrue(basePaths.length > 0);
+    Path basePath = basePaths[0];
+
+    // First call creates the UUID
+    UUID uuid1 = ds.getOrCreateBasePathUuid(basePath);
+    assertNotNull(uuid1);
+
+    // Second call returns the same UUID
+    UUID uuid2 = ds.getOrCreateBasePathUuid(basePath);
+    assertEquals(uuid1, uuid2);
 
     ds.stop();
     index.stop();

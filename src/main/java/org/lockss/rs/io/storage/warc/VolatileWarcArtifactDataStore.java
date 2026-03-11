@@ -43,6 +43,7 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
 import java.net.URI;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.Path;
 import java.util.*;
 import java.util.stream.Collectors;
@@ -190,6 +191,15 @@ public class VolatileWarcArtifactDataStore extends WarcArtifactDataStore {
                   path.toString().endsWith(DOT_COMPRESSED_WARC_FILE_EXTENSION))
           .collect(Collectors.toList());
     }
+  }
+
+  /**
+   * Returns a deterministic UUID derived from the base path string.
+   * Volatile stores are ephemeral — no file I/O needed.
+   */
+  @Override
+  protected UUID getOrCreateBasePathUuid(Path basePath) {
+    return UUID.nameUUIDFromBytes(basePath.toString().getBytes(StandardCharsets.UTF_8));
   }
 
   /**
