@@ -272,6 +272,16 @@ public class SQLArtifactIndex extends AbstractArtifactIndex {
   }
 
   @Override
+  public void clearIndex() throws IOException {
+    try {
+      idxdb.clearAllArtifacts();
+      invalidatedAuSizes.clear();
+    } catch (DbException e) {
+      throw new IOException("Could not clear artifact index database", e);
+    }
+  }
+
+  @Override
   public boolean deleteArtifact(String uuid) throws IOException {
     if (StringUtils.isEmpty(uuid)) {
       throw new IllegalArgumentException("Null or empty UUID");

@@ -107,6 +107,12 @@ public class LocalArtifactIndex extends VolatileArtifactIndex {
           .setPath(persistedIndex.toString());
     }
 
+    @Override
+    public void clearIndex() {
+        super.clearIndex();
+        persist();
+    }
+
     /**
      * Adds an artifact to the index.
      *

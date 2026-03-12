@@ -1148,6 +1148,25 @@ public class SolrArtifactIndex extends AbstractArtifactIndex {
     }
   }
 
+  @Override
+  public void clearIndex() throws IOException {
+    try {
+      UpdateRequest request = new UpdateRequest();
+      request.deleteByQuery("*:*");
+      addSolrCredentials(request);
+      handleSolrResponse(
+          request.process(solrClient, solrCollection),
+          "Problem clearing Solr index");
+      handleSolrResponse(
+          handleSolrCommit(SolrCommitStrategy.HARD),
+          "Problem committing Solr index clear");
+      invalidatedAuSizes.clear();
+      log.info("Cleared Solr index [collection: {}]", solrCollection);
+    } catch (SolrResponseErrorException | SolrServerException e) {
+      throw new IOException("Could not clear Solr index", e);
+    }
+  }
+
   /**
    * Removes from the artifactIndex an artifact with a given artifactIndex identifier UUID.
    *

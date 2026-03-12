@@ -210,19 +210,9 @@ public class BaseLockssRepository implements LockssRepository, JmsFactorySource 
       updateDatastoreIfNeeded();
       updateIndexIfNeeded();
 
-      boolean contentPathListChanged = false;
-      if (store instanceof WarcArtifactDataStore wads) {
-        contentPathListChanged = wads.didConfiguredBasePathsChange();
-      }
-
       // Start the components
       index.start();
       store.start();
-
-      // if (contentPathListChanged && store instanceof WarcArtifactDataStore) {
-      // If/when further processing is needed following a change in the list of
-      // content base paths, do it here...
-      // }
     } catch (InterruptedException e) {
       throw new IllegalStateException("Interrupted while waiting for LOCKSS daemon", e);
     }
@@ -288,7 +278,17 @@ public class BaseLockssRepository implements LockssRepository, JmsFactorySource 
       }
     }
 
-    if (indexChanged || shouldStartOrResumeReindex() || isReindexWanted()) {
+    // Detect content directory changes
+    boolean contentPathListChanged = false;
+    if (store instanceof WarcArtifactDataStore wads) {
+      if (wads.didConfiguredBasePathsChange()) {
+        log.info("Content base paths changed; clearing index in preparation for a reindex");
+        index.clearIndex();
+        contentPathListChanged = true;
+      }
+    }
+
+    if (indexChanged || shouldStartOrResumeReindex() || isReindexWanted() || contentPathListChanged) {
       reindexArtifacts();
     }
   }

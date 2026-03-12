@@ -2982,6 +2982,30 @@ public class SQLArtifactIndexManagerSql {
     }
   }
 
+  public void clearAllArtifacts() throws DbException {
+    Connection conn = null;
+    try {
+      conn = getConnection();
+      try (Statement stmt = conn.createStatement()) {
+        stmt.executeUpdate("DELETE FROM " + ARCHIVAL_UNIT_SIZE_TABLE);
+        stmt.executeUpdate("DELETE FROM " + ARTIFACT_TABLE);
+        stmt.executeUpdate("DELETE FROM " + LONG_URL_TABLE);
+        stmt.executeUpdate("DELETE FROM " + URL_TABLE);
+        stmt.executeUpdate("DELETE FROM " + AUID_TABLE);
+        stmt.executeUpdate("DELETE FROM " + NAMESPACE_TABLE);
+      }
+      DbManager.commitOrRollback(conn, log);
+      lru_namespace_seqs.clear();
+      lru_auids_seqs.clear();
+      lru_urls_seqs.clear();
+      log.info("Cleared all artifact index tables");
+    } catch (SQLException | DbException e) {
+      throw new DbException("Could not clear artifact index", e);
+    } finally {
+      DbManager.safeRollbackAndClose(conn);
+    }
+  }
+
   public void deleteAuSize(String auid) throws DbException {
     log.debug2("auid = {}", auid);
 

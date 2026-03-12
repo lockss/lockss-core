@@ -77,6 +77,10 @@ public class VolatileArtifactIndex extends AbstractArtifactIndex {
         if (key == null) return null;
         return map.get(key);
       }
+
+      public void clear() {
+        map.clear();
+      }
     }
 
     @Override
@@ -115,6 +119,12 @@ public class VolatileArtifactIndex extends AbstractArtifactIndex {
   @Override
     public void stop() {
       setState(ArtifactIndexState.STOPPED);
+    }
+
+    @Override
+    public void clearIndex() {
+      indexedByUuid.clear();
+      indexedByUrlMap.clear();
     }
 
     /**

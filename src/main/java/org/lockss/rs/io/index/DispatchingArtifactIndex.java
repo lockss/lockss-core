@@ -173,6 +173,12 @@ public class DispatchingArtifactIndex extends AbstractArtifactIndex {
   }
 
   @Override
+  public void clearIndex() throws IOException {
+    masterIndex.clearIndex();
+    tempIndexMap.clear();
+  }
+
+  @Override
   public Artifact getArtifact(String artifactUuid) throws IOException {
     return findIndexHolding(artifactUuid).getArtifact(artifactUuid);
   }

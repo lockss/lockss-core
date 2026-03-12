@@ -105,6 +105,13 @@ public interface ArtifactIndex extends LockssRepositorySubsystem, StorageInfoSou
     void reindexArtifacts(Iterable<Artifact> artifacts) throws IOException;
 
     /**
+     * Removes all artifacts (and any associated data) from the index
+     *
+     * @throws IOException
+     */
+    void clearIndex() throws IOException;
+
+    /**
      * Provides the index data of an artifact with a given text index
      * identifier.
      *
