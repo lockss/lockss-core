@@ -184,7 +184,7 @@ public abstract class StateTestCase extends LockssTestCase4 {
 
     void putAuState(String auId, AuStateBean ausb) {
       try {
-	austates.put(auId, ausb.toJson());
+	austates.put(auId, ausb.toJsonExcept(StateStore.AUSTATE_BEAN_DONT_PERSIST_FIELDS));
       } catch (IOException e) {
 	throw new RuntimeException(e);
       }

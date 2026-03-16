@@ -34,9 +34,10 @@ import org.lockss.protocol.AuAgreements;
 import org.lockss.protocol.DatedPeerIdSet;
 import org.lockss.protocol.PeerIdentity;
 import org.lockss.state.AuSuspectUrlVersions.SuspectUrlVersion;
+import org.lockss.util.SetUtil;
 
 import java.io.IOException;
-import java.util.Set;
+import java.util.*;
 
 /** interface between StateManager and persistent state store
  * implementations.
@@ -63,6 +64,10 @@ public interface StateStore {
   public Long updateArchivalUnitState(String key, AuStateBean ausb,
 				      Set<String> fields)
       throws StoreException;
+
+  /** Set of AuStateBean fields not to persist */
+  public static final Set<String> AUSTATE_BEAN_DONT_PERSIST_FIELDS =
+    Collections.unmodifiableSet(SetUtil.set("auId", "auCreationTime", "previousCrawlState"));
 
   /** Return the AuAgreements associated with the key (an AUID)
    * @param key the key under which the AuAgreements is stored

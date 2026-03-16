@@ -47,7 +47,7 @@ import org.lockss.util.io.LockssSerializable;
 import org.lockss.util.time.TimeBase;
 
 public class TestAuState extends LockssTestCase {
-  L4JLogger log = L4JLogger.getLogger();
+  static L4JLogger log = L4JLogger.getLogger();
   MockLockssDaemon daemon;
   MyStateManager stateMgr;
   MockPlugin mplug;
@@ -157,6 +157,18 @@ public class TestAuState extends LockssTestCase {
     assertEquals(-1, aus.getLastDeepCrawlResult());
     assertEquals("Unknown code -1", aus.getLastDeepCrawlResultMsg());
     assertEquals(-1, aus.getLastDeepCrawlDepth());
+
+    AuState xmittedState = aus.xmit();
+    // Prev state should persist after xmission to another service
+    assertEquals(-1, xmittedState.getLastCrawlTime());
+    assertEquals(-1, xmittedState.getLastCrawlAttempt());
+    assertEquals(-1, xmittedState.getLastCrawlResult());
+    assertEquals("Unknown code -1", xmittedState.getLastCrawlResultMsg());
+    assertEquals(-1, xmittedState.getLastDeepCrawlTime());
+    assertEquals(-1, xmittedState.getLastDeepCrawlAttempt());
+    assertEquals(-1, xmittedState.getLastDeepCrawlResult());
+    assertEquals("Unknown code -1", xmittedState.getLastDeepCrawlResultMsg());
+    assertEquals(-1, xmittedState.getLastDeepCrawlDepth());
 
     assertTrue(aus.isCrawlActive());
     assertFalse(aus.hasCrawled());
@@ -646,6 +658,7 @@ public class TestAuState extends LockssTestCase {
     "lastDeepCrawlResult",
     "lastDeepCrawlResultMsg",
     "lastDeepCrawlTime",
+    "previousCrawlState",
     "lastPollStart",
     "lastPollResult",
     "pollDuration",
@@ -672,7 +685,6 @@ public class TestAuState extends LockssTestCase {
 
   String ignFields[] = {
     "lastPollAttempt",
-    "previousCrawlState",
     "au",
     "stateMgr",
     "needSave",
@@ -699,8 +711,8 @@ public class TestAuState extends LockssTestCase {
     String json1 = aus.toJson();
     // serialize only selected fields
     String json2 = aus.toJson(SetUtil.set(ausFields2));
-    log.debug("json1: " + json1);
-    log.debug("json2: " + json2);
+    log.debug2("json1: " + json1);
+    log.debug2("json2: " + json2);
     Map map1 = AuUtil.jsonToMap(json1);
     Map map2 = AuUtil.jsonToMap(json2);
     assertSameElements(ausFields, map1.keySet());
@@ -708,8 +720,8 @@ public class TestAuState extends LockssTestCase {
 
     // these fields should never appear
     for (String s : ignFields) {
-      assertFalse(map1.containsKey(s));
-      assertFalse(map2.containsKey(s));
+      assertFalse("map1 shouldn't contain "+s, map1.containsKey(s));
+      assertFalse("map2 shouldn't contain "+s, map2.containsKey(s));
     }
   }
 
@@ -790,15 +802,26 @@ public class TestAuState extends LockssTestCase {
     return (MyAuState)stateMgr.getAuState(mau);
   }
 
-  static class MyAuState extends AuState implements Cloneable {
+  static class MyAuState extends AuState {
     public MyAuState(ArchivalUnit au, StateManager stateMgr) {
       super(au, stateMgr);
     }
-    MyAuState simulateStoreLoad() throws CloneNotSupportedException {
-//       MyAuState ret = (MyAuState)this.clone();
-      MyAuState ret = this;
-      ret.previousCrawlState = null;
-      return ret;
+    public MyAuState(AuStateBean bean) {
+      super(bean);
+    }
+
+    // Simulate store and retrieve from DB
+    MyAuState simulateStoreLoad() throws IOException {
+      String json = bean.toJsonExcept(StateStore.AUSTATE_BEAN_DONT_PERSIST_FIELDS);
+      AuStateBean loadedBean = AuStateBean.fromJson(bean.auId, json, null);
+      return new MyAuState(loadedBean);
+    }
+
+    // Simulate transmission to/from ServerStateManager
+    MyAuState xmit() throws IOException {
+      String json = bean.toJson();
+      AuStateBean rcvdBean = AuStateBean.fromJson(bean.auId, json, null);
+      return new MyAuState(rcvdBean);
     }
   }
 
@@ -807,6 +830,10 @@ public class TestAuState extends LockssTestCase {
     int auStateUpdateCount = 0;
     MyAuSuspectUrlVersions asuv;
 
+    @Override
+    protected boolean isStoreOfMissingAuStateAllowed(Set<String> fields) {
+      return true;
+    }
 
     @Override
     public void initService(LockssDaemon daemon) throws LockssAppException {
