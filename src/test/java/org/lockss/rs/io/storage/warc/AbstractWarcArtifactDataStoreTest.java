@@ -1093,6 +1093,9 @@ public abstract class AbstractWarcArtifactDataStoreTest<WADS extends WarcArtifac
 
     // Mock arguments
     Path filePath = mock(Path.class);
+    Path normalizedPath = mock(Path.class);
+    when(filePath.toAbsolutePath()).thenReturn(filePath);
+    when(filePath.normalize()).thenReturn(normalizedPath);
     long offset = 1234L;
     long length = 5678L;
 
@@ -1104,8 +1107,8 @@ public abstract class AbstractWarcArtifactDataStoreTest<WADS extends WarcArtifac
     params.add("offset", Long.toString(offset));
     params.add("length", Long.toString(length));
 
-    // Assert that it delegates to implementation-specific makeStorageUrl(Path, MultiValueMap)
-    verify(ds).makeStorageUrl(filePath, params);
+    // Assert that it delegates to implementation-specific makeStorageUrl with the normalized path
+    verify(ds).makeStorageUrl(normalizedPath, params);
   }
 
   /**
@@ -2603,6 +2606,18 @@ public abstract class AbstractWarcArtifactDataStoreTest<WADS extends WarcArtifac
   }
 
   @Test
+  public void testIsPathUnderConfiguredBasePaths_normalizedBasePaths_matchesNonNormalizedInput() {
+    WarcArtifactDataStore ds = mock(WarcArtifactDataStore.class);
+    doCallRealMethod().when(ds).isPathUnderConfiguredBasePaths(ArgumentMatchers.any());
+    // Simulate pre-normalized base paths (as constructors now guarantee)
+    when(ds.getBasePaths()).thenReturn(new Path[]{Paths.get("/lockss").toAbsolutePath().normalize()});
+
+    // A path with ".." segments that resolves under the base path
+    assertTrue(ds.isPathUnderConfiguredBasePaths(
+        Paths.get("/lockss/data/../data/file.warc").toAbsolutePath().normalize()));
+  }
+
+  @Test
   public void testIsStoragePathAllowed_pathUnderBasePaths_returnsTrue() throws Exception {
     WarcArtifactDataStore ds = mock(WarcArtifactDataStore.class);
     doCallRealMethod().when(ds).isStoragePathAllowed(ArgumentMatchers.any(), ArgumentMatchers.any());
@@ -2639,9 +2654,22 @@ public abstract class AbstractWarcArtifactDataStoreTest<WADS extends WarcArtifac
     doCallRealMethod().when(ds).isStoragePathAllowed(ArgumentMatchers.any(), ArgumentMatchers.any());
     doCallRealMethod().when(ds).setStorageUrlPathPolicy(ArgumentMatchers.anyString());
     when(ds.isPathUnderConfiguredBasePaths(ArgumentMatchers.any())).thenReturn(false);
+    when(ds.isTmpStorage(ArgumentMatchers.any())).thenReturn(false);
 
     ds.setStorageUrlPathPolicy("strict");
     assertFalse(ds.isStoragePathAllowed(Paths.get("/other/path"), "test-uuid"));
+  }
+
+  @Test
+  public void testIsStoragePathAllowed_tmpStoragePath_returnsTrue() throws Exception {
+    WarcArtifactDataStore ds = mock(WarcArtifactDataStore.class);
+    doCallRealMethod().when(ds).isStoragePathAllowed(ArgumentMatchers.any(), ArgumentMatchers.any());
+    doCallRealMethod().when(ds).setStorageUrlPathPolicy(ArgumentMatchers.anyString());
+    when(ds.isPathUnderConfiguredBasePaths(ArgumentMatchers.any())).thenReturn(false);
+    when(ds.isTmpStorage(ArgumentMatchers.any())).thenReturn(true);
+
+    ds.setStorageUrlPathPolicy("strict");
+    assertTrue(ds.isStoragePathAllowed(Paths.get("/lockss/tmp/warcs/test.warc"), "test-uuid"));
   }
 
   // *******************************************************************************************************************
