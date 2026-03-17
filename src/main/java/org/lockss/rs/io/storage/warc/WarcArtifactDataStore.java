@@ -549,6 +549,26 @@ public abstract class WarcArtifactDataStore implements ArtifactDataStore, WARCCo
         .anyMatch(path::startsWith);
   }
 
+  /**
+   * Determines whether access to the given storage path is permitted according to the configured
+   * {@link StorageUrlPathPolicy}.
+   * <p>
+   * A path is always permitted if it is under the configured content base paths or is a temporary
+   * storage location. For paths outside these locations, behavior depends on the policy:
+   * <ul>
+   *   <li>{@link StorageUrlPathPolicy#OFF}: All paths are allowed (no validation)</li>
+   *   <li>{@link StorageUrlPathPolicy#WARN}: All paths are allowed, but a warning is logged for
+   *       paths outside configured locations</li>
+   *   <li>{@link StorageUrlPathPolicy#STRICT}: Paths outside configured locations are rejected
+   *       and access is denied</li>
+   * </ul>
+   *
+   * @param path         A {@link Path} to the storage location to validate.
+   * @param artifactUuid A {@link String} containing the UUID of the artifact being accessed,
+   *                     used for logging purposes.
+   * @return A {@code boolean} indicating whether access to the storage path is permitted.
+   * @throws IOException if there is an error validating the path.
+   */
   protected boolean isStoragePathAllowed(Path path, String artifactUuid) throws IOException {
     if (isPathUnderConfiguredBasePaths(path)) {
       return true;
@@ -2262,6 +2282,8 @@ public abstract class WarcArtifactDataStore implements ArtifactDataStore, WARCCo
 
   /**
    * Returns an {@link InputStream} of the WARC record pointed to by a storage URL.
+   * Callers of this method are expected to have checked whether the storage URL
+   * is permitted to be accessed by the Repository.
    *
    * @param storageUrl A {@link URI} containing the storage URL of the WARC record.
    * @return An {@link InputStream} of the WARC record pointed to by a storage URL.
