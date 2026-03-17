@@ -273,6 +273,9 @@ public class SQLArtifactIndex extends AbstractArtifactIndex {
 
   @Override
   public void clearIndex() throws IOException {
+    if (indexState == ArtifactIndexState.RUNNING) {
+      throw new IllegalStateException("Cannot clear the artifact index while in running state");
+    }
     try {
       idxdb.clearAllArtifacts();
       invalidatedAuSizes.clear();
