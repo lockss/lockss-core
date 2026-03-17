@@ -2380,19 +2380,14 @@ public abstract class WarcArtifactDataStore implements ArtifactDataStore, WARCCo
         previous = Collections.emptyMap();
       }
 
-      boolean changed = !previous.equals(current);
-      if (changed) {
-        log.info("Configured content base paths changed; recording new map");
-        recordConfiguredBasePaths();
-      }
-      return changed;
+      return !previous.equals(current);
     } catch (Exception e) {
       log.error("Could not compare configured base paths", e);
       return false;
     }
   }
 
-  private void recordConfiguredBasePaths() throws IOException {
+  public void recordConfiguredBasePaths() throws IOException {
     Path stateFilePath = repo.getRepositoryStateDirPath().resolve(CONFIGURED_BASE_PATH_UUIDS_FILE);
     File stateFile = stateFilePath.toFile();
     Map<String, String> current = getCurrentBasePathUuidMap();

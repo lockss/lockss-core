@@ -278,12 +278,19 @@ public class BaseLockssRepository implements LockssRepository, JmsFactorySource 
       }
     }
 
-    // Detect content directory changes
+    // 1. Touch reindex token — crash here: token exists, shouldStartOrResumeReindex triggers reindex
+    // 2. Clear index — crash here: token exists + stale base paths file, so next startup re-detects the change, re-clears, and reindexes
+    // 3. Record new base paths — crash here: token exists, reindex resumes via shouldStartOrResumeReindex
+    // 4. Reindex — deletes token on completion
     boolean contentPathListChanged = false;
     if (store instanceof WarcArtifactDataStore wads) {
       if (wads.didConfiguredBasePathsChange()) {
         log.info("Content base paths changed; clearing index in preparation for a reindex");
+        File reindexTokenFile = getRepositoryStateDirPath()
+            .resolve(REINDEXING_STATE_FILE).toFile();
+        FileUtils.touch(reindexTokenFile);
         index.clearIndex();
+        wads.recordConfiguredBasePaths();
         contentPathListChanged = true;
       }
     }
