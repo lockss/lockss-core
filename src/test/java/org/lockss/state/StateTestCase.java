@@ -158,8 +158,8 @@ public abstract class StateTestCase extends LockssTestCase4 {
    */
   void assertEqualUpdates(Map expUpdate, Map actualUpdate) throws Exception {
     // Copy the two args so we can remove the json member
-    Map exp = new HashMap<>(expUpdate);
-    Map actual = new HashMap<>(actualUpdate);
+    Map exp = new HashMap(expUpdate);
+    Map actual = new HashMap(actualUpdate);
     String expJson = (String)exp.remove("json");
     String actualJson = (String)actual.remove("json");
     assertEquals("Non-json parts of the update", exp, actual);
