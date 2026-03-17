@@ -744,4 +744,36 @@ public class TestLocalWarcArtifactDataStore extends AbstractWarcArtifactDataStor
     assertThrows(NoSuchFileException.class,
         () -> store.truncateWarc(nonExistent.toPath(), 100));
   }
+
+  @Test
+  public void testTruncateWarc_truncatePastFileLength() throws Exception {
+    // Create a temp file with random content
+    File warcFile = new File(getTempDir(), "test.warc");
+    byte[] data = new byte[500];
+    new Random().nextBytes(data);
+    FileUtils.writeByteArrayToFile(warcFile, data);
+    assertEquals(500, warcFile.length());
+
+    // Truncate past file length — FileChannel.truncate() treats this as a no-op
+    store.truncateWarc(warcFile.toPath(), 1000);
+
+    // Verify file is unchanged
+    assertEquals(500, warcFile.length());
+    byte[] remaining = FileUtils.readFileToByteArray(warcFile);
+    assertArrayEquals(data, remaining);
+  }
+
+  @Test
+  public void testTruncateWarc_negativeLength() throws Exception {
+    // Create a temp file with known content
+    File warcFile = new File(getTempDir(), "test.warc");
+    byte[] data = new byte[100];
+    Arrays.fill(data, (byte) 'A');
+    FileUtils.writeByteArrayToFile(warcFile, data);
+    assertEquals(100, warcFile.length());
+
+    // Negative length should throw IllegalArgumentException
+    assertThrows(IllegalArgumentException.class,
+        () -> store.truncateWarc(warcFile.toPath(), -1));
+  }
 }
