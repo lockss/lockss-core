@@ -570,7 +570,7 @@ public abstract class WarcArtifactDataStore implements ArtifactDataStore, WARCCo
    * @throws IOException if there is an error validating the path.
    */
   protected boolean isStoragePathAllowed(Path path, String artifactUuid) throws IOException {
-    if (isPathUnderConfiguredBasePaths(path)) {
+    if (isPathUnderConfiguredBasePaths(path) || isTmpStorage(path)) {
       return true;
     }
 
@@ -587,7 +587,7 @@ public abstract class WarcArtifactDataStore implements ArtifactDataStore, WARCCo
         log.warn("{} [policy: strict, read blocked]", msg);
         return false;
       default:
-        throw new RuntimeException("Unknown storage URL path policy");
+        throw new ShouldNotHappenException("Unknown storage URL path policy");
     }
   }
 
@@ -1724,9 +1724,6 @@ public abstract class WarcArtifactDataStore implements ArtifactDataStore, WARCCo
     }
 
     String artifactUuid = artifact.getUuid();
-    if (StringUtils.isBlank(artifact.getStorageUrl())) {
-      throw new FileNotFoundException("No storage URL");
-    }
     URI storageUrl = URI.create(artifact.getStorageUrl());
     ArtifactIdentifier artifactId = artifact.getIdentifier();
 
@@ -2064,11 +2061,13 @@ public abstract class WarcArtifactDataStore implements ArtifactDataStore, WARCCo
      */
     private Artifact copyArtifact() throws IOException, URISyntaxException {
       // Artifact's storage URL
+      ArtifactIdentifier artifactId = artifact.getIdentifier();
+      String artifactUuid = artifactId.getUuid();
       URI storageUrl = new URI(artifact.getStorageUrl());
-      Path storagePath = getPathFromStorageUrl(storageUrl);
+      Path warcFilePath = getPathFromStorageUrl(storageUrl);
 
       // Safeguard: Do not copy if already in permanent storage
-      if (!isTmpStorage(storagePath)) {
+      if (!isTmpStorage(warcFilePath)) {
         log.warn("Artifact is already copied [uuid: {}]", artifact.getUuid());
         return artifact;
       }
@@ -2077,6 +2076,13 @@ public abstract class WarcArtifactDataStore implements ArtifactDataStore, WARCCo
       WarcRecordLocation loc = WarcRecordLocation.fromStorageUrl(new URI(artifact.getStorageUrl()));
       long recordOffset = loc.getOffset();
       long recordLength = loc.getLength();
+
+      // Safeguard: Check that the temporary storage path is permitted
+      if (!isStoragePathAllowed(warcFilePath, artifactUuid)) {
+        throw new IOException(
+            "WARC file path outside permitted storage locations: %s (artifact: %s)"
+                .formatted(warcFilePath, artifactUuid));
+      }
 
       // Used to match source and target WARC compression
       boolean wantCompressedWarc = isCompressedWarcFile(loc.getPath());
@@ -2144,8 +2150,6 @@ public abstract class WarcArtifactDataStore implements ArtifactDataStore, WARCCo
         // ******************
 
         try {
-          ArtifactIdentifier artifactId = artifact.getIdentifier();
-
           // Set the artifact's new storage URL and update the index
           try (SemaphoreLock lock = lockArtifact(artifactId)) {
             artifact.setStorageUrl(makeWarcRecordStorageUrl(dst, warcLength, recordLength).toString());
@@ -2289,12 +2293,8 @@ public abstract class WarcArtifactDataStore implements ArtifactDataStore, WARCCo
    * @return An {@link InputStream} of the WARC record pointed to by a storage URL.
    * @throws IOException
    */
-  @Deprecated
   protected InputStream getInputStreamFromStorageUrl(URI storageUrl) throws IOException {
     WarcRecordLocation loc = WarcRecordLocation.fromStorageUrl(storageUrl);
-    if (!isStoragePathAllowed(loc.getPath(), null)) {
-      throw new IOException("Storage URL path is not allowed");
-    }
     return getInputStreamAndSeek(loc.getPath(), loc.getOffset());
   }
 
