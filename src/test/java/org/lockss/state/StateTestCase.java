@@ -147,6 +147,27 @@ public abstract class StateTestCase extends LockssTestCase4 {
     assertEquals(time, peerAgreement.getPercentAgreementTime());
   }
 
+  /** Assert that the two update message contents are the same.
+   * @param expUpdate a map with a "json" string value and zero or
+   * more other fields
+   * @param actualUpdate a map with a "json" string value and zero or
+   * more other fields
+   *
+   * The other fields must be equal, and the two json strings must
+   * represent the same map
+   */
+  void assertEqualUpdates(Map expUpdate, Map actualUpdate) throws Exception {
+    // Copy the two args so we can remove the json member
+    Map exp = new HashMap<>(expUpdate);
+    Map actual = new HashMap<>(actualUpdate);
+    String expJson = (String)exp.remove("json");
+    String actualJson = (String)actual.remove("json");
+    assertEquals("Non-json parts of the update", exp, actual);
+    if (expJson == null && actualJson == null) return;
+    assertEquals("Json part of update",
+                 AuUtil.jsonToMap(expJson), AuUtil.jsonToMap(actualJson));
+  }
+
   /** A StateManager with an assignable StateStore */
   protected static class MyPersistentStateManager
     extends PersistentStateManager {
