@@ -327,6 +327,12 @@ public class LocalWarcArtifactDataStore extends WarcArtifactDataStore {
   @Override
   protected void truncateWarc(Path warcPath, long length) throws IOException {
     try (FileChannel channel = FileChannel.open(warcPath, StandardOpenOption.WRITE)) {
+      long fileSize = channel.size();
+      if (length > fileSize) {
+        throw new IOException(
+            String.format("Cannot truncate WARC past its length [path: %s, fileSize: %d, requested: %d]",
+                warcPath, fileSize, length));
+      }
       channel.truncate(length);
     }
   }

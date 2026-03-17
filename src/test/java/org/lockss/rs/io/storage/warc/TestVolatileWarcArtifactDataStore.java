@@ -511,4 +511,26 @@ public class TestVolatileWarcArtifactDataStore extends AbstractWarcArtifactDataS
     assertEquals(0, out.size());
     assertEquals(0, out.toByteArray().length);
   }
+
+  /**
+   * Test that truncateWarc() throws IOException when length exceeds WARC size.
+   */
+  @Test
+  public void testTruncateWarc_truncatePastLength() throws Exception {
+    VolatileWarcArtifactDataStore ds = mock(VolatileWarcArtifactDataStore.class);
+    ds.warcs = new HashMap<>();
+    doCallRealMethod().when(ds).truncateWarc(ArgumentMatchers.any(), anyLong());
+
+    Path warcPath = Paths.get("/lockss/test.warc");
+    VolatileWarcArtifactDataStore.TruncatableByteArrayOutputStream out =
+        new VolatileWarcArtifactDataStore.TruncatableByteArrayOutputStream();
+
+    out.write(new byte[]{1, 2, 3, 4, 5});
+    ds.warcs.put(warcPath, out);
+
+    assertThrows(IOException.class, () -> ds.truncateWarc(warcPath, 100));
+
+    // Verify WARC is unchanged
+    assertEquals(5, out.size());
+  }
 }

@@ -230,6 +230,11 @@ public class VolatileWarcArtifactDataStore extends WarcArtifactDataStore {
       if (warc == null) {
         throw new FileNotFoundException("Volatile WARC not in map: " + warcPath);
       }
+      if (length > warc.size()) {
+        throw new IOException(
+            String.format("Cannot truncate WARC past its length [path: %s, fileSize: %d, requested: %d]",
+                warcPath, warc.size(), length));
+      }
       warc.truncate((int) length);
     }
   }

@@ -754,8 +754,9 @@ public class TestLocalWarcArtifactDataStore extends AbstractWarcArtifactDataStor
     FileUtils.writeByteArrayToFile(warcFile, data);
     assertEquals(500, warcFile.length());
 
-    // Truncate past file length — FileChannel.truncate() treats this as a no-op
-    store.truncateWarc(warcFile.toPath(), 1000);
+    // Truncate past file length should throw IOException
+    assertThrows(IOException.class,
+        () -> store.truncateWarc(warcFile.toPath(), 1000));
 
     // Verify file is unchanged
     assertEquals(500, warcFile.length());
