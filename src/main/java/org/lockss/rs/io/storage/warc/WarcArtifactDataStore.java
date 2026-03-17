@@ -58,6 +58,7 @@ import org.archive.util.anvl.Element;
 import org.archive.util.zip.GZIPMembersInputStream;
 import org.jwat.common.HeaderLine;
 import org.jwat.warc.*;
+import org.lockss.daemon.ShouldNotHappenException;
 import org.lockss.log.L4JLogger;
 import org.lockss.rs.BaseLockssRepository;
 import org.lockss.rs.io.ArtifactContainerStats;
@@ -69,6 +70,7 @@ import org.lockss.util.concurrent.stripedexecutor.StripedCallable;
 import org.lockss.util.concurrent.stripedexecutor.StripedExecutorService;
 import org.lockss.util.io.DeferredTempFileOutputStream;
 import org.lockss.util.io.FileUtil;
+import org.lockss.util.os.PlatformUtil;
 import org.lockss.util.rest.repo.LockssNoSuchArtifactIdException;
 import org.lockss.util.rest.repo.model.Artifact;
 import org.lockss.util.rest.repo.model.ArtifactData;
@@ -2331,11 +2333,7 @@ public abstract class WarcArtifactDataStore implements ArtifactDataStore, WARCCo
     info.formatVersion = 1;
     info.uuid = uuid.toString();
     info.created = Instant.now().toString();
-    try {
-      info.hostname = InetAddress.getLocalHost().getHostName();
-    } catch (Exception e) {
-      info.hostname = "unknown";
-    }
+    info.hostname = PlatformUtil.getLocalHostname();
 
     // Ensure directory exists
     idFile.getParentFile().mkdirs();
