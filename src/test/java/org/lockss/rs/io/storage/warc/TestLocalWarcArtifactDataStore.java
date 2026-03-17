@@ -683,23 +683,20 @@ public class TestLocalWarcArtifactDataStore extends AbstractWarcArtifactDataStor
 
   @Test
   public void testTruncateWarc_truncatesFileToSpecifiedLength() throws Exception {
-    // Create a temp file with known content
+    // Create a temp file with random content
     File warcFile = new File(getTempDir(), "test.warc");
     byte[] data = new byte[1000];
-    Arrays.fill(data, (byte) 'A');
+    new Random().nextBytes(data);
     FileUtils.writeByteArrayToFile(warcFile, data);
     assertEquals(1000, warcFile.length());
 
     // Truncate to 500 bytes
     store.truncateWarc(warcFile.toPath(), 500);
 
-    // Verify file length and content
+    // Verify file length and content matches the first 500 bytes
     assertEquals(500, warcFile.length());
     byte[] remaining = FileUtils.readFileToByteArray(warcFile);
-    assertEquals(500, remaining.length);
-    for (byte b : remaining) {
-      assertEquals((byte) 'A', b);
-    }
+    assertArrayEquals(Arrays.copyOf(data, 500), remaining);
   }
 
   @Test
@@ -722,10 +719,10 @@ public class TestLocalWarcArtifactDataStore extends AbstractWarcArtifactDataStor
 
   @Test
   public void testTruncateWarc_truncateToCurrentLength() throws Exception {
-    // Create a temp file with known content
+    // Create a temp file with random content
     File warcFile = new File(getTempDir(), "test.warc");
     byte[] data = new byte[750];
-    Arrays.fill(data, (byte) 'C');
+    new Random().nextBytes(data);
     FileUtils.writeByteArrayToFile(warcFile, data);
     assertEquals(750, warcFile.length());
 
@@ -735,10 +732,7 @@ public class TestLocalWarcArtifactDataStore extends AbstractWarcArtifactDataStor
     // Verify file is unchanged
     assertEquals(750, warcFile.length());
     byte[] remaining = FileUtils.readFileToByteArray(warcFile);
-    assertEquals(750, remaining.length);
-    for (byte b : remaining) {
-      assertEquals((byte) 'C', b);
-    }
+    assertArrayEquals(data, remaining);
   }
 
   @Test
