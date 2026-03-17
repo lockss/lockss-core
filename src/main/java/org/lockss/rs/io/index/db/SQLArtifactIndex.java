@@ -31,7 +31,6 @@ POSSIBILITY OF SUCH DAMAGE.
 */
 package org.lockss.rs.io.index.db;
 
-import org.apache.commons.collections4.map.LRUMap;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.commons.lang3.tuple.Pair;
 import org.lockss.app.LockssApp;
@@ -71,8 +70,6 @@ public class SQLArtifactIndex extends AbstractArtifactIndex {
   private final Map<String, CompletableFuture<AuSize>> auSizeFutures =
       new ConcurrentHashMap<>();
 
-  private final Map<String, Boolean> invalidatedAuSizes =
-      Collections.synchronizedMap(new LRUMap<>(100));
 
   @Override
   public void init() {
@@ -278,7 +275,6 @@ public class SQLArtifactIndex extends AbstractArtifactIndex {
     }
     try {
       idxdb.clearAllArtifacts();
-      invalidatedAuSizes.clear();
     } catch (DbException e) {
       throw new IOException("Could not clear artifact index database", e);
     }
@@ -524,19 +520,12 @@ public class SQLArtifactIndex extends AbstractArtifactIndex {
 
   public Long updateAuSize(String namespace, String auid, AuSize auSize) throws DbException {
     String nsAuid = NamespacedAuid.key(namespace, auid);
-
-    Long result = idxdb.updateAuSize(nsAuid, auSize);
-    invalidatedAuSizes.remove(nsAuid);
-    return result;
+    return idxdb.updateAuSize(nsAuid, auSize);
   }
 
   public void invalidateAuSize(String namespace, String auid) throws DbException {
     String nsAuid = NamespacedAuid.key(namespace, auid);
-
-    if (!invalidatedAuSizes.getOrDefault(nsAuid, false)) {
-      invalidatedAuSizes.put(nsAuid, true);
-      log.debug2("Invalidating AU size [ns: {}, auid: {}]", namespace, auid);
-      idxdb.deleteAuSize(nsAuid);
-    }
+    log.debug2("Invalidating AU size [ns: {}, auid: {}]", namespace, auid);
+    idxdb.deleteAuSize(nsAuid);
   }
 }
