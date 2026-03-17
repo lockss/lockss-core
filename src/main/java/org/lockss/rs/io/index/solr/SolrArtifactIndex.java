@@ -1150,6 +1150,9 @@ public class SolrArtifactIndex extends AbstractArtifactIndex {
 
   @Override
   public void clearIndex() throws IOException {
+    if (indexState == ArtifactIndexState.RUNNING) {
+      throw new IllegalStateException("Cannot clear the artifact index while in running state");
+    }
     try {
       UpdateRequest request = new UpdateRequest();
       request.deleteByQuery("*:*");
