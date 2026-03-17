@@ -545,10 +545,8 @@ public abstract class WarcArtifactDataStore implements ArtifactDataStore, WARCCo
       return false;
     }
 
-    Path normalizedPath = path.toAbsolutePath().normalize();
     return Arrays.stream(configuredBasePaths)
-        .map(basePath -> basePath.toAbsolutePath().normalize())
-        .anyMatch(normalizedPath::startsWith);
+        .anyMatch(path::startsWith);
   }
 
   protected boolean isStoragePathAllowed(Path path, String artifactUuid) throws IOException {
@@ -853,7 +851,7 @@ public abstract class WarcArtifactDataStore implements ArtifactDataStore, WARCCo
     MultiValueMap<String, String> params = new LinkedMultiValueMap<>();
     params.add("offset", Long.toString(offset));
     params.add("length", Long.toString(length));
-    return makeStorageUrl(filePath, params);
+    return makeStorageUrl(filePath.toAbsolutePath().normalize(), params);
   }
 
   /**

@@ -68,7 +68,8 @@ public class VolatileWarcArtifactDataStore extends WarcArtifactDataStore {
    * Constructor.
    */
   public VolatileWarcArtifactDataStore() {
-    this.basePaths = new Path[]{DEFAULT_BASEPATH};
+    this.basePaths =
+        new Path[]{DEFAULT_BASEPATH.toAbsolutePath().normalize()};
     this.tmpWarcPool = new WarcFilePool(this);
     this.warcs = new HashMap<>();
   }

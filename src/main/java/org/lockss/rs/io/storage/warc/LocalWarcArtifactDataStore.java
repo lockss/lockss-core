@@ -81,7 +81,9 @@ public class LocalWarcArtifactDataStore extends WarcArtifactDataStore {
     log.debug2("Starting local WARC artifact data store [basePaths: {}]", (Object[])basePaths);
 
     // Set local base paths
-    this.basePaths = basePaths;
+    this.basePaths = Arrays.stream(basePaths)
+        .map(p -> p.toAbsolutePath().normalize())
+        .toArray(Path[]::new);
 
     // Start temporary WARC file pool
     this.tmpWarcPool = new WarcFilePool(this);
