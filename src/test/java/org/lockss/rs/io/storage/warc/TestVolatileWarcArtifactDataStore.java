@@ -341,6 +341,34 @@ public class TestVolatileWarcArtifactDataStore extends AbstractWarcArtifactDataS
   // *******************************************************************************************************************
 
   /**
+   * Test that appending to a TruncatableByteArrayOutputStream after truncating works correctly.
+   */
+  @Test
+  public void testTruncate_thenAppend() throws Exception {
+    VolatileWarcArtifactDataStore.TruncatableByteArrayOutputStream out =
+        new VolatileWarcArtifactDataStore.TruncatableByteArrayOutputStream();
+
+    // Write initial data
+    byte[] initial = new byte[]{10, 20, 30, 40, 50};
+    out.write(initial);
+    assertEquals(5, out.size());
+
+    // Truncate to 3 bytes
+    out.truncate(3);
+    assertEquals(3, out.size());
+
+    // Append new data after truncation
+    byte[] appended = new byte[]{60, 70, 80};
+
+    out.write(appended);
+    assertEquals(6, out.size());
+
+    // Verify result: first 3 bytes from original + appended bytes
+    byte[] result = out.toByteArray();
+    assertArrayEquals(new byte[]{10, 20, 30, 60, 70, 80}, result);
+  }
+
+  /**
    * Test that truncate() reduces size and retains the first M bytes.
    */
   @Test
@@ -456,6 +484,7 @@ public class TestVolatileWarcArtifactDataStore extends AbstractWarcArtifactDataS
 
     assertEquals(3, out.size());
     byte[] result = out.toByteArray();
+    assertEquals(3, result.length);
     assertEquals(10, result[0]);
     assertEquals(20, result[1]);
     assertEquals(30, result[2]);
