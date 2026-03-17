@@ -149,7 +149,7 @@ public abstract class TestIcpManagerStartup extends LockssTestCase {
     protected void setConfig() {
       // XXX There's now a default port
       expectedRunning = true;
-      expectedPort = 24674;
+      expectedPort = 24632;
       ConfigurationUtil.addFromArgs(IcpManager.PARAM_PLATFORM_ICP_ENABLED,
                                     "true",
                                     IcpManager.PARAM_ICP_ENABLED,

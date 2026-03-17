@@ -52,7 +52,7 @@ import static org.mockito.Mockito.*;
 public class TestNetworkPolicyManager extends LockssCoreTestCase5 {
   private final L4JLogger log = L4JLogger.getLogger();
 
-  private static final List<Integer> EXPECTED_PORTS = List.of(24681, 24682, 24602);
+  private static final List<Integer> EXPECTED_PORTS = List.of(24641, 24642, 24620);
   private static final List<String> INCLUDE_CIDRS = List.of("10.255.0.0/16", "171.67.138.0/24");
   private static final String EXCLUDE_CIDRS = "192.168.0.0/16";
   private static final String REFERENCE_YAML = "lockss-network-policy.yaml";
@@ -406,18 +406,18 @@ public class TestNetworkPolicyManager extends LockssCoreTestCase5 {
     org.lockss.test.ConfigurationUtil.resetConfig();
     npMgr.setTestPlatformVersion(mockPlatformVersion(true));
     Properties props = new Properties();
-    props.put("org.lockss.networkPolicy.protected.adminPorts", "8080;24682");
+    props.put("org.lockss.networkPolicy.protected.adminPorts", "8080;24642");
     props.put("org.lockss.ui.access.ip.include", "10.*.*.*");
     props.put("org.lockss.ui.access.ip.exclude", "192.168.0.0/16");
     org.lockss.test.ConfigurationUtil.setCurrentConfigFromProps(props);
     // Wait for initial config to apply
     Boolean firstSignal = npMgr.calls.poll(5, java.util.concurrent.TimeUnit.SECONDS);
     assertNotNull(firstSignal, "Expected initial update to be invoked");
-    assertEquals("8080;24682", npMgr.managedAdminPorts);
+    assertEquals("8080;24642", npMgr.managedAdminPorts);
 
     // Now change only the include/exclude (no PREFIX change)
     props = new Properties();
-    props.put("org.lockss.networkPolicy.protected.adminPorts", "8080;24682");
+    props.put("org.lockss.networkPolicy.protected.adminPorts", "8080;24642");
     props.put("org.lockss.ui.access.ip.include","172.16.0.0/12");
     props.put("org.lockss.ui.access.ip.exclude", "192.168.1.0/24");
     org.lockss.test.ConfigurationUtil.setCurrentConfigFromProps(props);
@@ -425,7 +425,7 @@ public class TestNetworkPolicyManager extends LockssCoreTestCase5 {
     assertNotNull(secondSignal, "Expected update to be invoked due to include/exclude change");
 
     // managedPorts should remain unchanged since PREFIX wasn't in the diff
-    assertEquals("8080;24682", npMgr.managedAdminPorts, "managedPorts should not change without PREFIX diff");
+    assertEquals("8080;24642", npMgr.managedAdminPorts, "managedPorts should not change without PREFIX diff");
   }
 
   @Test

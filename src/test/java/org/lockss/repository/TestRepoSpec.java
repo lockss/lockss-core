@@ -53,12 +53,12 @@ public class TestRepoSpec extends LockssTestCase4 {
     assertEquals("/path/to/it", rs2.getPath());
     assertEquals("local:/path/to/it", rs2.getRepositoryKey());
 
-    RepoSpec rs3 = RepoSpec.fromSpec("rest:lockss:http://lockss-repository-service:24610");
+    RepoSpec rs3 = RepoSpec.fromSpec("rest:lockss:http://lockss-repository-service:24611");
     log.info("rs3: {}", rs3);
     assertEquals("rest", rs3.getType());
     assertEquals("lockss", rs3.getNamespace());
-    assertEquals("http://lockss-repository-service:24610", rs3.getUrl());
-    assertEquals("rest:http://lockss-repository-service:24610",
+    assertEquals("http://lockss-repository-service:24611", rs3.getUrl());
+    assertEquals("rest:http://lockss-repository-service:24611",
                  rs3.getRepositoryKey());
   }
 

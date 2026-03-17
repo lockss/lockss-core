@@ -54,10 +54,10 @@ public class NetworkPolicyManager extends BaseLockssManager implements Configura
   static final String PREFIX = Configuration.PREFIX + "networkPolicy";
   // our network policy parameters
   final static String PARAM_LOCKSS_PROTECTED_ADMIN_PORTS = NetworkPolicyManager.PREFIX + ".protected.adminPorts";
-  static final String DEFAULT_LOCKSS_PROTECTED_ADMIN_PORTS = "24602";
+  static final String DEFAULT_LOCKSS_PROTECTED_ADMIN_PORTS = "24620";
 
   final static String PARAM_LOCKSS_PROTECTED_CONTENT_PORTS = NetworkPolicyManager.PREFIX + ".protected.contentPorts";
-  static final String DEFAULT_LOCKSS_PROTECTED_CONTENT_PORTS = "8080;24681";
+  static final String DEFAULT_LOCKSS_PROTECTED_CONTENT_PORTS = "8080;24641";
 
   static final String PARAM_POLICY_FILE = NetworkPolicyManager.PREFIX + ".policyFile";
   static final String DEFAULT_POLICY_FILE = "lockss-network-policy.yaml";
