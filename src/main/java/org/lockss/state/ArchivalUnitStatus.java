@@ -801,7 +801,13 @@ public class ArchivalUnitStatus
 
     static final String COL_NODE_CHILD_COUNT = "NodeChildCount";
 
-    static final String FOOT_SERVE_AU_VS_CONTENT = "Serve AU serves this AU.  Serve Content constructs an OpenURL query from the bibliographic information for this AU in the title database, which may result in a choice of AUs if the content is available from more than one source.";
+    static final String FOOT_SERVE_AU = "Uses the internal content server to display the manifest page(s) of this AU.";
+
+    static final String FOOT_SERVE_CONTENT = "Uses the internal content server to display the results of an OpenURL query of the bibliographic information for this AU in the title database.  May display a choice of content from this and other AUs if the content is available from more than one source.";
+
+    static final String FOOT_SERVE_PYWB = "Uses Pywb to search for all preserved copies of this AU's manifest page (or first such if there are multiple).";
+
+    static final String FOOT_SERVE_OPENWAYBACK = "Uses OpenWayback to search for all preserved copies of this AU's manifest page (or first such if there are multiple).";
 
     private static final List columnDescriptors = ListUtil.list(
         new ColumnDescriptor(COL_NODE_NAME, "URL",
@@ -1251,14 +1257,16 @@ public class ArchivalUnitStatus
           audef));
       List serveLinks = new ArrayList();
 
+      StatusTable.DisplayedValue saudv = new StatusTable.DisplayedValue("Serve AU").addFootnote(FOOT_SERVE_AU);
       Object saulink =
-          new StatusTable.SrvLink("Serve AU",
+          new StatusTable.SrvLink(saudv,
               AdminServletManager.SERVLET_SERVE_CONTENT,
               PropUtil.fromArgs("auid", au.getAuId()));
       serveLinks.add(saulink);
 
+      StatusTable.DisplayedValue scdv = new StatusTable.DisplayedValue("Serve Content").addFootnote(FOOT_SERVE_CONTENT);
       Object sclink =
-          new StatusTable.SrvLink("Serve Content",
+          new StatusTable.SrvLink(scdv,
               AdminServletManager.SERVLET_SERVE_CONTENT,
               PropUtil.fromArgs("auid", au.getAuId(),
                   "use_openurl", "true"));
@@ -1293,21 +1301,12 @@ public class ArchivalUnitStatus
         }
       }
 
-      if (owbBinding != null) {
-        Object owbLink = new StatusTable.SvcLink("OpenWayback",
-            ServiceDescr.SVC_OPENWAYBACK.getServiceUrl(
-                owbBinding, PropUtil.fromArgs(
-                    "url", replayUrl)));
-
-        serveLinks.add(", ");
-        serveLinks.add(owbLink);
-      }
-
       if (pywbBinding != null) {
         RepositoryManager repoMgr = theDaemon.getRepositoryManager();
         String namespace = repoMgr.getV2Repository().getNamespace();
 
-        Object pywbLink = new StatusTable.SvcLink("PyWb",
+        StatusTable.DisplayedValue pydv = new StatusTable.DisplayedValue("Pywb").addFootnote(FOOT_SERVE_PYWB);
+        Object pywbLink = new StatusTable.SvcLink(pydv,
             ServiceDescr.SVC_PYWB.getServiceUrl(
                 pywbBinding, PropUtil.fromArgs(
                     "url", replayUrl,
@@ -1317,10 +1316,21 @@ public class ArchivalUnitStatus
         serveLinks.add(pywbLink);
       }
 
+      if (owbBinding != null) {
+        StatusTable.DisplayedValue owdv = new StatusTable.DisplayedValue("OpenWayback").addFootnote(FOOT_SERVE_OPENWAYBACK);
+        Object owbLink = new StatusTable.SvcLink(owdv,
+            ServiceDescr.SVC_OPENWAYBACK.getServiceUrl(
+                owbBinding, PropUtil.fromArgs(
+                    "url", replayUrl)));
+
+        serveLinks.add(", ");
+        serveLinks.add(owbLink);
+      }
+
       StatusTable.SummaryInfo serveSum =
           new StatusTable.SummaryInfo(null, ColumnDescriptor.TYPE_STRING,
               serveLinks);
-      serveSum.setValueFootnote(FOOT_SERVE_AU_VS_CONTENT);
+//       serveSum.setValueFootnote(FOOT_SERVE_AU_VS_CONTENT);
       res.add(serveSum);
 
       List peerLinks = new ArrayList();
