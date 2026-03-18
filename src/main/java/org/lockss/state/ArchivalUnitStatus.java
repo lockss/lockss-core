@@ -801,13 +801,13 @@ public class ArchivalUnitStatus
 
     static final String COL_NODE_CHILD_COUNT = "NodeChildCount";
 
-    static final String FOOT_SERVE_AU = "Uses the internal content server to display the manifest page(s) of this AU.";
+    static final String FOOT_SERVE_AU = "Uses ServeContent to display the start page(s) of this AU.";
 
-    static final String FOOT_SERVE_CONTENT = "Uses the internal content server to display the results of an OpenURL query of the bibliographic information for this AU in the title database.  May display a choice of content from this and other AUs if the content is available from more than one source.";
+    static final String FOOT_SERVE_CONTENT = "Uses ServeContent to display the results of an OpenURL query of the bibliographic information for this AU. May display a choice of content from this and other AUs if the content is available from more than one source.";
 
-    static final String FOOT_SERVE_PYWB = "Uses Pywb to search for all preserved copies of this AU's manifest page (or first such if there are multiple).";
+    static final String FOOT_SERVE_PYWB = "Uses Pywb to search for all preserved copies of this AU's first start page.";
 
-    static final String FOOT_SERVE_OPENWAYBACK = "Uses OpenWayback to search for all preserved copies of this AU's manifest page (or first such if there are multiple).";
+    static final String FOOT_SERVE_OPENWAYBACK = "Uses OpenWayback to search for all preserved copies of this AU's first start page.";
 
     private static final List columnDescriptors = ListUtil.list(
         new ColumnDescriptor(COL_NODE_NAME, "URL",
@@ -1257,14 +1257,14 @@ public class ArchivalUnitStatus
           audef));
       List serveLinks = new ArrayList();
 
-      StatusTable.DisplayedValue saudv = new StatusTable.DisplayedValue("Serve AU").addFootnote(FOOT_SERVE_AU);
+      StatusTable.DisplayedValue saudv = new StatusTable.DisplayedValue("ServeContent").addFootnote(FOOT_SERVE_AU);
       Object saulink =
           new StatusTable.SrvLink(saudv,
               AdminServletManager.SERVLET_SERVE_CONTENT,
               PropUtil.fromArgs("auid", au.getAuId()));
       serveLinks.add(saulink);
 
-      StatusTable.DisplayedValue scdv = new StatusTable.DisplayedValue("Serve Content").addFootnote(FOOT_SERVE_CONTENT);
+      StatusTable.DisplayedValue scdv = new StatusTable.DisplayedValue("ServeContent by OpenURL").addFootnote(FOOT_SERVE_CONTENT);
       Object sclink =
           new StatusTable.SrvLink(scdv,
               AdminServletManager.SERVLET_SERVE_CONTENT,
