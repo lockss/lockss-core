@@ -1087,7 +1087,6 @@ public abstract class LockssServlet extends HttpServlet
       footnotes.addElement(s);
     }
     StringBuilder sb = new StringBuilder();
-    sb.append("<sup><font size=-1>");
     CitationStyle citationStyle =
       (CitationStyle)
       ConfigManager.getCurrentConfig().getEnum(CitationStyle.class,
@@ -1112,10 +1111,14 @@ public abstract class LockssServlet extends HttpServlet
       }
       sb.append("<a href=#foottag");
       sb.append((n+1));
+//       sb.append(" class=\"foot\"");
+      sb.append(" style=\"text-decoration: none\"");
       sb.append(">");
+      sb.append("<sup>");
       sb.append((n+1));
+      sb.append("</sup>");
     }
-    sb.append("</a></font></sup>");
+    sb.append("</a>");
     return sb.toString();
 //     return "<sup><font size=-1><a href=#foottag" + (n+1) + ">" +
 //       (n+1) + "</a></font></sup>";

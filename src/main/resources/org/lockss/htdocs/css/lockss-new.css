@@ -55,6 +55,10 @@ a.pub-title {
     font-size: small;
 }
 
+.foot {
+       text-decoration: none;
+}
+
 .au-title {
     padding-top: 0.5em;
     padding-left: 10px;
