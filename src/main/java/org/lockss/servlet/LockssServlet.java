@@ -1109,10 +1109,10 @@ public abstract class LockssServlet extends HttpServlet
       if (withLeadingSpace) {
         sb.append("&nbsp;");
       }
-      sb.append("<a href=#foottag");
+      sb.append("<a href=\"#foottag");
       sb.append((n+1));
-//       sb.append(" class=\"foot\"");
-      sb.append(" style=\"text-decoration: none\"");
+      sb.append("\"");
+      sb.append(" class=\"foot\"");
       sb.append(">");
       sb.append("<sup>");
       sb.append((n+1));

@@ -164,6 +164,7 @@ public class DaemonStatus extends BaseDaemonStatus {
   private Page newTablePage() throws IOException {
     Page page = newPage();
     addJavaScript(page);
+    addCssLocations(page);
 
     if (!pluginMgr.areAusStartedOrStartOnDemand()) {
       page.add(ServletUtil.notStartedWarning());
