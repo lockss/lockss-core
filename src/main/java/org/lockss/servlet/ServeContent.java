@@ -61,7 +61,7 @@ import org.lockss.plugin.*;
 import org.lockss.plugin.AuUtil.AuProxyInfo;
 import org.lockss.plugin.PluginManager.CuContentReq;
 import org.lockss.plugin.base.BaseUrlFetcher;
-import org.lockss.proxy.ProxyManager;
+import org.lockss.proxy.*;
 import org.lockss.rewriter.LinkRewriterFactory;
 import org.lockss.state.AuState;
 import org.lockss.util.*;
@@ -526,9 +526,7 @@ public class ServeContent extends LockssServlet {
     String clientInfo = remoteAddr;
 
     // If the request is from localhost, check for forwarded headers to get the real client IP
-    if ("127.0.0.1".equals(remoteAddr) || "::1".equals(remoteAddr) ||
-        "localhost".equalsIgnoreCase(remoteAddr)) {
-
+    if (ProxyHandler.isLocalAddr(remoteAddr)) {
       // Check X-Forwarded-For header first (most common)
       String xForwardedFor = req.getHeader("X-Forwarded-For");
       if (!StringUtil.isNullString(xForwardedFor)) {
