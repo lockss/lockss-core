@@ -90,7 +90,6 @@ import org.springframework.web.util.UriComponents;
 import org.springframework.web.util.UriComponentsBuilder;
 
 import java.io.*;
-import java.net.InetAddress;
 import java.net.URI;
 import java.net.URISyntaxException;
 import java.nio.charset.StandardCharsets;
@@ -130,7 +129,7 @@ public abstract class WarcArtifactDataStore implements ArtifactDataStore, WARCCo
   public final static String DATASTORE_STATE_DIR = "store";
   public final static String DATASTORE_VERSION_FILE = DATASTORE_STATE_DIR + "/version";
   public final static String REINDEXED_WARCS_FILE = DATASTORE_STATE_DIR + "/reindexed-warcs";
-  protected static final String BASE_PATH_ID_FILE = "lockss-content-id.json";
+  protected static final String CONTENT_BASE_PATH_ID_FILE = "lockss-content-id.json";
   public final static String CONFIGURED_BASE_PATH_UUIDS_FILE =
       DATASTORE_STATE_DIR + "/configured-base-path-uuids";
   public static String V0_STATE_FILE = "artifact_state" + WARCConstants.DOT_WARC_FILE_EXTENSION;
@@ -2308,7 +2307,7 @@ public abstract class WarcArtifactDataStore implements ArtifactDataStore, WARCCo
   /**
    * Returns or creates a persistent UUID for the given content base path.
    * <p>
-   * If a marker file ({@link #BASE_PATH_ID_FILE}) exists under {@code basePath},
+   * If a marker file ({@link #CONTENT_BASE_PATH_ID_FILE}) exists under {@code basePath},
    * its UUID is read and returned. Otherwise a new UUID is generated, a marker
    * file is written, and the new UUID is returned.
    *
@@ -2317,7 +2316,7 @@ public abstract class WarcArtifactDataStore implements ArtifactDataStore, WARCCo
    * @throws IOException if the marker file cannot be read or written
    */
   protected UUID getOrCreateBasePathUuid(Path basePath) throws IOException {
-    Path idFilePath = basePath.resolve(BASE_PATH_ID_FILE);
+    Path idFilePath = basePath.resolve(CONTENT_BASE_PATH_ID_FILE);
     File idFile = idFilePath.toFile();
 
     if (idFile.exists()) {
@@ -2360,8 +2359,57 @@ public abstract class WarcArtifactDataStore implements ArtifactDataStore, WARCCo
     return map;
   }
 
+  /**
+   * If {@code current} is a strict append of {@code previous} (all previous
+   * entries appear first in iteration order, with one or more new entries
+   * after them), returns the base-path values of the appended entries.
+   * Returns {@code null} if the maps are identical, reordered, or if
+   * previous entries were removed or modified.
+   *
+   * @param previous the previously-recorded UUID-to-base-path map
+   * @param current  the current UUID-to-base-path map
+   * @return a non-empty list of appended base-path values, or {@code null}
+   */
+  static List<String> findAppendedBasePaths(
+      Map<String, String> previous,
+      Map<String, String> current) {
+
+    Iterator<Map.Entry<String, String>> prevIter = previous.entrySet().iterator();
+    Iterator<Map.Entry<String, String>> currIter = current.entrySet().iterator();
+
+    // Verify previous entries appear first in current, in the same order
+    while (prevIter.hasNext()) {
+      if (!currIter.hasNext()) {
+        return null;
+      }
+      Map.Entry<String, String> prevEntry = prevIter.next();
+      Map.Entry<String, String> currEntry = currIter.next();
+      if (!prevEntry.getKey().equals(currEntry.getKey()) ||
+          !prevEntry.getValue().equals(currEntry.getValue())) {
+        return null;
+      }
+    }
+
+    // Collect remaining entries (the appended tail)
+    List<String> appended = new ArrayList<>();
+    while (currIter.hasNext()) {
+      appended.add(currIter.next().getValue());
+    }
+
+    return appended.isEmpty() ? null : appended;
+  }
+
   public boolean didConfiguredBasePathsChange() {
     try {
+      // Build a snapshot of base paths that were already initialized and have an ID file
+      // before getCurrentBasePathUuidMap() creates one via getOrCreateBasePathUuid()
+      Set<String> initializedBasePaths = new HashSet<>();
+      for (Path basePath : getBasePaths()) {
+        if (basePath.resolve(CONTENT_BASE_PATH_ID_FILE).toFile().exists()) {
+          initializedBasePaths.add(basePath.toAbsolutePath().normalize().toString());
+        }
+      }
+
       Map<String, String> current = getCurrentBasePathUuidMap();
       Path stateFilePath = repo.getRepositoryStateDirPath().resolve(CONFIGURED_BASE_PATH_UUIDS_FILE);
       File stateFile = stateFilePath.toFile();
@@ -2380,10 +2428,43 @@ public abstract class WarcArtifactDataStore implements ArtifactDataStore, WARCCo
         previous = Collections.emptyMap();
       }
 
-      return !previous.equals(current);
+      if (!previous.equals(current)) {
+        List<String> newPaths = findAppendedBasePaths(previous, current);
+
+        if (newPaths != null) {
+          // Verify no new base path was previously initialized
+          for (String newBasePath : newPaths) {
+            if (initializedBasePaths.contains(newBasePath)) {
+              log.info("New base path already initialized; reindex required: {}", newBasePath);
+              return true;
+            }
+          }
+
+          log.debug("Only uninitialized base paths were appended; skipping reindex");
+          recordConfiguredBasePaths();
+          return false;
+        }
+
+        return true;
+      }
+
+      return false;
     } catch (Exception e) {
       log.error("Could not compare configured base paths", e);
       return false;
+    }
+  }
+
+  public void clearReindexState() {
+    Path reindexedWarcsPath = repo.getRepositoryStateDirPath()
+        .resolve(REINDEXED_WARCS_FILE);
+    File reindexedWarcsFile = reindexedWarcsPath.toFile();
+    if (reindexedWarcsFile.exists()) {
+      if (reindexedWarcsFile.delete()) {
+        log.info("Cleared reindex state file: {}", reindexedWarcsPath);
+      } else {
+        log.warn("Failed to delete reindex state file: {}", reindexedWarcsPath);
+      }
     }
   }
 
@@ -2437,7 +2518,7 @@ public abstract class WarcArtifactDataStore implements ArtifactDataStore, WARCCo
 
   /**
    * JSON-serializable marker placed inside each content base path directory
-   * ({@link #BASE_PATH_ID_FILE}). Travels with the data if moved.
+   * ({@link #CONTENT_BASE_PATH_ID_FILE}). Travels with the data if moved.
    */
   public static class ContentBasePathInfo {
     public int formatVersion;

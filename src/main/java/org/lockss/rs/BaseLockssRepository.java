@@ -290,6 +290,7 @@ public class BaseLockssRepository implements LockssRepository, JmsFactorySource 
             .resolve(REINDEXING_STATE_FILE).toFile();
         FileUtils.touch(reindexTokenFile);
         index.clearIndex();
+        wads.clearReindexState();
         wads.recordConfiguredBasePaths();
         contentPathListChanged = true;
       }

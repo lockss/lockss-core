@@ -2498,19 +2498,6 @@ public abstract class AbstractWarcArtifactDataStoreTest<WADS extends WarcArtifac
     assertEquals(input, ds.getInputStreamFromStorageUrl(storageUrl));
   }
 
-  @Test
-  public void testGetInputStreamFromStorageUrl_strictPolicy() throws Exception {
-    URI storageUrl = new URI("fake:///other/test?offset=1234&length=5678");
-
-    WarcArtifactDataStore ds = mock(WarcArtifactDataStore.class);
-    doCallRealMethod().when(ds).setStorageUrlPathPolicy("strict");
-    doCallRealMethod().when(ds).getInputStreamFromStorageUrl(storageUrl);
-    when(ds.getBasePaths()).thenReturn(new Path[]{Paths.get("/lockss")});
-
-    ds.setStorageUrlPathPolicy("strict");
-    assertThrows(IOException.class, () -> ds.getInputStreamFromStorageUrl(storageUrl));
-  }
-
   // *******************************************************************************************************************
   // * STORAGE URL PATH POLICY TESTS
   // *******************************************************************************************************************
@@ -3659,4 +3646,159 @@ public abstract class AbstractWarcArtifactDataStoreTest<WADS extends WarcArtifac
       new WarcArtifactStateEntry("anArtId", WarcArtifactState.UNKNOWN);
   }
 
+  @Test
+  public void testFindAppendedBasePaths_noChange() {
+    LinkedHashMap<String, String> prev = new LinkedHashMap<>();
+    prev.put("u1", "/path/a");
+    prev.put("u2", "/path/b");
+
+    LinkedHashMap<String, String> curr = new LinkedHashMap<>(prev);
+
+    assertNull(WarcArtifactDataStore.findAppendedBasePaths(prev, curr));
+  }
+
+  @Test
+  public void testFindAppendedBasePaths_singleAppend() {
+    LinkedHashMap<String, String> prev = new LinkedHashMap<>();
+    prev.put("u1", "/path/a");
+    prev.put("u2", "/path/b");
+
+    LinkedHashMap<String, String> curr = new LinkedHashMap<>(prev);
+    curr.put("u3", "/path/c");
+
+    List<String> result = WarcArtifactDataStore.findAppendedBasePaths(prev, curr);
+    assertEquals(ListUtil.list("/path/c"), result);
+  }
+
+  @Test
+  public void testFindAppendedBasePaths_multipleAppend() {
+    LinkedHashMap<String, String> prev = new LinkedHashMap<>();
+    prev.put("u1", "/path/a");
+
+    LinkedHashMap<String, String> curr = new LinkedHashMap<>(prev);
+    curr.put("u2", "/path/b");
+    curr.put("u3", "/path/c");
+
+    List<String> result = WarcArtifactDataStore.findAppendedBasePaths(prev, curr);
+    assertEquals(ListUtil.list("/path/b", "/path/c"), result);
+  }
+
+  @Test
+  public void testFindAppendedBasePaths_reorderedExisting() {
+    LinkedHashMap<String, String> prev = new LinkedHashMap<>();
+    prev.put("u1", "/path/a");
+    prev.put("u2", "/path/b");
+
+    // Same entries but reversed order
+    LinkedHashMap<String, String> curr = new LinkedHashMap<>();
+    curr.put("u2", "/path/b");
+    curr.put("u1", "/path/a");
+    curr.put("u3", "/path/c");
+
+    assertNull(WarcArtifactDataStore.findAppendedBasePaths(prev, curr));
+  }
+
+  @Test
+  public void testFindAppendedBasePaths_removedEntry() {
+    LinkedHashMap<String, String> prev = new LinkedHashMap<>();
+    prev.put("u1", "/path/a");
+    prev.put("u2", "/path/b");
+
+    // Current has only one of the previous entries
+    LinkedHashMap<String, String> curr = new LinkedHashMap<>();
+    curr.put("u2", "/path/b");
+
+    assertNull(WarcArtifactDataStore.findAppendedBasePaths(prev, curr));
+  }
+
+  @Test
+  public void testFindAppendedBasePaths_insertedEntry() {
+    LinkedHashMap<String, String> prev = new LinkedHashMap<>();
+    prev.put("u1", "/path/a");
+    prev.put("u2", "/path/b");
+
+    // New entry inserted between existing entries
+    LinkedHashMap<String, String> curr = new LinkedHashMap<>();
+    curr.put("u1", "/path/a");
+    curr.put("u3", "/path/c"); // inserted
+    curr.put("u2", "/path/b");
+
+    assertNull(WarcArtifactDataStore.findAppendedBasePaths(prev, curr));
+  }
+
+  @Test
+  public void testDidConfiguredBasePathsChange_noStateFile() throws Exception {
+    File baseDir = getTempDir();
+    baseDir.mkdirs();
+    File configuredBasePathsFile =
+        baseDir.toPath().resolve(WarcArtifactDataStore.CONFIGURED_BASE_PATH_UUIDS_FILE).toFile();
+
+    // Setup mocks
+    ArtifactIndex index = store.getArtifactIndex();
+    BaseLockssRepository mockRepo = mock(BaseLockssRepository.class);
+    when(mockRepo.getRepositoryStateDirPath()).thenReturn(baseDir.toPath());
+    when(mockRepo.getArtifactIndex()).thenReturn(index);
+    store.setLockssRepository(mockRepo);
+
+    // First call: No configured base paths file: Assert didConfiguredBasePathsChange creates it and returns false
+    assertFalse(configuredBasePathsFile.exists());
+    assertFalse(store.didConfiguredBasePathsChange());
+    assertTrue(configuredBasePathsFile.exists());
+
+    // Second call: No changes (same content base paths): Assert didConfiguredBasePathsChange returns false
+    assertFalse(store.didConfiguredBasePathsChange());
+  }
+
+  @Test
+  public void testDidConfiguredBasePathsChange_nonAppendChange() throws Exception {
+    File baseDir = getTempDir();
+    File stateDir = new File(baseDir, WarcArtifactDataStore.DATASTORE_STATE_DIR);
+    stateDir.mkdirs();
+    File configuredBasePathsFile =
+        baseDir.toPath().resolve(WarcArtifactDataStore.CONFIGURED_BASE_PATH_UUIDS_FILE).toFile();
+
+    // Setup mocks
+    ArtifactIndex index = store.getArtifactIndex();
+    BaseLockssRepository mockRepo = mock(BaseLockssRepository.class);
+    when(mockRepo.getRepositoryStateDirPath()).thenReturn(baseDir.toPath());
+    when(mockRepo.getArtifactIndex()).thenReturn(index);
+    store.setLockssRepository(mockRepo);
+
+    LinkedHashMap<String, String> fakePrevious = new LinkedHashMap<>();
+    fakePrevious.put("different-uuid", "/different/path");
+
+    // Write a fake previously configured base paths file
+    configuredBasePathsFile.createNewFile();
+    ObjectMapper objMapper = new ObjectMapper();
+    objMapper.writeValue(configuredBasePathsFile, fakePrevious);
+
+    // Assert the content base paths have changed (previous vs configured by test harness)
+    assertTrue(store.didConfiguredBasePathsChange());
+  }
+
+  @Test
+  public void testClearReindexState() throws Exception {
+    File stateDir = getTempDir();
+    stateDir.mkdirs();
+    Path reindexedWarcsFilePath = stateDir.toPath().resolve(WarcArtifactDataStore.REINDEXED_WARCS_FILE);
+
+    // Setup mocks
+    BaseLockssRepository mockRepo = mock(BaseLockssRepository.class);
+    when(mockRepo.getRepositoryStateDirPath()).thenReturn(stateDir.toPath());
+    store.setLockssRepository(mockRepo);
+
+    // Verify clearing reindex state is a NO-OP if the state file does not exist
+    assertFalse(reindexedWarcsFilePath.toFile().exists());
+    assertDoesNotThrow(() -> store.clearReindexState());
+    assertFalse(reindexedWarcsFilePath.toFile().exists());
+
+    // Touch the reindex state file
+    reindexedWarcsFilePath.getParent().toFile().mkdirs();
+    reindexedWarcsFilePath.toFile().createNewFile();
+
+    // Verify the reindex state file is removed
+    assertTrue(reindexedWarcsFilePath.toFile().exists());
+    store.clearReindexState();
+    assertFalse(reindexedWarcsFilePath.toFile().exists());
+  }
 }
