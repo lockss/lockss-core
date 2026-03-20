@@ -82,15 +82,15 @@ public final class PluginWellformednessTests extends LockssTestCase {
 	resetAndTest(pluginId);
       } catch (PluginFailedToLoadException e) {
 	log.error("Plugin " + pluginId + " couldn't be loaded", e);
-	failed.add(new ImmutablePair(pluginId, e.toString()));
+	failed.add(Pair.of(pluginId, e.toString()));
       } catch (Exception e) {
 	log.error("Plugin " + pluginId + " failed", e);
-	failed.add(new ImmutablePair(pluginId, e.getMessage()));
+	failed.add(Pair.of(pluginId, e.getMessage()));
       }
     }
     if (!failed.isEmpty()) {
       StringBuilder sb = new StringBuilder();
-      sb.append(StringUtil.numberOfUnits(failed.size(), "plugin") + " failed:");
+      sb.append(StringUtil.numberOfUnits(failed.size(), "plugin") + " failed.  Look for plugin name(s) above for more detail:");
       for (Pair<String,String> f : failed) {
         if (f.getLeft() != null) {
           sb.append("\n  ");
@@ -120,8 +120,7 @@ public final class PluginWellformednessTests extends LockssTestCase {
         Collection<PluginInfo> pInfos = loadJar(jarPath);
         for (PluginInfo pi : pInfos) {
           if (pi.isError()) {
-            failed.add(new ImmutablePair(curPluginId,
-                                         pi.getError().toString()));
+            failed.add(Pair.of(curPluginId, pi.getError().toString()));
           } else {
             Plugin plug = pi.getPlugin();
             log.debug("Testing plugin: " + plug.getPluginName());
@@ -130,7 +129,7 @@ public final class PluginWellformednessTests extends LockssTestCase {
         }
       } catch (Exception e) {
 	log.error("Jar " + failed + " jarPath", e);
-	failed.add(new ImmutablePair(curPluginId, e.getMessage()));
+	failed.add(Pair.of(curPluginId, e.getMessage()));
       }
     }
     if (!failed.isEmpty()) {
