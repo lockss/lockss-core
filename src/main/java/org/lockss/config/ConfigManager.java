@@ -1834,6 +1834,12 @@ public class ConfigManager implements LockssManager {
       }
       return false;
     }
+    // If we're ConfigService, notify other services to reload if any
+    // constituent config files have changed.  Due to conditionals or
+    // different load lists (e.g., local expert config) other services'
+    // resulting config may have changed even if our hasn't.
+    notifyConfigChanged();
+
     Configuration newConfig = initNewConfiguration();
     // Add app defaults
     mergeAppConfig(newConfig, LockssApp::getBootDefault, "app bootstrap default");
@@ -2080,7 +2086,6 @@ public class ConfigManager implements LockssManager {
     if (!didLogConfig) {
       logConfig(newConfig, oldConfig, diffs);
     }
-    notifyConfigChanged();
     if (log.isDebug2()) log.debug2(DEBUG_HEADER + "Returning true.");
     return true;
   }
@@ -4299,7 +4304,7 @@ public class ConfigManager implements LockssManager {
       try {
 	jmsProducer.sendMap(map);
       } catch (JMSException e) {
-	log.error("foo", e);
+	log.error("Couldn't send GlobalConfigChanged notification", e);
       }
     }
   }
