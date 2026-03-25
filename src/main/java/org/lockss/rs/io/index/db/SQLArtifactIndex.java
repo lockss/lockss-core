@@ -96,7 +96,8 @@ public class SQLArtifactIndex extends AbstractArtifactIndex {
   @Override
   public StorageInfo getStorageInfo() {
     // FIXME: Use correct Derby / PostgreSQL data path
-    return StorageInfo.fromDF(ARTIFACT_INDEX_TYPE, PlatformUtil.getInstance().getDF("/"));
+    // In most environments it will be the the same as our data dir
+    return StorageInfo.fromDF(ARTIFACT_INDEX_TYPE, PlatformUtil.getInstance().getDF(repository.getRepositoryStateDirPath().toString()));
   }
 
   @Override
