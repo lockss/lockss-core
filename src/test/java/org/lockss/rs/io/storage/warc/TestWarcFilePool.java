@@ -63,6 +63,37 @@ import static org.mockito.Mockito.*;
 class TestWarcFilePool extends LockssTestCase5 {
   private final static L4JLogger log = L4JLogger.getLogger();
 
+  @Test
+  public void testCreateWarcFileLargeFreeSpace() throws Exception {
+    Path baseDir1 = Paths.get("/tmp1");
+    Path baseDir2 = Paths.get("/tmp2");
+    Path[] baseDirs = new Path[]{baseDir1, baseDir2};
+
+    boolean useCompression = true;
+
+    WarcArtifactDataStore store = Mockito.spy(WarcArtifactDataStore.class);
+    when(store.getBasePaths()).thenReturn(baseDirs);
+    doCallRealMethod().when(store).setDefaultUseWarcCompression(ArgumentMatchers.anyBoolean());
+    doCallRealMethod().when(store).isCompressionEnabled();
+
+    store.setDefaultUseWarcCompression(useCompression);
+
+    // Simulate realistic disk sizes: 500 GB vs 200 GB (difference > Integer.MAX_VALUE)
+    long freeSpace500GB = 500L * 1024 * 1024 * 1024;
+    long freeSpace200GB = 200L * 1024 * 1024 * 1024;
+    when(store.getFreeSpace(baseDir1)).thenReturn(freeSpace200GB);
+    when(store.getFreeSpace(baseDir2)).thenReturn(freeSpace500GB);
+
+    WarcFilePool pool = new WarcFilePool(store);
+
+    WarcFile result = pool.createWarcFile(useCompression);
+
+    assertNotNull(result);
+    Path filePath = result.getPath();
+    assertTrue(filePath.startsWith(baseDir2),
+        "Should select baseDir2 (500 GB free) over baseDir1 (200 GB free)");
+  }
+
   /**
    * Tests for {@link WarcFilePool#createWarcFile(boolean)}.
    */

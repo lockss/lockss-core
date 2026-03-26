@@ -738,7 +738,7 @@ public abstract class WarcArtifactDataStore implements ArtifactDataStore, WARCCo
 
     return paths.stream()
         .filter(p -> getFreeSpace(p.getParent()) > minSize)
-        .sorted((a, b) -> (int) (getFreeSpace(b.getParent()) - getFreeSpace(a.getParent())))
+        .sorted((a, b) -> Long.compare(getFreeSpace(b.getParent()), getFreeSpace(a.getParent())))
         .findFirst()
         .orElse(null);
   }
@@ -750,7 +750,7 @@ public abstract class WarcArtifactDataStore implements ArtifactDataStore, WARCCo
 
     return paths.stream()
         .filter(p -> getFreeSpace(p) >= minFree)
-        .sorted((a, b) -> (int) (getFreeSpace(b) - getFreeSpace(a)))
+        .sorted((a, b) -> Long.compare(getFreeSpace(b), getFreeSpace(a)))
         .findFirst()
         .orElse(null);
   }

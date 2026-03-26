@@ -978,6 +978,71 @@ public abstract class AbstractWarcArtifactDataStoreTest<WADS extends WarcArtifac
     assertEquals(path3, ds.getDirectoryPathWithMaxFreeSpace(paths, minSize));
   }
 
+  @Test
+  public void testGetDirectoryPathWithMaxFreeSpaceLargeValues() throws Exception {
+    long minSize = 1024L;
+
+    WarcArtifactDataStore ds = mock(WarcArtifactDataStore.class);
+    doCallRealMethod().when(ds).getDirectoryPathWithMaxFreeSpace(
+        ArgumentMatchers.any(),
+        ArgumentMatchers.anyLong());
+
+    // Simulate realistic disk sizes where difference > Integer.MAX_VALUE
+    Path path1 = mock(Path.class);
+    when(ds.getFreeSpace(path1)).thenReturn(200L * 1024 * 1024 * 1024); // 200 GB
+
+    Path path2 = mock(Path.class);
+    when(ds.getFreeSpace(path2)).thenReturn(500L * 1024 * 1024 * 1024); // 500 GB
+
+    Path path3 = mock(Path.class);
+    when(ds.getFreeSpace(path3)).thenReturn(1000L * 1024 * 1024 * 1024); // 1 TB
+
+    List<Path> paths = new ArrayList<>();
+    paths.add(path1);
+    paths.add(path2);
+    paths.add(path3);
+
+    assertEquals(path3, ds.getDirectoryPathWithMaxFreeSpace(paths, minSize));
+
+    // Also verify with just two paths whose difference exceeds Integer.MAX_VALUE
+    paths.clear();
+    paths.add(path1);
+    paths.add(path2);
+    assertEquals(path2, ds.getDirectoryPathWithMaxFreeSpace(paths, minSize));
+  }
+
+  @Test
+  public void testGetFilePathWithMaxFreeSpaceLargeValues() throws Exception {
+    long minSize = 1024L;
+
+    WarcArtifactDataStore ds = mock(WarcArtifactDataStore.class);
+    doCallRealMethod().when(ds).getFilePathWithMaxFreeSpace(
+        ArgumentMatchers.any(),
+        ArgumentMatchers.anyLong());
+
+    Path auPath1 = mock(Path.class);
+    Path parent1 = mock(Path.class);
+    when(auPath1.getParent()).thenReturn(parent1);
+    when(ds.getFreeSpace(parent1)).thenReturn(200L * 1024 * 1024 * 1024); // 200 GB
+
+    Path auPath2 = mock(Path.class);
+    Path parent2 = mock(Path.class);
+    when(auPath2.getParent()).thenReturn(parent2);
+    when(ds.getFreeSpace(parent2)).thenReturn(500L * 1024 * 1024 * 1024); // 500 GB
+
+    Path auPath3 = mock(Path.class);
+    Path parent3 = mock(Path.class);
+    when(auPath3.getParent()).thenReturn(parent3);
+    when(ds.getFreeSpace(parent3)).thenReturn(1000L * 1024 * 1024 * 1024); // 1 TB
+
+    List<Path> auPaths = new ArrayList<>();
+    auPaths.add(auPath1);
+    auPaths.add(auPath2);
+    auPaths.add(auPath3);
+
+    assertEquals(auPath3, ds.getFilePathWithMaxFreeSpace(auPaths, minSize));
+  }
+
   /**
    * Test for {@link WarcArtifactDataStore#getFilePathWithMaxFreeSpace(List, long)}.
    *

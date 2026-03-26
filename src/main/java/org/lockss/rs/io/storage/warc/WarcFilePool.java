@@ -70,7 +70,7 @@ public class WarcFilePool {
    */
   protected WarcFile createWarcFile(boolean wantCompressedWarcFile) throws IOException {
     Path basePath = Arrays.stream(store.getBasePaths())
-        .max((a, b) -> (int) (store.getFreeSpace(a) - store.getFreeSpace(b)))
+        .max((a, b) -> Long.compare(store.getFreeSpace(a), store.getFreeSpace(b)))
         .orElse(null);
 
     Path tmpWarcDir = basePath.resolve(WarcArtifactDataStore.TMP_WARCS_DIR);
