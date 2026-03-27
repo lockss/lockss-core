@@ -866,6 +866,7 @@ public abstract class LockssServlet extends HttpServlet
 
     // Create page and layout header
     Page page = ServletUtil.doNewPage(getPageTitle(), isFramed());
+    addCssLocations(page);
     Iterator inNavIterator;
     if (myServletDescr().hasNoNavTable()) {
       inNavIterator = CollectionUtil.EMPTY_ITERATOR;
