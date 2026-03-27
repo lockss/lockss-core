@@ -61,7 +61,7 @@ public class LockssRepositoryStatus {
    */
   public static final String PARAM_MAX_ARTIFACTS_TO_DISPLAY =
       PREFIX + "artifactsPerPage";
-  static final int DEFAULT_MAX_ARTIFACTS_TO_DISPLAY = 200;
+  static final int DEFAULT_MAX_ARTIFACTS_TO_DISPLAY = 1000;
 
 
   public static final String SERVICE_STATUS_TABLE_NAME = "RepositoriesTable";
