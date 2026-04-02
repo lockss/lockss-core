@@ -1264,7 +1264,7 @@ public class ArchivalUnitStatus
               PropUtil.fromArgs("auid", au.getAuId()));
       serveLinks.add(saulink);
 
-      StatusTable.DisplayedValue scdv = new StatusTable.DisplayedValue("ServeContent by OpenURL").addFootnote(FOOT_SERVE_CONTENT);
+      StatusTable.DisplayedValue scdv = new StatusTable.DisplayedValue("ServeContent (OpenURL)").addFootnote(FOOT_SERVE_CONTENT);
       Object sclink =
           new StatusTable.SrvLink(scdv,
               AdminServletManager.SERVLET_SERVE_CONTENT,
