@@ -1455,5 +1455,13 @@ public class TestStringUtil extends LockssTestCase {
     assertSame("", StringUtil.nonNull(""));
     assertEquals("", StringUtil.nonNull(null));
   }
-  
+
+  public void testMaybeAuid() throws Exception {
+    assertFalse(StringUtil.maybeAuid(null));
+    assertFalse(StringUtil.maybeAuid(""));
+    assertTrue(StringUtil.maybeAuid("pack|plugin&x~1"));
+    assertFalse(StringUtil.maybeAuid("pack|plugin&x~"));
+    assertFalse(StringUtil.maybeAuid("pack|plugin&x1"));
+    assertFalse(StringUtil.maybeAuid("!pack.plugin&x~1"));
+  }
 }
