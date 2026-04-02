@@ -39,6 +39,7 @@ import org.lockss.util.urlconn.JavaHttpUrlConnection;
 import org.lockss.util.urlconn.JavaUrlConnection;
 import org.lockss.util.urlconn.LockssUrlConnection;
 import org.lockss.util.urlconn.LockssUrlConnectionPool;
+import org.lockss.servlet.LoginForm;
 import org.lockss.util.io.FileUtil;
 import org.springframework.web.util.UriUtils;
 
@@ -109,6 +110,12 @@ public class UrlUtil {
   static final String PARAM_USE_HTTPCLIENT = PREFIX + "useHttpClient";
   static final boolean DEFAULT_USE_HTTPCLIENT = true;
 
+  /** Pattern to detect redirect to login form.  Was hardwired to
+   * "/LoginForm;jsessionid=" but ";sessionid" is absent in some
+   * circumstances */
+  static final String PARAM_LOGIN_REDIRECT_PAT = PREFIX + "loginRedirectPattern";
+  static final String DEFAULT_LOGIN_REDIRECT_PAT = "/LoginForm";
+
   /** If true, normalizeUrl replaces Akamai Resource Locator URLs (ARL) of
    * the form
    * <code>http://a123.g.akamai.net/f/123/4567/1d/www.pubsite.com/images/blip.ico</code>
@@ -134,7 +141,7 @@ public class UrlUtil {
   private static boolean normalizeAkamaiUrl = DEFAULT_NORMALIZE_AKAMAI_URL;
   private static boolean allowSiteNormalizeChangeStem =
       DEFAULT_ALLOW_SITE_NORMALIZE_CHANGE_STEM;
-
+  private static String loginRedirectPat = DEFAULT_LOGIN_REDIRECT_PAT;
 
   /** Called by org.lockss.config.MiscConfig
    */
@@ -156,6 +163,8 @@ public class UrlUtil {
       allowSiteNormalizeChangeStem =
           config.getBoolean(PARAM_ALLOW_SITE_NORMALIZE_CHANGE_STEM,
               DEFAULT_ALLOW_SITE_NORMALIZE_CHANGE_STEM);
+      loginRedirectPat =
+        config.get(PARAM_LOGIN_REDIRECT_PAT, DEFAULT_LOGIN_REDIRECT_PAT);
     }
   }
 
@@ -1415,6 +1424,53 @@ public class UrlUtil {
     }
     if (log.isDebug2()) log.debug2(DEBUG_HEADER + "luc = " + luc);
     return luc;
+  }
+
+  /** Excessively bare-bones form login client, able to navigate a
+   * LOCKSS daemon login form.
+   * @param conn a LockssUrlConnection that has just been execute()d
+   * @param userName in case login form is encountered
+   * @param passWord
+   * @param pool Connection pool to use if a login form needs to be POSTed
+   */
+  public static LockssUrlConnection handleLoginForm(LockssUrlConnection conn,
+                                                    String userName,
+                                                    String userPass,
+                                                    LockssUrlConnectionPool pool)
+      throws IOException {
+    // Detect redirect to ".../LoginForm"
+    String actualUrl = conn.getActualUrl();
+    if (actualUrl.indexOf(loginRedirectPat) > 0) {
+      String relUrl = LoginForm.FORM_ACTION;
+      String logUrl = UrlUtil.resolveUri(actualUrl, relUrl);
+      log.debug2("Login form detected: " + actualUrl +
+                 ", Logging in to: " + logUrl);
+      // POST the login form values
+      LockssUrlConnection logConn =
+        UrlUtil.openConnection(LockssUrlConnection.METHOD_POST, logUrl, pool);
+      logConn.setRequestProperty("content-type", Constants.FORM_ENCODING_URL);
+      logConn.setRequestEntity(String .format("%s=%s&%s=%s",
+                                              LoginForm.KEY_USERNAME,
+                                              UrlUtil.encodeUrl(userName),
+                                              LoginForm.KEY_PASSWORD,
+                                              UrlUtil.encodeUrl(userPass)));
+      logConn.execute();
+      // Follow expected redirect to original URL
+      if (logConn.getResponseCode() == 302) {
+        String redirTo = logConn.getResponseHeaderValue("location");
+        if (redirTo != null) {
+          if (redirTo.indexOf("/LoginForm") > 0) {
+            // Redirect back to login page means wrong credentials
+            throw new IOException("Wrong username:password");
+          }
+          conn = UrlUtil.openConnection(redirTo, pool);
+          conn.execute();
+        }
+      } else {
+        log.warning("Unexpected response to login POST: " + logConn.getResponseCode() + ": " + logConn.getResponseMessage());
+      }
+    }
+    return conn;
   }
 
   /** Pattern to match URLs that have a password */
