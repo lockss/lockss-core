@@ -66,8 +66,6 @@ public class LoginForm extends LockssServlet {
   static final String PARAM_UI_LOGIN_BANNER =
     Configuration.PREFIX + "ui.loginBanner";
 
-
-
   private LockssDaemon daemon;
   private ConfigManager cfgMgr;
 
@@ -83,6 +81,11 @@ public class LoginForm extends LockssServlet {
       logout();
     }
     displayForm();
+  }
+
+  // Do not add css links to login page - causes recursive login
+  @Override
+  protected void addCssLocations(Page page) {
   }
 
   private void logout() {
