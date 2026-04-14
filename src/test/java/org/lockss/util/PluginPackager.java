@@ -1108,9 +1108,11 @@ public class PluginPackager {
     "  or\n" +
     "PluginPackager [common-args] -pd <plugins-class-dir> -od <output-dir>\n" +
     "\n" +
-    "     -p <plugin-id>    Fully-qualified plugin id.\n" +
+    "     -p <plugin-id>, -plugin-id <plugin-id>\n" +
+    "                       Fully-qualified plugin id.\n" +
     "     -o <output-jar>   Output jar path/name.\n" +
-    "     -pd <plugins-class-dir>  Root of compiled plugins tree.\n" +
+    "     -pd <plugins-class-dir>, -plugins-class-dir <plugins-class-dir>\n" +
+    "                       Root of compiled plugins tree.\n" +
     "     -od <output-dir>  Dir to which to write plugin jars.\n" +
     "     -x <exclude-pat>  Used with -pd.  Plugins whose id matches this\n" +
     "                       regexp will be excluded.  May be repeated.\n" +
@@ -1202,13 +1204,13 @@ public class PluginPackager {
 	  pkgr.setStorePass(argv[++ix]);
 	} else if (arg.equals("-storetype")) {
 	  pkgr.setStoreType(argv[++ix]);
-	} else if (arg.equals("-p")) {
+	} else if (arg.equals("-p") || arg.equals("-plugin-id")) {
 	  curSpec.addPlug(argv[++ix]);
 	} else if (arg.equals("-o")) {
 	  curSpec.setJar(argv[++ix]);
 	  pkgr.addSpec(curSpec);
 	  curSpec = new PlugSpec();
-	} else if (arg.equals("-pd")) {
+	} else if (arg.equals("-pd") || arg.equals("-plugins-class-dir")) {
 	  pkgr.setPluginDir(new File(argv[++ix]));
 	} else if (arg.equals("-od")) {
 	  pkgr.setOutputDir(new File(argv[++ix]));
