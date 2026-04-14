@@ -1376,9 +1376,6 @@ POSSIBILITY OF SUCH DAMAGE.
               <skip>${skipBuildTdb}</skip>
               <executable>java</executable>
 	      <classpathScope>test</classpathScope>
-	      <!-- Workaround for exec-maven-plugin bug that causes error
-	           with -p argument -->
-	      <longModulepath>false</longModulepath>
 
               <arguments>
 		<argument>-classpath</argument>
@@ -1386,11 +1383,10 @@ POSSIBILITY OF SUCH DAMAGE.
                 <argument>-Dpolyglot.engine.WarnInterpreterOnly=false</argument>
                 <argument>-Dorg.lockss.defaultLogLevel=${loglevel.tool}</argument>
                 <argument>org.lockss.util.PluginPackager</argument>
-                <argument>-p</argument>
+                <argument>-plugin-id</argument><!-- exec-maven-plugin error if using -p -->
                 <argument>org.lockss.plugin.plugtest1.PlugTest1Plugin</argument>
                 <argument>-o</argument>
                 <argument>${basedir}/target/test-classes/org/lockss/test/plugin-with-libs.jar</argument>
-                <argument></argument>
                 <argument>-keystore</argument>
                 <argument>${basedir}/src/test/java/org/lockss/test/goodguy.keystore</argument>
                 <argument>-alias</argument>
@@ -1415,9 +1411,6 @@ POSSIBILITY OF SUCH DAMAGE.
               <skip>${skipBuildTdb}</skip>
               <executable>java</executable>
 	      <classpathScope>test</classpathScope>
-	      <!-- Workaround for exec-maven-plugin bug that causes error
-	           with -p argument -->
-	      <longModulepath>false</longModulepath>
 
               <arguments>
 		<argument>-classpath</argument>
@@ -1425,7 +1418,7 @@ POSSIBILITY OF SUCH DAMAGE.
                 <argument>-Dorg.lockss.defaultLogLevel=${loglevel.tool}</argument>
                 <argument>-Dpolyglot.engine.WarnInterpreterOnly=false</argument>
                 <argument>org.lockss.util.PluginPackager</argument>
-                <argument>-p</argument>
+                <argument>-plugin-id</argument><!-- exec-maven-plugin error if using -p -->
                 <argument>org.lockss.plugin.plugtest1.PlugTest1Plugin</argument>
                 <argument>-o</argument>
                 <argument>${basedir}/target/test-classes/org/lockss/test/plugin-with-exploded-libs.jar</argument>
