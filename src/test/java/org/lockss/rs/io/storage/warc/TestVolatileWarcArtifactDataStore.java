@@ -75,7 +75,8 @@ public class TestVolatileWarcArtifactDataStore extends AbstractWarcArtifactDataS
   protected VolatileWarcArtifactDataStore makeWarcArtifactDataStore(
       ArtifactIndex index, VolatileWarcArtifactDataStore other) throws IOException {
 
-    VolatileWarcArtifactDataStore n_store = new VolatileWarcArtifactDataStore();
+    VolatileWarcArtifactDataStore n_store =
+        new VolatileWarcArtifactDataStore(store.basePaths[0]);
 
     // Mock getArtifactIndex() called by data store
     BaseLockssRepository repo = mock(BaseLockssRepository.class);
@@ -92,7 +93,7 @@ public class TestVolatileWarcArtifactDataStore extends AbstractWarcArtifactDataS
 
   @Override
   protected Path[] expected_getBasePaths() {
-    return new Path[]{VolatileWarcArtifactDataStore.DEFAULT_BASEPATH};
+    return new Path[]{store.basePaths[0]};
   }
 
   @Override
