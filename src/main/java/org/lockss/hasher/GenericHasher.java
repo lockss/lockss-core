@@ -214,6 +214,7 @@ public abstract class GenericHasher implements CachedUrlSetHasher {
   }
 
   public void abortHash() {
+    AuUtil.safeRelease(curCu);
     isAborted = true;
   }
 }
