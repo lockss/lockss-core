@@ -45,6 +45,7 @@ import org.mortbay.http.*;
 import org.mortbay.http.handler.*;
 import org.mortbay.log.LogFactory;
 import org.mortbay.util.*;
+import org.mortbay.util.IO;
 
 import com.sun.jimi.core.*;
 import com.sun.jimi.core.raster.JimiRasterImage;

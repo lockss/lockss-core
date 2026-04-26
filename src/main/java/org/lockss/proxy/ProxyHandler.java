@@ -61,6 +61,7 @@ import org.mortbay.http.*;
 import org.mortbay.http.handler.AbstractHttpHandler;
 import org.mortbay.log.LogFactory;
 import org.mortbay.util.*;
+import org.mortbay.util.IO;
 import org.mortbay.util.URI;
 import org.mortbay.html.*;
 

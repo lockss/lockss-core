@@ -47,7 +47,7 @@ import java.util.Properties;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
-import javax.xml.bind.DatatypeConverter;
+import java.util.Base64;
 
 import static org.lockss.util.StringUtil.isNullString;
 
@@ -342,7 +342,7 @@ public class DataUri {
   protected void decodeToStream(OutputStream os) throws IOException {
     DataOutputStream dos = new DataOutputStream(os);
     if(useBase64) {
-      dos.write(DatatypeConverter.parseBase64Binary(data));
+      dos.write(Base64.getDecoder().decode(URLDecoder.decode(data, charsetName)));
     }
     else {
       dos.writeBytes(URLDecoder.decode(data,charsetName));

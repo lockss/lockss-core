@@ -34,9 +34,7 @@ POSSIBILITY OF SUCH DAMAGE.
 package org.lockss.util;
 
 import java.io.*;
-import java.lang.reflect.Method;
 import java.nio.MappedByteBuffer;
-import java.security.*;
 
 /**
  * <p>
@@ -541,16 +539,10 @@ public class CountingRandomAccessFile extends RandomAccessFile {
   protected static final boolean unmapSupported;
   
   static {
-    boolean ret;
-    try {
-        Class.forName("sun.misc.Cleaner"); 
-        Class.forName("java.nio.DirectByteBuffer").getMethod("cleaner"); 
-        ret = true; 
-    } 
-    catch (Exception e) { 
-        ret = false;
-    }
-    unmapSupported = ret;
+    // JDK 25 removed the sun.misc.Cleaner / DirectByteBuffer.cleaner() path
+    // (JEP 486 removed AccessController).  Leave unmapSupported = false so the
+    // GC reclaims mapped buffers naturally.
+    unmapSupported = false;
   }
   
   /**
@@ -560,25 +552,8 @@ public class CountingRandomAccessFile extends RandomAccessFile {
    * @see https://www.programcreek.com/java-api-examples/index.php?source_dir=cp-common-utils-master/core/main/src/com/complexible/common/io/MMapUtil.java
    */
   public static boolean unmap(final MappedByteBuffer mbbuf) {
-    if (unmapSupported) {
-      try { 
-        AccessController.doPrivileged(new PrivilegedExceptionAction<Object>() { 
-          public Object run() throws Exception { 
-            final Method getCleanerMethod = mbbuf.getClass().getMethod("cleaner"); 
-            getCleanerMethod.setAccessible(true); 
-            final Object cleaner = getCleanerMethod.invoke(mbbuf); 
-            if (cleaner != null) { 
-              cleaner.getClass().getMethod("clean").invoke(cleaner); 
-            } 
-            return null; 
-          } 
-        }); 
-        return true; 
-      } 
-      catch (PrivilegedActionException exc) { 
-        // ignore
-      } 
-    }
+    // No-op: the old reflective sun.misc.Cleaner / AccessController approach is
+    // not available on JDK 25+.  The GC will reclaim mapped buffers.
     return false;
   }
 

@@ -11,7 +11,7 @@
 
   <!-- Needed for logging tests in org.lockss.util. -->
 
-<Configuration status="WARN">
+<Configuration status="WARN" packages="org.lockss.log">
 
   <Appenders>
     <ListAppender name="ListAppender">

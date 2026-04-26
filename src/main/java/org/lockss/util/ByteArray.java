@@ -35,6 +35,7 @@ package org.lockss.util;
 import java.io.*;
 import java.math.BigInteger;
 import java.util.Comparator;
+import java.util.HexFormat;
 
 import org.lockss.util.lang.LockssRandom;
 import org.mortbay.util.*;
@@ -177,7 +178,7 @@ public class ByteArray {
    * @return byte array w/ numeric value of hex string
    */
   public static byte[] fromHexString(String hex) {
-    return javax.xml.bind.DatatypeConverter.parseHexBinary(hex);
+    return HexFormat.of().parseHex(hex);
   }
 
   private static LockssRandom THE_RAND = new LockssRandom();

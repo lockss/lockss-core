@@ -40,6 +40,7 @@ import javax.servlet.http.*;
 import org.mortbay.jetty.servlet.*;
 import org.mortbay.http.*;
 import org.mortbay.util.*;
+import org.mortbay.util.IO;
 import org.lockss.util.*;
 
 

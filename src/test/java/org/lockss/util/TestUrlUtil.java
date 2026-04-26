@@ -284,8 +284,12 @@ public class TestUrlUtil extends LockssTestCase {
     // remove newlines and leading whitespace
     assertEquals("http://a.b/foo/bar?foo//bar",
 		 UrlUtil.normalizeUrl("ht\ntp://a.b/foo//bar?foo//bar"));
-    assertEquals("http://a .b/bar?foo/../bar",
-		 UrlUtil.normalizeUrl("  ht\n   tp://a .b/foo/../bar?foo/../bar"));
+    try {
+      UrlUtil.normalizeUrl("  ht\n   tp://a .b/foo/../bar?foo/../bar");
+      fail("Expected MalformedURLException for URL with space in hostname");
+    } catch (MalformedURLException e) {
+      // expected
+    }
 
     assertEquals("http://a.b/bar%4Ffoo",
 		 UrlUtil.normalizeUrl("http://a.b/bar%4ffoo"));

@@ -40,8 +40,6 @@ import java.net.InetSocketAddress;
 import java.net.UnknownHostException;
 import java.net.Proxy;
 import java.util.Arrays;
-import java.security.AccessController;
-import java.security.PrivilegedAction;
 
 /**
  * This is the base class for network clients.
@@ -77,15 +75,9 @@ public class NetworkClient {
         final int vals[] = {0, 0};
         final String encs[] = { null };
 
-        AccessController.doPrivileged(
-                new PrivilegedAction<Void>() {
-                    public Void run() {
-                        vals[0] = Integer.getInteger("sun.net.client.defaultReadTimeout", 0).intValue();
-                        vals[1] = Integer.getInteger("sun.net.client.defaultConnectTimeout", 0).intValue();
-                        encs[0] = System.getProperty("file.encoding", "ISO8859_1");
-                        return null;
-            }
-        });
+        vals[0] = Integer.getInteger("sun.net.client.defaultReadTimeout", 0).intValue();
+        vals[1] = Integer.getInteger("sun.net.client.defaultConnectTimeout", 0).intValue();
+        encs[0] = System.getProperty("file.encoding", "ISO8859_1");
         if (vals[0] != 0) {
             defaultSoTimeout = vals[0];
         }
@@ -162,11 +154,7 @@ public class NetworkClient {
         Socket s;
         if (proxy != null) {
             if (proxy.type() == Proxy.Type.SOCKS) {
-                s = AccessController.doPrivileged(
-                    new PrivilegedAction<Socket>() {
-                        public Socket run() {
-                                       return new Socket(proxy);
-                                   }});
+                s = new Socket(proxy);
             } else if (proxy.type() == Proxy.Type.DIRECT) {
                 s = createSocket();
             } else {
@@ -209,13 +197,7 @@ public class NetworkClient {
     protected InetAddress getLocalAddress() throws IOException {
         if (serverSocket == null)
             throw new IOException("not connected");
-        return  AccessController.doPrivileged(
-                        new PrivilegedAction<InetAddress>() {
-                            public InetAddress run() {
-                                return serverSocket.getLocalAddress();
-
-                            }
-                        });
+        return serverSocket.getLocalAddress();
     }
 
     /** Close an open connection to the server. */

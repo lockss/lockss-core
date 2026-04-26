@@ -68,7 +68,7 @@ POSSIBILITY OF SUCH DAMAGE.
          ParamDoc, etc.) -->
     <loglevel.tool>${loglevel}</loglevel.tool>
 
-    <graalvm.version>23.1.2</graalvm.version>
+    <graalvm.version>25.0.2</graalvm.version>
   </properties>
 
   <dependencies>

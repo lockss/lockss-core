@@ -70,7 +70,6 @@ public class ErrorHarness {
 
   /** A condition and an action to take if the condition is true */
   @ToString
-  @EqualsAndHashCode
   public static class ErrorInjectionRule {
     TestingCondition condition;
     TestingAction action;
@@ -90,6 +89,20 @@ public class ErrorHarness {
       }
       return false;
     }
+
+    @Override
+    public boolean equals(Object o) {
+      if (this == o) return true;
+      if (o == null || getClass() != o.getClass()) return false;
+      ErrorInjectionRule that = (ErrorInjectionRule) o;
+      return Objects.equals(condition, that.condition)
+          && Objects.equals(action, that.action);
+    }
+
+    @Override
+    public int hashCode() {
+      return Objects.hash(condition, action);
+    }
   }      
 
   /** Functional interface similar to BiConsumer but allowed to throw
@@ -102,7 +115,6 @@ public class ErrorHarness {
   /** Condition in which an action should be taken, evaluated in the
    * context of a LockssRepository operation. */
   @ToString
-  @EqualsAndHashCode
   public static class TestingCondition {
     private ArtifactIdentifierPattern aip;
     private List<TestingErrorOp> ops;
@@ -158,6 +170,21 @@ public class ErrorHarness {
       return ords.contains(++counter);
     }
 
+    @Override
+    public boolean equals(Object o) {
+      if (this == o) return true;
+      if (o == null || getClass() != o.getClass()) return false;
+      TestingCondition that = (TestingCondition) o;
+      return counter == that.counter
+          && Objects.equals(aip, that.aip)
+          && Objects.equals(ops, that.ops)
+          && Objects.equals(ords, that.ords);
+    }
+
+    @Override
+    public int hashCode() {
+      return Objects.hash(aip, ops, ords, counter);
+    }
   }      
 
   /** Action to be taken when a condition matches, applied in the
@@ -169,10 +196,24 @@ public class ErrorHarness {
   }      
 
   @ToString
-  @EqualsAndHashCode
   public static class ThrowAction implements TestingAction {
     private Class exClass;
     private String message;
+
+    @Override
+    public boolean equals(Object o) {
+      if (this == o) return true;
+      if (o == null || getClass() != o.getClass()) return false;
+      ThrowAction that = (ThrowAction) o;
+      return Objects.equals(exClass != null ? exClass.getName() : null,
+                            that.exClass != null ? that.exClass.getName() : null)
+          && Objects.equals(message, that.message);
+    }
+
+    @Override
+    public int hashCode() {
+      return Objects.hash(exClass != null ? exClass.getName() : null, message);
+    }
 
     ThrowAction setExceptionClass(String clazz) {
       switch (clazz) {
@@ -244,19 +285,14 @@ public class ErrorHarness {
    * string fields, Integers for the version.  Any field not filled in
    * matches anything. */
   @ToString
-  @EqualsAndHashCode
   public static class ArtifactIdentifierPattern {
     private String uuid;
     private String namespace;
     private String auid;
     private String uri;
-    @EqualsAndHashCode.Exclude
     private Pattern uuidPat;
-    @EqualsAndHashCode.Exclude
     private Pattern namespacePat;
-    @EqualsAndHashCode.Exclude
     private Pattern auidPat;
-    @EqualsAndHashCode.Exclude
     private Pattern uriPat;
     private List<Integer> versions;
 
@@ -318,6 +354,24 @@ public class ErrorHarness {
         return false;
       }
       return true;
+    }
+
+    @Override
+    public boolean equals(Object o) {
+      if (this == o) return true;
+      if (o == null || getClass() != o.getClass()) return false;
+      ArtifactIdentifierPattern that = (ArtifactIdentifierPattern) o;
+      // Compare the string sources of patterns, not the Pattern objects
+      return Objects.equals(uuid, that.uuid)
+          && Objects.equals(namespace, that.namespace)
+          && Objects.equals(auid, that.auid)
+          && Objects.equals(uri, that.uri)
+          && Objects.equals(versions, that.versions);
+    }
+
+    @Override
+    public int hashCode() {
+      return Objects.hash(uuid, namespace, auid, uri, versions);
     }
   }
 
