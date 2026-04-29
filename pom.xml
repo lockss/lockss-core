@@ -1380,6 +1380,7 @@ POSSIBILITY OF SUCH DAMAGE.
               <arguments>
 		<argument>-classpath</argument>
 		<classpath/>
+                <argument>--sun-misc-unsafe-memory-access=allow</argument>
                 <argument>-Dpolyglot.engine.WarnInterpreterOnly=false</argument>
                 <argument>-Dorg.lockss.defaultLogLevel=${loglevel.tool}</argument>
                 <argument>org.lockss.util.PluginPackager</argument>
@@ -1415,6 +1416,7 @@ POSSIBILITY OF SUCH DAMAGE.
               <arguments>
 		<argument>-classpath</argument>
 		<classpath/>
+                <argument>--sun-misc-unsafe-memory-access=allow</argument>
                 <argument>-Dorg.lockss.defaultLogLevel=${loglevel.tool}</argument>
                 <argument>-Dpolyglot.engine.WarnInterpreterOnly=false</argument>
                 <argument>org.lockss.util.PluginPackager</argument>

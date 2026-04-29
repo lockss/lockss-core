@@ -33,6 +33,8 @@ in this Software without prior written authorization from Stanford University.
 package org.lockss.account;
 
 import java.io.*;
+import java.time.*;
+import java.time.format.DateTimeFormatter;
 import java.util.*;
 import java.security.*;
 
@@ -47,7 +49,6 @@ import com.fasterxml.jackson.databind.ser.impl.SimpleBeanPropertyFilter;
 import com.fasterxml.jackson.databind.ser.impl.SimpleFilterProvider;
 import org.apache.oro.text.regex.*;
 import org.apache.commons.lang3.*;
-import org.apache.commons.lang3.time.*;
 import org.lockss.plugin.AuUtil;
 import org.lockss.state.StateManager;
 import org.mortbay.util.Credential;
@@ -83,8 +84,8 @@ public abstract class UserAccount implements LockssSerializable, Comparable {
 
   // XXX enhance test/src/org/lockss/account/TestLCUserAccount.java
 
-  private static FastDateFormat expireDf =
-    FastDateFormat.getInstance("EEE dd MMM, HH:mm zzz");
+  private static DateTimeFormatter expireDf =
+    DateTimeFormatter.ofPattern("EEE dd MMM, HH:mm zzz");
 
   private static Map<HttpSession,UserAccount> active = new HashMap();
   private static TimerQueue.Request alerter = null;
@@ -589,8 +590,8 @@ public abstract class UserAccount implements LockssSerializable, Comparable {
 	  alertAndUpdate(Alert.cacheAlert(Alert.PASSWORD_REMINDER),
 			 "The password for user '" + getName()
 			 + "' will expire at "
-			 + expireDf.format(lastPasswordChange
-					   + expireInterval)
+			 + expireDf.format(Instant.ofEpochMilli(lastPasswordChange
+					   + expireInterval).atZone(ZoneId.systemDefault()))
 			 + ".  Please change it before then.");
 	}
       }
@@ -731,7 +732,7 @@ public abstract class UserAccount implements LockssSerializable, Comparable {
       return ("Disabled: "
 	      + failedAttemptHistory.length
 	      + " failed login attempts at "
-	      + expireDf.format(failedAttemptHistory[0]));
+	      + expireDf.format(Instant.ofEpochMilli(failedAttemptHistory[0]).atZone(ZoneId.systemDefault())));
     }
     return "Disabled";
   }

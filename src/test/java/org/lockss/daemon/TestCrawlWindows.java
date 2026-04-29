@@ -877,7 +877,7 @@ public class TestCrawlWindows extends LockssTestCase {
     assertEqualWin(wdaily, new CrawlWindows.Daily("2:00", "7:00", "GMT"));
     assertNotEqualWin(wdaily, new CrawlWindows.Daily("2:01", "7:00", "GMT"));
     assertNotEqualWin(wdaily, new CrawlWindows.Daily("2:00", "7:01", "GMT"));
-    assertNotEqualWin(wdaily, new CrawlWindows.Daily("2:00", "7:00", "PST"));
+    assertNotEqualWin(wdaily, new CrawlWindows.Daily("2:00", "7:00", "America/Los_Angeles"));
 
     assertNotEqualWin(wdaily, wnever);
     assertNotEqualWin(wdaily, walways);
@@ -909,7 +909,7 @@ public class TestCrawlWindows extends LockssTestCase {
     assertNotEqualWin(winterval,
 		      new CrawlWindows.Interval(start, end,
 						CrawlWindows.DAY_OF_WEEK,
-						TimeZoneUtil.getExactTimeZone("PST")));
+						TimeZoneUtil.getExactTimeZone("America/Los_Angeles")));
   }
   
   /** Utility */

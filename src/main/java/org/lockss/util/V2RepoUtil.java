@@ -67,7 +67,7 @@ public class V2RepoUtil {
   // TK should concatenate multi-value keys
   public static CIProperties propsFromHttpHeaders(HttpHeaders hdrs) {
     CIProperties res = new CIProperties();
-    for (String key : hdrs.keySet()) {
+    for (String key : hdrs.headerNames()) {
       res.setProperty(key, StringUtil.separatedString(hdrs.get(key), ","));
     }
     return res;

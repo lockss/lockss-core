@@ -43,9 +43,9 @@ public class TestV2RepoUtil extends LockssTestCase {
     CIProperties props = CIProperties.fromArgs("hhh1", "vvv1",
 					       "mmm2", "mv1,mv2");
     HttpHeaders hdrs = V2RepoUtil.httpHeadersFromProps(props);
-    assertEquals(MapUtil.map("hhh1", ListUtil.list("vvv1"),
-			     "mmm2", ListUtil.list("mv1,mv2")),
-		 hdrs);
+    assertEquals("vvv1", hdrs.getFirst("hhh1"));
+    assertEquals("mv1,mv2", hdrs.getFirst("mmm2"));
+    assertEquals(2, hdrs.size());
   }
 
   public void testPropsFromHeaders() {

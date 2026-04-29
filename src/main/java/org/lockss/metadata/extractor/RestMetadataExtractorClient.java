@@ -167,7 +167,7 @@ public class RestMetadataExtractorClient {
 				 "Can't schedule Metadata Extraction");
 
       // Get the status.
-      int status = response.getStatusCodeValue();
+      int status = response.getStatusCode().value();
       log.trace("status = " + status);
 
       // Get the response body.
