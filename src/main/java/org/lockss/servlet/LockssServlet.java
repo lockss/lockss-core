@@ -1167,9 +1167,7 @@ public abstract class LockssServlet extends HttpServlet
   }
 
   protected void addMigrationWarning(Composite comp, String msg) {
-    addMigrationWarning(comp,
-                        getLockssDaemon().getConfigManager().inMigrationMode(),
-                        msg);
+    addMigrationWarning(comp, isInMigrationMode(), msg);
   }
 
   protected void addMigrationWarning(Composite comp, boolean include,
@@ -1182,6 +1180,10 @@ public abstract class LockssServlet extends HttpServlet
       blk.add("<br><br>");
       comp.add(blk);
     }
+  }
+
+  protected boolean isInMigrationMode() {
+    return getLockssDaemon().getConfigManager().inMigrationMode();
   }
 
   /** Display a message in lieu of the normal page
@@ -1352,11 +1354,16 @@ public abstract class LockssServlet extends HttpServlet
   /** Create message and error message block
    * @param composite TODO*/
   protected void layoutErrorBlock(Composite composite) {
-    if (errMsg != null || statusMsg != null) {
-      ServletUtil.layoutErrorBlock(composite, errMsg, statusMsg);
+    String txt = errMsg;
+    if (isInMigrationMode()) {
+      String migstr = "This LOCKSS 2.x instance is in migration mode";
+      txt = errMsg == null ? migstr : migstr + "\n" + errMsg;
+    }
+    log.critical("txt: " + txt);
+    if (txt != null || statusMsg != null) {
+      ServletUtil.layoutErrorBlock(composite, txt, statusMsg);
     }
   }
-
 
   /**
    * Sends the browser a response with the given status code and a brief page
