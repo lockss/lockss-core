@@ -602,7 +602,7 @@ public abstract class BaseArchivalUnit implements ArchivalUnit {
       }
     }
     
-    if (key == null && log.isDebug()) {
+    if (key == null && log.isDebug3()) {
       log.debug3("Rate limiter source (" + limiterSource + ") is null, using AU");
     }
     if (log.isDebug3()) {
