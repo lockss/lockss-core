@@ -1359,7 +1359,6 @@ public abstract class LockssServlet extends HttpServlet
       String migstr = "This LOCKSS 2.x instance is in migration mode";
       txt = errMsg == null ? migstr : migstr + "\n" + errMsg;
     }
-    log.critical("txt: " + txt);
     if (txt != null || statusMsg != null) {
       ServletUtil.layoutErrorBlock(composite, txt, statusMsg);
     }
