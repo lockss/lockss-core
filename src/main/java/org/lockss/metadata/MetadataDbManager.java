@@ -189,7 +189,7 @@ public class MetadataDbManager extends DbManager
    * Sets up update versions.
    */
   private void setUpVersions() {
-    targetDatabaseVersion = 28;
+    targetDatabaseVersion = 29;
     asynchronousUpdates = new int[] {10, 15, 17, 20, 22};
   }
 
@@ -611,6 +611,8 @@ public class MetadataDbManager extends DbManager
       mdDbManagerSql.updateDatabaseFrom26To27(conn);
     } else if (databaseVersion == 28) {
       mdDbManagerSql.updateDatabaseFrom27To28(conn);
+    } else if (databaseVersion == 29) {
+      mdDbManagerSql.updateDatabaseFrom28To29(conn);
     } else {
       throw new RuntimeException("Non-existent method to update the database "
 	  + "to version " + databaseVersion + ".");

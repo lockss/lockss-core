@@ -384,8 +384,8 @@ public class MetadataDbManagerSql extends DbManagerSql {
       + OBSOLETE_MAX_PUBLICATION_ID_COLUMN + ")" + ")";
 
   // Query to create the table for recording pending AUs to index.
-  static final String CREATE_PENDING_AU_TABLE_QUERY = "create table "
-      + PENDING_AU_TABLE + " ("
+  static final String CREATE_PENDING_AU_V1_TABLE_QUERY = "create table "
+      + PENDING_AU_V1_TABLE + " ("
       + PLUGIN_ID_COLUMN + " varchar(" + MAX_PLUGIN_ID_COLUMN + ") not null,"
       + AU_KEY_COLUMN + " varchar(" + MAX_AU_KEY_COLUMN + ") not null,"
       + PRIORITY_COLUMN + " bigint not null)";
@@ -547,8 +547,8 @@ public class MetadataDbManagerSql extends DbManagerSql {
       + ")";
 
   // Query to create the table for Archival Unit problems.
-  static final String CREATE_AU_PROBLEM_TABLE_QUERY = "create table "
-      + AU_PROBLEM_TABLE + " ("
+  static final String CREATE_AU_PROBLEM_V1_TABLE_QUERY = "create table "
+      + AU_PROBLEM_V1_TABLE + " ("
       + PLUGIN_ID_COLUMN + " varchar(" + MAX_PLUGIN_ID_COLUMN + ") not null,"
       + AU_KEY_COLUMN + " varchar(" + MAX_AU_KEY_COLUMN + ") not null,"
       + PROBLEM_COLUMN + " varchar(" + MAX_PROBLEM_COLUMN + ") not null"
@@ -907,7 +907,7 @@ public class MetadataDbManagerSql extends DbManagerSql {
     	  put(ISBN_TABLE, CREATE_ISBN_TABLE_QUERY);
     	  put(PUBLISHER_TABLE, CREATE_PUBLISHER_TABLE_QUERY);
     	  put(PUBLICATION_TABLE, CREATE_PUBLICATION_TABLE_QUERY);
-    	  put(PENDING_AU_TABLE, CREATE_PENDING_AU_TABLE_QUERY);
+    	  put(PENDING_AU_V1_TABLE, CREATE_PENDING_AU_V1_TABLE_QUERY);
     	  put(COUNTER_REQUEST_TABLE, REQUEST_TABLE_CREATE_QUERY);
     	  put(COUNTER_JOURNAL_PUBYEAR_AGGREGATE_TABLE,
     	      JOURNAL_PUBYEAR_AGGREGATE_TABLE_CREATE_QUERY);
@@ -940,7 +940,7 @@ public class MetadataDbManagerSql extends DbManagerSql {
           put(ISBN_TABLE, CREATE_ISBN_TABLE_QUERY);
           put(PUBLISHER_TABLE, CREATE_PUBLISHER_TABLE_QUERY);
           put(PUBLICATION_TABLE, CREATE_PUBLICATION_TABLE_QUERY);
-          put(PENDING_AU_TABLE, CREATE_PENDING_AU_TABLE_QUERY);
+          put(PENDING_AU_V1_TABLE, CREATE_PENDING_AU_V1_TABLE_QUERY);
           put(COUNTER_REQUEST_TABLE, REQUEST_TABLE_CREATE_QUERY);
           put(COUNTER_JOURNAL_PUBYEAR_AGGREGATE_TABLE,
               JOURNAL_PUBYEAR_AGGREGATE_TABLE_CREATE_MYSQL_QUERY);
@@ -1244,7 +1244,7 @@ public class MetadataDbManagerSql extends DbManagerSql {
     "create index idx1_" + AUTHOR_TABLE + " on " + AUTHOR_TABLE
     + "(" + AUTHOR_NAME_COLUMN + ")",
 
-    "create unique index idx1_" + PENDING_AU_TABLE + " on " + PENDING_AU_TABLE
+    "create unique index idx1_" + PENDING_AU_V1_TABLE + " on " + PENDING_AU_V1_TABLE
     + "(" + PLUGIN_ID_COLUMN + "," + AU_KEY_COLUMN + ")"
     };
 
@@ -1293,7 +1293,7 @@ public class MetadataDbManagerSql extends DbManagerSql {
     + "(" + AUTHOR_NAME_COLUMN + ")",
 
     // TODO: Make the index unique when MySQL is fixed.
-    "create index idx1_" + PENDING_AU_TABLE + " on " + PENDING_AU_TABLE
+    "create index idx1_" + PENDING_AU_V1_TABLE + " on " + PENDING_AU_V1_TABLE
     + "(" + PLUGIN_ID_COLUMN + "(255)," + AU_KEY_COLUMN + "(255))"
     };
 
@@ -1384,21 +1384,21 @@ public class MetadataDbManagerSql extends DbManagerSql {
   @SuppressWarnings("serial")
   private static final Map<String, String> VERSION_5_TABLE_CREATE_QUERIES =
     new LinkedHashMap<String, String>() {{
-      put(AU_PROBLEM_TABLE, CREATE_AU_PROBLEM_TABLE_QUERY);
+      put(AU_PROBLEM_V1_TABLE, CREATE_AU_PROBLEM_V1_TABLE_QUERY);
     }};
 
   // SQL statements that create the necessary version 5 indices.
   private static final String[] VERSION_5_INDEX_CREATE_QUERIES = new String[] {
-    "create index idx1_" + AU_PROBLEM_TABLE
-    + " on " + AU_PROBLEM_TABLE
+    "create index idx1_" + AU_PROBLEM_V1_TABLE
+    + " on " + AU_PROBLEM_V1_TABLE
     + "(" + PLUGIN_ID_COLUMN + "," + AU_KEY_COLUMN + ")"
   };
 
   // SQL statements that create the necessary version 5 indices for MySQL.
   private static final String[] VERSION_5_INDEX_CREATE_MYSQL_QUERIES =
     new String[] {
-    "create index idx1_" + AU_PROBLEM_TABLE
-    + " on " + AU_PROBLEM_TABLE
+    "create index idx1_" + AU_PROBLEM_V1_TABLE
+    + " on " + AU_PROBLEM_V1_TABLE
     + "(" + PLUGIN_ID_COLUMN + "(255)," + AU_KEY_COLUMN + "(255))"
   };
 
@@ -1514,7 +1514,7 @@ public class MetadataDbManagerSql extends DbManagerSql {
     + "(" + MD_ITEM_SEQ_COLUMN + ")",
     "create index idx3_" + MD_ITEM_NAME_TABLE + " on " + MD_ITEM_NAME_TABLE
     + "(" + NAME_TYPE_COLUMN + ")",
-    "create index idx2_" + PENDING_AU_TABLE + " on " + PENDING_AU_TABLE
+    "create index idx2_" + PENDING_AU_V1_TABLE + " on " + PENDING_AU_V1_TABLE
     + "(" + PRIORITY_COLUMN + ")",
     "create index idx2_" + AUTHOR_TABLE + " on " + AUTHOR_TABLE
     + "(" + MD_ITEM_SEQ_COLUMN + ")",
@@ -1606,7 +1606,7 @@ public class MetadataDbManagerSql extends DbManagerSql {
     + "(" + MD_ITEM_SEQ_COLUMN + ")",
     "create index idx3_" + MD_ITEM_NAME_TABLE + " on " + MD_ITEM_NAME_TABLE
     + "(" + NAME_TYPE_COLUMN + ")",
-    "create index idx2_" + PENDING_AU_TABLE + " on " + PENDING_AU_TABLE
+    "create index idx2_" + PENDING_AU_V1_TABLE + " on " + PENDING_AU_V1_TABLE
     + "(" + PRIORITY_COLUMN + ")",
     "create index idx2_" + AUTHOR_TABLE + " on " + AUTHOR_TABLE
     + "(" + MD_ITEM_SEQ_COLUMN + ")",
@@ -1679,7 +1679,7 @@ public class MetadataDbManagerSql extends DbManagerSql {
 
   // The SQL code used to add the necessary version 11 database table columns.
   private static final String[] VERSION_11_COLUMN_ADD_QUERIES = new String[] {
-    "alter table " + PENDING_AU_TABLE
+    "alter table " + PENDING_AU_V1_TABLE
     + " add column " + FULLY_REINDEX_COLUMN
     +   " boolean not null default false"
   };
@@ -6636,6 +6636,88 @@ public class MetadataDbManagerSql extends DbManagerSql {
 
     // Add new metadata item type for files.
     addMetadataItemType(conn, MD_ITEM_TYPE_FILE);
+
+    if (log.isDebug2()) log.debug2(DEBUG_HEADER + "Done.");
+  }
+
+  /**
+   * Updates the database from version 28 to version 29.
+   *
+   * Renames pending_au to pending_au_v2 and au_problem to au_problem_v2 (and
+   * their indices) so that v2 metadata extraction state does not overlap with
+   * v1 during concurrent operation against the same PostgreSQL instance.
+   *
+   * @param conn
+   *          A Connection with the database connection to be used.
+   * @throws SQLException
+   *           if any problem occurred updating the database.
+   */
+  void updateDatabaseFrom28To29(Connection conn) throws SQLException {
+    final String DEBUG_HEADER = "updateDatabaseFrom28To29(): ";
+    if (log.isDebug2()) log.debug2(DEBUG_HEADER + "Starting...");
+
+    if (conn == null) {
+      throw new IllegalArgumentException("Null connection");
+    }
+
+    if (isTypeDerby()) {
+      // Rename tables.
+      executeDdlQuery(conn,
+          "rename table " + PENDING_AU_V1_TABLE + " to " + PENDING_AU_TABLE);
+      executeDdlQuery(conn,
+          "rename table " + AU_PROBLEM_V1_TABLE + " to " + AU_PROBLEM_TABLE);
+      // Derby does not support RENAME INDEX; drop old indices and recreate.
+      executeDdlQuery(conn, "drop index idx1_" + PENDING_AU_V1_TABLE);
+      executeDdlQuery(conn,
+          "create unique index idx1_" + PENDING_AU_TABLE
+              + " on " + PENDING_AU_TABLE
+              + "(" + PLUGIN_ID_COLUMN + "," + AU_KEY_COLUMN + ")");
+      executeDdlQuery(conn, "drop index idx2_" + PENDING_AU_V1_TABLE);
+      executeDdlQuery(conn,
+          "create index idx2_" + PENDING_AU_TABLE
+              + " on " + PENDING_AU_TABLE
+              + "(" + PRIORITY_COLUMN + ")");
+      executeDdlQuery(conn, "drop index idx1_" + AU_PROBLEM_V1_TABLE);
+      executeDdlQuery(conn,
+          "create index idx1_" + AU_PROBLEM_TABLE
+              + " on " + AU_PROBLEM_TABLE
+              + "(" + PLUGIN_ID_COLUMN + "," + AU_KEY_COLUMN + ")");
+    } else if (isTypePostgresql()) {
+      // Rename tables.
+      executeDdlQuery(conn,
+          "alter table " + PENDING_AU_V1_TABLE + " rename to " + PENDING_AU_TABLE);
+      executeDdlQuery(conn,
+          "alter table " + AU_PROBLEM_V1_TABLE + " rename to " + AU_PROBLEM_TABLE);
+      // Rename indices.
+      executeDdlQuery(conn,
+          "alter index idx1_" + PENDING_AU_V1_TABLE
+              + " rename to idx1_" + PENDING_AU_TABLE);
+      executeDdlQuery(conn,
+          "alter index idx2_" + PENDING_AU_V1_TABLE
+              + " rename to idx2_" + PENDING_AU_TABLE);
+      executeDdlQuery(conn,
+          "alter index idx1_" + AU_PROBLEM_V1_TABLE
+              + " rename to idx1_" + AU_PROBLEM_TABLE);
+    } else if (isTypeMysql()) {
+      // Rename tables.
+      executeDdlQuery(conn,
+          "alter table " + PENDING_AU_V1_TABLE + " rename to " + PENDING_AU_TABLE);
+      executeDdlQuery(conn,
+          "alter table " + AU_PROBLEM_V1_TABLE + " rename to " + AU_PROBLEM_TABLE);
+      // Rename indices (requires MySQL 5.7+).
+      executeDdlQuery(conn,
+          "alter table " + PENDING_AU_TABLE
+              + " rename index idx1_" + PENDING_AU_V1_TABLE
+              + " to idx1_" + PENDING_AU_TABLE);
+      executeDdlQuery(conn,
+          "alter table " + PENDING_AU_TABLE
+              + " rename index idx2_" + PENDING_AU_V1_TABLE
+              + " to idx2_" + PENDING_AU_TABLE);
+      executeDdlQuery(conn,
+          "alter table " + AU_PROBLEM_TABLE
+              + " rename index idx1_" + AU_PROBLEM_V1_TABLE
+              + " to idx1_" + AU_PROBLEM_TABLE);
+    }
 
     if (log.isDebug2()) log.debug2(DEBUG_HEADER + "Done.");
   }
