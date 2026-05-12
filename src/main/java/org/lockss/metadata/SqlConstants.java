@@ -146,11 +146,8 @@ public class SqlConstants {
   /** Name of the unconfigured Archival Unit table. */
   public static final String UNCONFIGURED_AU_TABLE = "unconfigured_au";
 
-  /** Name of the v1-compatible Archival Unit problem table. */
-  public static final String AU_PROBLEM_V1_TABLE = "au_problem";
-
-  /** Name of the Archival Unit problem table used by v2. */
-  public static final String AU_PROBLEM_TABLE = "au_problem_v2";
+  /** Name of the Archival Unit problem table. */
+  public static final String AU_PROBLEM_TABLE = "au_problem";
 
   /** Name of the table used to identify the last run of incremental tasks. */
   public static final String LAST_RUN_TABLE = "last_run";

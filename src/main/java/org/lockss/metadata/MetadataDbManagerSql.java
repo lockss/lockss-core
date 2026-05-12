@@ -548,8 +548,8 @@ public class MetadataDbManagerSql extends DbManagerSql {
       + ")";
 
   // Query to create the table for Archival Unit problems.
-  static final String CREATE_AU_PROBLEM_V1_TABLE_QUERY = "create table "
-      + AU_PROBLEM_V1_TABLE + " ("
+  static final String CREATE_AU_PROBLEM_TABLE_QUERY = "create table "
+      + AU_PROBLEM_TABLE + " ("
       + PLUGIN_ID_COLUMN + " varchar(" + MAX_PLUGIN_ID_COLUMN + ") not null,"
       + AU_KEY_COLUMN + " varchar(" + MAX_AU_KEY_COLUMN + ") not null,"
       + PROBLEM_COLUMN + " varchar(" + MAX_PROBLEM_COLUMN + ") not null"
@@ -1385,21 +1385,21 @@ public class MetadataDbManagerSql extends DbManagerSql {
   @SuppressWarnings("serial")
   private static final Map<String, String> VERSION_5_TABLE_CREATE_QUERIES =
     new LinkedHashMap<String, String>() {{
-      put(AU_PROBLEM_V1_TABLE, CREATE_AU_PROBLEM_V1_TABLE_QUERY);
+      put(AU_PROBLEM_TABLE, CREATE_AU_PROBLEM_TABLE_QUERY);
     }};
 
   // SQL statements that create the necessary version 5 indices.
   private static final String[] VERSION_5_INDEX_CREATE_QUERIES = new String[] {
-    "create index idx1_" + AU_PROBLEM_V1_TABLE
-    + " on " + AU_PROBLEM_V1_TABLE
+    "create index idx1_" + AU_PROBLEM_TABLE
+    + " on " + AU_PROBLEM_TABLE
     + "(" + PLUGIN_ID_COLUMN + "," + AU_KEY_COLUMN + ")"
   };
 
   // SQL statements that create the necessary version 5 indices for MySQL.
   private static final String[] VERSION_5_INDEX_CREATE_MYSQL_QUERIES =
     new String[] {
-    "create index idx1_" + AU_PROBLEM_V1_TABLE
-    + " on " + AU_PROBLEM_V1_TABLE
+    "create index idx1_" + AU_PROBLEM_TABLE
+    + " on " + AU_PROBLEM_TABLE
     + "(" + PLUGIN_ID_COLUMN + "(255)," + AU_KEY_COLUMN + "(255))"
   };
 
@@ -6650,9 +6650,9 @@ public class MetadataDbManagerSql extends DbManagerSql {
   /**
    * Updates the database from version 28 to version 29.
    *
-   * Renames pending_au to pending_au_v2 and au_problem to au_problem_v2 (and
-   * their indices) so that v2 metadata extraction state does not overlap with
-   * v1 during concurrent operation against the same PostgreSQL instance.
+   * Renames pending_au to pending_au_v2 (and its indices) so that v2 pending
+   * AU state does not overlap with v1 during concurrent operation against the
+   * same database instance.
    *
    * @param conn
    *          A Connection with the database connection to be used.
@@ -6668,11 +6668,9 @@ public class MetadataDbManagerSql extends DbManagerSql {
     }
 
     if (isTypeDerby()) {
-      // Rename tables.
+      // Rename table.
       executeDdlQuery(conn,
           "rename table " + PENDING_AU_V1_TABLE + " to " + PENDING_AU_TABLE);
-      executeDdlQuery(conn,
-          "rename table " + AU_PROBLEM_V1_TABLE + " to " + AU_PROBLEM_TABLE);
       // Derby does not support RENAME INDEX; drop old indices and recreate.
       executeDdlQuery(conn, "drop index idx1_" + PENDING_AU_V1_TABLE);
       executeDdlQuery(conn,
@@ -6684,17 +6682,10 @@ public class MetadataDbManagerSql extends DbManagerSql {
           "create index idx2_" + PENDING_AU_TABLE
               + " on " + PENDING_AU_TABLE
               + "(" + PRIORITY_COLUMN + ")");
-      executeDdlQuery(conn, "drop index idx1_" + AU_PROBLEM_V1_TABLE);
-      executeDdlQuery(conn,
-          "create index idx1_" + AU_PROBLEM_TABLE
-              + " on " + AU_PROBLEM_TABLE
-              + "(" + PLUGIN_ID_COLUMN + "," + AU_KEY_COLUMN + ")");
     } else if (isTypePostgresql()) {
-      // Rename tables.
+      // Rename table.
       executeDdlQuery(conn,
           "alter table " + PENDING_AU_V1_TABLE + " rename to " + PENDING_AU_TABLE);
-      executeDdlQuery(conn,
-          "alter table " + AU_PROBLEM_V1_TABLE + " rename to " + AU_PROBLEM_TABLE);
       // Rename indices.
       executeDdlQuery(conn,
           "alter index idx1_" + PENDING_AU_V1_TABLE
@@ -6702,15 +6693,10 @@ public class MetadataDbManagerSql extends DbManagerSql {
       executeDdlQuery(conn,
           "alter index idx2_" + PENDING_AU_V1_TABLE
               + " rename to idx2_" + PENDING_AU_TABLE);
-      executeDdlQuery(conn,
-          "alter index idx1_" + AU_PROBLEM_V1_TABLE
-              + " rename to idx1_" + AU_PROBLEM_TABLE);
     } else if (isTypeMysql()) {
-      // Rename tables.
+      // Rename table.
       executeDdlQuery(conn,
           "alter table " + PENDING_AU_V1_TABLE + " rename to " + PENDING_AU_TABLE);
-      executeDdlQuery(conn,
-          "alter table " + AU_PROBLEM_V1_TABLE + " rename to " + AU_PROBLEM_TABLE);
       // Rename indices (requires MySQL 5.7+).
       executeDdlQuery(conn,
           "alter table " + PENDING_AU_TABLE
@@ -6720,10 +6706,6 @@ public class MetadataDbManagerSql extends DbManagerSql {
           "alter table " + PENDING_AU_TABLE
               + " rename index idx2_" + PENDING_AU_V1_TABLE
               + " to idx2_" + PENDING_AU_TABLE);
-      executeDdlQuery(conn,
-          "alter table " + AU_PROBLEM_TABLE
-              + " rename index idx1_" + AU_PROBLEM_V1_TABLE
-              + " to idx1_" + AU_PROBLEM_TABLE);
     }
 
     // Add unique index on au(plugin_seq, au_key).
