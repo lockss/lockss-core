@@ -540,6 +540,73 @@ public abstract class DbManager extends BaseLockssManager
   }
 
   /**
+   * SQL state code defined by the SQL standard (and implemented by Derby,
+   * PostgreSQL, and MySQL) for a unique-constraint / duplicate-key violation.
+   */
+  public static final String SQLSTATE_DUPLICATE_KEY = "23505";
+
+  /**
+   * Returns true if the throwable (or any cause in its chain) represents a
+   * duplicate-key / unique-constraint violation (SQL state 23505).
+   */
+  public static boolean isDuplicateKey(Throwable t) {
+    for (Throwable cause = t; cause != null; cause = cause.getCause()) {
+      if (cause instanceof SQLException sqle
+          && SQLSTATE_DUPLICATE_KEY.equals(sqle.getSQLState())) {
+        return true;
+      }
+    }
+    return false;
+  }
+
+  /**
+   * Sets a savepoint on the given connection.
+   *
+   * @param conn A Connection with the database connection.
+   * @return the Savepoint.
+   * @throws DbException if any problem occurred accessing the database.
+   */
+  public static Savepoint setSavepoint(Connection conn) throws DbException {
+    try {
+      return conn.setSavepoint();
+    } catch (SQLException sqle) {
+      throw new DbException("Cannot set savepoint", sqle);
+    }
+  }
+
+  /**
+   * Rolls back to a savepoint.
+   *
+   * @param conn A Connection with the database connection.
+   * @param sp   The Savepoint to roll back to.
+   * @throws DbException if any problem occurred accessing the database.
+   */
+  public static void rollbackToSavepoint(Connection conn, Savepoint sp)
+      throws DbException {
+    try {
+      conn.rollback(sp);
+    } catch (SQLException sqle) {
+      throw new DbException("Cannot rollback to savepoint", sqle);
+    }
+  }
+
+  /**
+   * Releases a savepoint.
+   *
+   * @param conn A Connection with the database connection.
+   * @param sp   The Savepoint to release.
+   * @throws DbException if any problem occurred accessing the database.
+   */
+  public static void releaseSavepoint(Connection conn, Savepoint sp)
+      throws DbException {
+    try {
+      conn.releaseSavepoint(sp);
+    } catch (SQLException sqle) {
+      throw new DbException("Cannot release savepoint", sqle);
+    }
+  }
+
+  /**
    * Provides a version of a text truncated to a maximum length, if necessary,
    * including an indication of the truncation.
    * 

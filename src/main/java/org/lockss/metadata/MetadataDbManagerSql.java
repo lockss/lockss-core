@@ -32,6 +32,7 @@ import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
+import java.sql.Savepoint;
 import java.sql.Statement;
 import java.util.Collection;
 import java.util.HashMap;
@@ -5452,12 +5453,18 @@ public class MetadataDbManagerSql extends DbManagerSql {
     if (log.isDebug3())
       log.debug3(DEBUG_HEADER + "publisherSeq = " + publisherSeq);
 
-    // Check whether it is a new publisher.
     if (publisherSeq == null) {
-      // Yes: Add to the database the new publisher.
-      publisherSeq = addPublisher(conn, publisherName);
+      Savepoint sp = conn.setSavepoint();
+      try {
+        publisherSeq = addPublisher(conn, publisherName);
+        conn.releaseSavepoint(sp);
+      } catch (SQLException sqle) {
+        conn.rollback(sp);
+        if (!DbManager.isDuplicateKey(sqle)) throw sqle;
+        publisherSeq = findPublisher(conn, publisherName);
+      }
       if (log.isDebug3())
-	log.debug3(DEBUG_HEADER + "new publisherSeq = " + publisherSeq);
+        log.debug3(DEBUG_HEADER + "new publisherSeq = " + publisherSeq);
     }
 
     if (log.isDebug2())
@@ -5467,7 +5474,7 @@ public class MetadataDbManagerSql extends DbManagerSql {
 
   /**
    * Provides the identifier of a publisher.
-   * 
+   *
    * @param conn
    *          A Connection with the database connection to be used.
    * @param publisherName
@@ -6717,6 +6724,33 @@ public class MetadataDbManagerSql extends DbManagerSql {
           "alter table " + AU_PROBLEM_TABLE
               + " rename index idx1_" + AU_PROBLEM_V1_TABLE
               + " to idx1_" + AU_PROBLEM_TABLE);
+    }
+
+    // Add unique index on au(plugin_seq, au_key).
+    if (isTypeMysql()) {
+      executeDdlQuery(conn, "create unique index idx2_" + AU_TABLE
+          + " on " + AU_TABLE
+          + "(" + PLUGIN_SEQ_COLUMN + "," + AU_KEY_COLUMN + "(255))");
+    } else {
+      executeDdlQuery(conn, "create unique index idx2_" + AU_TABLE
+          + " on " + AU_TABLE
+          + "(" + PLUGIN_SEQ_COLUMN + "," + AU_KEY_COLUMN + ")");
+    }
+
+    // Add unique index on platform(platform_name).
+    executeDdlQuery(conn, "create unique index idx1_" + PLATFORM_TABLE
+        + " on " + PLATFORM_TABLE
+        + "(" + PLATFORM_NAME_COLUMN + ")");
+
+    // Add unique index on md_key(key_name).
+    if (isTypeMysql()) {
+      executeDdlQuery(conn, "create unique index idx1_" + MD_KEY_TABLE
+          + " on " + MD_KEY_TABLE
+          + "(" + KEY_NAME_COLUMN + "(255))");
+    } else {
+      executeDdlQuery(conn, "create unique index idx1_" + MD_KEY_TABLE
+          + " on " + MD_KEY_TABLE
+          + "(" + KEY_NAME_COLUMN + ")");
     }
 
     if (log.isDebug2()) log.debug2(DEBUG_HEADER + "Done.");
