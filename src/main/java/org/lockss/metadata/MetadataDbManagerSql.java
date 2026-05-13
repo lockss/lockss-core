@@ -607,6 +607,16 @@ public class MetadataDbManagerSql extends DbManagerSql {
       + SUBSCRIBED_COLUMN + " boolean not null"
       + ")";
 
+  // Query to create the metadata write lock table.
+  static final String CREATE_METADATA_WRITE_LOCK_TABLE_QUERY =
+      "create table " + METADATA_WRITE_LOCK_TABLE
+      + " (" + LOCK_ID_COLUMN + " integer not null)";
+
+  // Query to insert the initial lock row.
+  private static final String INSERT_METADATA_WRITE_LOCK_QUERY =
+      "insert into " + METADATA_WRITE_LOCK_TABLE
+      + " (" + LOCK_ID_COLUMN + ") values (?)";
+
   // Query to insert a type of metadata item.
   private static final String INSERT_MD_ITEM_TYPE_QUERY = "insert into "
       + MD_ITEM_TYPE_TABLE
@@ -6699,6 +6709,48 @@ public class MetadataDbManagerSql extends DbManagerSql {
           "alter table " + PENDING_AU_TABLE
               + " rename index idx2_" + PENDING_AU_V1_TABLE
               + " to idx2_" + PENDING_AU_TABLE);
+    }
+
+    if (log.isDebug2()) log.debug2(DEBUG_HEADER + "Done.");
+  }
+
+  /**
+   * Updates the database from version 29 to version 30.
+   *
+   * Creates the metadata_write_lock table used to serialize concurrent
+   * metadata database writes.
+   *
+   * @param conn
+   *          A Connection with the database connection to be used.
+   * @throws SQLException
+   *           if any problem occurred updating the database.
+   */
+  void updateDatabaseFrom29To30(Connection conn) throws SQLException {
+    final String DEBUG_HEADER = "updateDatabaseFrom29To30(): ";
+    if (log.isDebug2()) log.debug2(DEBUG_HEADER + "Starting...");
+
+    if (conn == null) {
+      throw new IllegalArgumentException("Null connection");
+    }
+
+    executeDdlQuery(conn, CREATE_METADATA_WRITE_LOCK_TABLE_QUERY);
+
+    PreparedStatement insertLock = null;
+
+    try {
+      insertLock = prepareStatement(conn, INSERT_METADATA_WRITE_LOCK_QUERY);
+      insertLock.setInt(1, 1);
+      executeUpdate(insertLock);
+    } catch (SQLException sqle) {
+      log.error("Cannot insert metadata write lock row", sqle);
+      log.error("SQL = '" + INSERT_METADATA_WRITE_LOCK_QUERY + "'.");
+      throw sqle;
+    } catch (RuntimeException re) {
+      log.error("Cannot insert metadata write lock row", re);
+      log.error("SQL = '" + INSERT_METADATA_WRITE_LOCK_QUERY + "'.");
+      throw re;
+    } finally {
+      safeCloseStatement(insertLock);
     }
 
     if (log.isDebug2()) log.debug2(DEBUG_HEADER + "Done.");
