@@ -2304,34 +2304,39 @@ public class SubscriptionManager extends BaseLockssDaemonManager implements
 	try {
 	  // Persist the subscription in the database.
 	  persistSubscription(conn, subscription);
-	  MetadataDbManager.commitOrRollback(conn, log);
 
 	  List<BibliographicPeriod> subscribedRanges =
 	      subscription.getSubscribedRanges();
 	  if (log.isDebug3())
 	    log.debug3(DEBUG_HEADER + "subscribedRanges = " + subscribedRanges);
 
-	  // Try to configure AUs — may fail if the plugin is not loaded
-	  // (e.g., in distributed/runcluster mode). The subscription is
-	  // already persisted, so AUs will be configured when the plugin
-	  // becomes available.
-	  try {
-	    if (subscribedRanges != null
-	        && subscribedRanges.size() > 0
-	        && (subscribedRanges.size() > 1
-	            || !subscribedRanges.iterator().next().isEmpty())) {
-	      bas = configureAus(subscription);
-	    } else {
-	      bas = null;
-	    }
-	  } catch (IllegalStateException ise) {
-	    log.warning("Subscription saved but cannot configure AUs: "
-	        + ise.getMessage());
+	  // Check whether the added subscription may imply the configuration of
+	  // some archival unit.
+	  if (subscribedRanges != null
+	      && subscribedRanges.size() > 0
+	      && (subscribedRanges.size() > 1
+	          || !subscribedRanges.iterator().next().isEmpty())) {
+	    // Yes: Configure the archival units that correspond to this
+	    // subscription.
+	    bas = configureAus(subscription);
+	  } else {
 	    bas = null;
 	  }
 
+	  MetadataDbManager.commitOrRollback(conn, log);
 	  status.addStatusEntry(subscription.getPublication()
 	      .getPublicationName(), bas);
+	} catch (IllegalStateException ise) {
+	  try {
+	    if ((conn != null) && !conn.isClosed()) {
+	      conn.rollback();
+	    }
+	  } catch (SQLException sqle) {
+	    log.error(CANNOT_ROLL_BACK_DB_CONNECTION_ERROR_MESSAGE, sqle);
+	  }
+	  log.error("Cannot add subscription " + subscription, ise);
+	  status.addStatusEntry(subscription.getPublication()
+	      .getPublicationName(), false, ise.getMessage(), null);
 	} catch (IOException ioe) {
 	  try {
 	    if ((conn != null) && !conn.isClosed()) {
