@@ -1787,7 +1787,7 @@ public class MetadataManager extends BaseLockssManager {
    * 
    * @return a MetadataManagerSql with the SQL code executor.
    */
-  MetadataManagerSql getMetadataManagerSql() {
+  public MetadataManagerSql getMetadataManagerSql() {
     return mdManagerSql;
   }
 
