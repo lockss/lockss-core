@@ -6670,7 +6670,6 @@ public class MetadataDbManagerSql extends DbManagerSql {
       throw new IllegalArgumentException("Null connection");
     }
 
-
     if (isTypeDerby()) {
       // Rename table.
       executeDdlQuery(conn,
@@ -6721,6 +6720,7 @@ public class MetadataDbManagerSql extends DbManagerSql {
 
   private void createPendingAuV1Table(Connection conn) throws SQLException {
     executeDdlQuery(conn, CREATE_PENDING_AU_V1_TABLE_QUERY);
+    executeDdlQueries(conn, VERSION_11_COLUMN_ADD_QUERIES);
 
     if (isTypeMysql()) {
       // TODO: Make the index unique when MySQL is fixed.
