@@ -6670,6 +6670,7 @@ public class MetadataDbManagerSql extends DbManagerSql {
       throw new IllegalArgumentException("Null connection");
     }
 
+
     if (isTypeDerby()) {
       // Rename table.
       executeDdlQuery(conn,
@@ -6688,7 +6689,8 @@ public class MetadataDbManagerSql extends DbManagerSql {
     } else if (isTypePostgresql()) {
       // Rename table.
       executeDdlQuery(conn,
-          "alter table " + PENDING_AU_V1_TABLE + " rename to " + PENDING_AU_TABLE);
+          "alter table " + PENDING_AU_V1_TABLE
+              + " rename to " + PENDING_AU_TABLE);
       // Rename indices.
       executeDdlQuery(conn,
           "alter index idx1_" + PENDING_AU_V1_TABLE
@@ -6699,7 +6701,8 @@ public class MetadataDbManagerSql extends DbManagerSql {
     } else if (isTypeMysql()) {
       // Rename table.
       executeDdlQuery(conn,
-          "alter table " + PENDING_AU_V1_TABLE + " rename to " + PENDING_AU_TABLE);
+          "alter table " + PENDING_AU_V1_TABLE
+              + " rename to " + PENDING_AU_TABLE);
       // Rename indices (requires MySQL 5.7+).
       executeDdlQuery(conn,
           "alter table " + PENDING_AU_TABLE
@@ -6711,7 +6714,32 @@ public class MetadataDbManagerSql extends DbManagerSql {
               + " to idx2_" + PENDING_AU_TABLE);
     }
 
+    createPendingAuV1Table(conn);
+
     if (log.isDebug2()) log.debug2(DEBUG_HEADER + "Done.");
+  }
+
+  private void createPendingAuV1Table(Connection conn) throws SQLException {
+    executeDdlQuery(conn, CREATE_PENDING_AU_V1_TABLE_QUERY);
+
+    if (isTypeMysql()) {
+      // TODO: Make the index unique when MySQL is fixed.
+      executeDdlQuery(conn,
+          "create index idx1_" + PENDING_AU_V1_TABLE
+              + " on " + PENDING_AU_V1_TABLE
+              + "(" + PLUGIN_ID_COLUMN + "(255),"
+              + AU_KEY_COLUMN + "(255))");
+    } else {
+      executeDdlQuery(conn,
+          "create unique index idx1_" + PENDING_AU_V1_TABLE
+              + " on " + PENDING_AU_V1_TABLE
+              + "(" + PLUGIN_ID_COLUMN + "," + AU_KEY_COLUMN + ")");
+    }
+
+    executeDdlQuery(conn,
+        "create index idx2_" + PENDING_AU_V1_TABLE
+            + " on " + PENDING_AU_V1_TABLE
+            + "(" + PRIORITY_COLUMN + ")");
   }
 
   /**
