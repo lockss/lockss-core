@@ -4873,6 +4873,32 @@ public class ConfigManager implements LockssManager {
   }
 
   /**
+   * Sets the per-AU {@code isMetadataExtractionEnabled} flag on the AU's
+   * {@link AuState}. Replaces the legacy per-AU enable/disable in
+   * MetadataExtractorManager (enableAuIndexing / disableAuIndexing, removed
+   * on the feature-mdLegacyRemoval branch). The setter notifies the
+   * StateManager so the change is persisted and broadcast in the usual
+   * way.
+   *
+   * @param au       the Archival Unit whose state is to be updated.
+   * @param enabled  the new value of isMetadataExtractionEnabled.
+   * @throws IllegalStateException if no StateManager is available.
+   */
+  public void setAuMetadataExtractionEnabled(ArchivalUnit au, boolean enabled) {
+    if (au == null) {
+      throw new IllegalArgumentException("Null ArchivalUnit");
+    }
+    StateManager sm = getStateManager();
+    if (sm == null) {
+      throw new IllegalStateException(
+          "No StateManager available; cannot set metadata extraction state"
+              + " for AU '" + au.getAuId() + "'");
+    }
+    AuState aus = sm.getAuState(au);
+    aus.setMetadataExtractionEnabled(enabled);
+  }
+
+  /**
    * Loads the au.txt file into the database, if found.
    */
   public void loadAuTxtFileIntoDb() {
