@@ -965,6 +965,30 @@ public class TestPluginManager extends LockssTestCase4 {
   }
 
   @Test
+  public void testDontCreateOnDemandAuFromDisabledConfig() throws Exception {
+    onDemandSetup();
+    String auid1 = cod_tc1.getAuId(mgr);
+    Configuration auc1 = cod_tc1.getConfig();
+    mgr.updateAuInDatabase(auid1, auc1);
+    String auid2 = cod_tc2.getAuId(mgr);
+    Configuration auc2 = cod_tc2.getConfig();
+    // Deactivate auc2
+    auc2.put("reserved.disabled", "true");
+    mgr.updateAuInDatabase(auid2, auc2);
+
+    assertNull(mgr.getAuFromIdIfExists(auid1));
+    ArchivalUnit au1 = mgr.getAuFromId(auid1);
+    assertNotNull(au1);
+    assertSame(cod_mpi, au1.getPlugin());
+    assertEquals(cod_tc1.getConfig(), au1.getConfiguration());
+
+    // au2 should NOT be created
+    assertNull(mgr.getAuFromIdIfExists(auid2));
+    ArchivalUnit au2 = mgr.getAuFromId(auid2);
+    assertNull(au2);
+  }
+
+  @Test
   public void testCreateOnDemandAuFromAuId() throws Exception {
     onDemandSetup();
     String auid1 = cod_tc1.getAuId(mgr);
