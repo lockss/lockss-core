@@ -73,7 +73,7 @@ public abstract class StepTask extends SchedulableTask {
 
   //  abstract public boolean isFinished();
 
-  void setStepping(boolean val) {
+  public void setStepping(boolean val) {
     isStepping = val;
   }
 
