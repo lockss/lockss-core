@@ -51,7 +51,14 @@ import java.util.*;
 import static org.lockss.config.db.SqlConstants.*;
 
 /**
- * SQL queries and operations in support of {@link SQLArtifactIndex}.
+ * Manages SQL interactions for the Artifact Index, handling queries and operations
+ * related to namespaces, AUIDs, URLs, and artifacts. This class is critical for
+ * facilitating the storage, retrieval, and manipulation of artifact data in the
+ * underlying database.
+ *
+ * The class supports operations such as creating or finding sequences for namespaces,
+ * AUIDs, and URLs, fetching artifacts using keyset pagination, and performing updates
+ * and deletions of artifacts or metadata.
  */
 public class SQLArtifactIndexManagerSql {
   private static final L4JLogger log = L4JLogger.getLogger();
@@ -2699,12 +2706,14 @@ public class SQLArtifactIndexManagerSql {
       long namespaceSeq = findOrCreateNamespaceSeq(conn, artifact.getNamespace());
       long auidSeq = findOrCreateAuidSeq(conn, artifact.getAuid());
       long urlSeq = findOrCreateUrlSeq(conn, artifact.getUri());
+
       addArtifact(conn, auidSeq, namespaceSeq, urlSeq, artifact);
 
       // Commit the transaction.
       DbManager.commitOrRollback(conn, log);
 
-      // Update LRU caches
+      // Update LRU caches - note that these must happen *after* the transaction is
+      // committed;  otherwise they may not reflect the actual database state
       lru_namespace_seqs.putIfAbsent(artifact.getNamespace(), namespaceSeq);
       lru_auids_seqs.putIfAbsent(artifact.getAuid(), auidSeq);
       lru_urls_seqs.putIfAbsent(artifact.getUri(), urlSeq);
@@ -2713,15 +2722,30 @@ public class SQLArtifactIndexManagerSql {
     }
   }
 
+  // How many artifact INSERTs to accumulate before flushing via executeBatch()
+  private static final int ARTIFACT_INSERT_BATCH_SIZE = 1000;
+
+  // How often (in rows) to refresh planner statistics on the URL table during
+  // a bulk addArtifacts call. See analyzeTable() for why this matters.
+  private static final int STATS_REFRESH_INTERVAL = 10000;
+
   /** Add all the Artifacts to the DB, return a Set containing all
    * unique (Namespace, AUID) pairs */
   public Set<Pair<String,String>> addArtifacts(Iterable<Artifact> artifacts)
       throws DbException {
     Connection conn = null;
+    PreparedStatement ps = null;
     Set<Pair<String,String>> nsAuids = new HashSet<>();
+    int count = 0;
+
     try {
       conn = getConnection();
+      ps = idxDbManager.prepareStatement(conn, INSERT_ARTIFACT_QUERY);
 
+      // These are here because the various sequence numbers do not really exist until
+      // the transaction has been committed to the database, so it does not make sense
+      // to update the LRUs (and would likely introduce inconsistencies in the database
+      // and race conditions).
       Map<String, Long> new_ns_seqs = new HashMap<>();
       Map<String, Long> new_auid_seqs = new HashMap<>();
       Map<String, Long> new_url_seqs = new HashMap<>();
@@ -2744,14 +2768,36 @@ public class SQLArtifactIndexManagerSql {
           urlSeq = findOrCreateUrlSeq(conn, artifact.getUri());
         }
 
-        addArtifact(conn, auidSeq, namespaceSeq, urlSeq, artifact);
+        try {
+          bindArtifactInsertParams(ps, namespaceSeq, auidSeq, urlSeq, artifact);
+          ps.addBatch();
+          count++;
+        } catch (SQLException e) {
+          throw new DbException("Error binding artifact INSERT parameters", e);
+        }
 
         new_ns_seqs.put(artifact.getNamespace(), namespaceSeq);
         new_auid_seqs.put(artifact.getAuid(), auidSeq);
         new_url_seqs.put(artifact.getUri(), urlSeq);
+
+        if (count % ARTIFACT_INSERT_BATCH_SIZE == 0) {
+          flushArtifactBatch(ps);
+        }
+
+        if (count % STATS_REFRESH_INTERVAL == 0) {
+          analyzeTable(conn, URL_TABLE);
+        }
       }
 
-      // Commit the transaction.
+      // Flush any partial trailing batch
+      if (count % ARTIFACT_INSERT_BATCH_SIZE != 0) {
+        flushArtifactBatch(ps);
+      }
+
+      // Refresh artifact-table stats so post-commit reads don't have to wait
+      // for autovacuum to catch up.
+      analyzeTable(conn, ARTIFACT_TABLE);
+
       DbManager.commitOrRollback(conn, log);
 
       // Update the LRU caches
@@ -2759,36 +2805,43 @@ public class SQLArtifactIndexManagerSql {
       lru_auids_seqs.putAll(new_auid_seqs);
       lru_urls_seqs.putAll(new_url_seqs);
     } finally {
+      DbManager.safeCloseStatement(ps);
       DbManager.safeRollbackAndClose(conn);
     }
     return nsAuids;
   }
 
-  private void addArtifact(Connection conn, Artifact artifact) throws DbException {
-    long namespaceSeq = findOrCreateNamespaceSeq(conn, artifact.getNamespace());
-    long auidSeq = findOrCreateAuidSeq(conn, artifact.getAuid());
-    long urlSeq = findOrCreateUrlSeq(conn, artifact.getUri());
-    addArtifact(conn, auidSeq, namespaceSeq, urlSeq, artifact);
+  private void flushArtifactBatch(PreparedStatement ps) throws DbException {
+    try {
+      ps.executeBatch();
+      ps.clearBatch();
+    } catch (SQLException e) {
+      throw new DbException("Error executing artifact INSERT batch", e);
+    }
+  }
+
+  // Refresh planner statistics on the given table from inside the current
+  // transaction. Autovacuum can't ANALYZE in-flight tuples, so during a long
+  // batch transaction pg_class.reltuples stays at -1 ("never analyzed") and
+  // the planner picks seq scans for tables this transaction is filling -- e.g.
+  // FIND_URL_SEQ_QUERY degrades to O(N) per row, O(N²) over the batch.
+  // Running ANALYZE inside the transaction updates stats and invalidates
+  // cached plans, so subsequent lookups use the index.
+  private void analyzeTable(Connection conn, String table) {
+    try (Statement st = conn.createStatement()) {
+      st.execute("ANALYZE " + table);
+    } catch (SQLException e) {
+      log.warn("ANALYZE {} failed: {}", table, e.getMessage());
+    }
   }
 
   private void addArtifact(Connection conn, long auidSeq, long namespaceSeq, long urlSeq, Artifact artifact)
       throws DbException {
 
     PreparedStatement ps = idxDbManager.prepareStatement(conn, INSERT_ARTIFACT_QUERY);
-    ArtifactIdentifier artifactId = artifact.getIdentifier();
 
     try {
-      ps.setString(1, artifactId.getUuid());
-      ps.setLong(2, namespaceSeq);
-      ps.setLong(3, auidSeq);
-      ps.setLong(4, urlSeq);
-      ps.setInt(5, artifactId.getVersion());
-      ps.setBoolean(6, artifact.isCommitted());
-      ps.setString(7, artifact.getStorageUrl());
-      ps.setLong(8, artifact.getContentLength());
-      ps.setString(9, artifact.getContentDigest());
-      ps.setLong(10, artifact.getCollectionDate());
-
+      bindArtifactInsertParams(ps, namespaceSeq, auidSeq, urlSeq, artifact);
       idxDbManager.executeUpdate(ps);
     } catch (SQLException e) {
       log.error("Error preparing SQL statement", e);
@@ -2796,6 +2849,22 @@ public class SQLArtifactIndexManagerSql {
     } finally {
       DbManager.safeCloseStatement(ps);
     }
+  }
+
+  private static void bindArtifactInsertParams(PreparedStatement ps,
+      long namespaceSeq, long auidSeq, long urlSeq, Artifact artifact)
+      throws SQLException {
+    ArtifactIdentifier artifactId = artifact.getIdentifier();
+    ps.setString(1, artifactId.getUuid());
+    ps.setLong(2, namespaceSeq);
+    ps.setLong(3, auidSeq);
+    ps.setLong(4, urlSeq);
+    ps.setInt(5, artifactId.getVersion());
+    ps.setBoolean(6, artifact.isCommitted());
+    ps.setString(7, artifact.getStorageUrl());
+    ps.setLong(8, artifact.getContentLength());
+    ps.setString(9, artifact.getContentDigest());
+    ps.setLong(10, artifact.getCollectionDate());
   }
 
   public void upsertArtifactForReindex(Artifact artifact) throws DbException {
