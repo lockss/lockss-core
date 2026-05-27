@@ -1759,6 +1759,9 @@ public abstract class WarcArtifactDataStore implements ArtifactDataStore, WARCCo
 
     Path warcFilePath = null;
     boolean isTmpStorage = false;
+    // Owe a markUseEnd? True once markUseStart has been called and until
+    // responsibility transfers to the CloseCallbackInputStream wrapper.
+    boolean owesUseEnd = false;
     InputStream warcStream = null;
 
     try {
@@ -1794,6 +1797,7 @@ public abstract class WarcArtifactDataStore implements ArtifactDataStore, WARCCo
             } else {
               // Increment usage counter of temporary WARC -- cannot now mark for GC
               TempWarcInUseTracker.INSTANCE.markUseStart(warcFilePath);
+              owesUseEnd = true;
             }
           }
         }
@@ -1812,7 +1816,8 @@ public abstract class WarcArtifactDataStore implements ArtifactDataStore, WARCCo
 
       if (isTmpStorage) {
         // Wrap the stream with a CloseCallbackInputStream with a callback that will mark the end of the use of this file
-        // when close() is called.
+        // when close() is called. Closing the wrapped stream now owns the markUseEnd
+        // obligation; clear the flag so the catch block doesn't double-decrement.
         warcStream = new CloseCallbackInputStream(
             warcStream,
             closingWarcFilePath -> {
@@ -1821,6 +1826,7 @@ public abstract class WarcArtifactDataStore implements ArtifactDataStore, WARCCo
             },
             warcFilePath
         );
+        owesUseEnd = false;
       }
 
       // Create WARCRecord object from InputStream
@@ -1849,7 +1855,7 @@ public abstract class WarcArtifactDataStore implements ArtifactDataStore, WARCCo
         IOUtils.closeQuietly(warcStream);
       }
 
-      if (isTmpStorage) {
+      if (owesUseEnd) {
         TempWarcInUseTracker.INSTANCE.markUseEnd(warcFilePath);
       }
 
