@@ -2241,11 +2241,12 @@ public class CrawlManagerImpl extends BaseLockssDaemonManager
       // If already time to run ensure queue gets rebuilt
       forceQueueRebuild();
     } else {
-      // Don't push forward if already expired.
-      if (!timeToRebuildCrawlQueue.expired()) {
+      // Reduce time to next queue rebuild.  If already less than that
+      // leave it alone
+      if (timeToRebuildCrawlQueue.getRemainingTime() > paramQueueRecalcAfterNewAu) {
         timeToRebuildCrawlQueue.expireIn(paramQueueRecalcAfterNewAu);
+        startOneWait.expireIn(paramQueueRecalcAfterNewAu);
       }
-      startOneWait.expireIn(paramQueueRecalcAfterNewAu);
     }
   }
 
