@@ -1132,6 +1132,19 @@ public abstract class WarcArtifactDataStore implements ArtifactDataStore, WARCCo
 
     boolean isWarcFileRemovable = true;
 
+    // Load this tmp WARC's journal. The UNCOMMITTED entry's date is set
+    // when the artifact write to the tmp WARC finishes, so it's the right basis
+    // for the expiry decision. Fall back to the WARC-Date header per-record if
+    // the journal is missing or no entry is present for an artifact (legacy
+    // tmp WARCs, partial writes).
+    Map<String, WarcArtifactStateEntry> journal;
+    try {
+      journal = getJournalForWarc(tmpWarc, WarcArtifactStateEntry.class, this::synthesizeStateEntry);
+    } catch (Exception e) {
+      log.warn("Couldn't read journal for {}, falling back to WARC-Date for expiry", tmpWarc, e);
+      journal = new HashMap<>();
+    }
+
     // Open WARC file
     try (InputStream warcStream = markAndGetInputStream(tmpWarc)) {
 
@@ -1152,7 +1165,11 @@ public abstract class WarcArtifactDataStore implements ArtifactDataStore, WARCCo
         // Acquire artifact lock: Operations below alter artifact state
         try (SemaphoreLock lock = lockArtifact(aid)) {
           Artifact artifact = index.getArtifact(aid);
-          WarcArtifactState state = getWarcArtifactState(artifact, isArtifactExpired(record.getHeader()));
+          WarcArtifactStateEntry journalEntry = journal.get(aid.getUuid());
+          boolean isExpired = (journalEntry != null)
+              ? isArtifactExpired(journalEntry.getEntryDate())
+              : isArtifactExpired(record.getHeader());
+          WarcArtifactState state = getWarcArtifactState(artifact, isExpired);
 
           switch (state) {
             case UNCOMMITTED:
@@ -1360,6 +1377,18 @@ public abstract class WarcArtifactDataStore implements ArtifactDataStore, WARCCo
     Instant created = Instant.from(DateTimeFormatter.ISO_INSTANT.parse(warcDateHeader));
     Instant expiration = created.plus(getUncommittedArtifactExpiration(), ChronoUnit.MILLIS);
     return Instant.ofEpochMilli(TimeBase.nowMs()).isAfter(expiration);
+  }
+
+  /**
+   * Returns whether an uncommitted artifact has expired, measured from the time its
+   * write to the temporary WARC finished (as recorded in the journal's UNCOMMITTED
+   * entry). Prefer this over the WARC-Date-header variant: that header carries the
+   * artifact's fetch time, which can predate the local write by hours or days for
+   * large or backfilled artifacts.
+   */
+  protected boolean isArtifactExpired(long writeFinishedMs) {
+    long expirationMs = writeFinishedMs + getUncommittedArtifactExpiration();
+    return TimeBase.nowMs() > expirationMs;
   }
 
   /**
@@ -2773,11 +2802,18 @@ public abstract class WarcArtifactDataStore implements ArtifactDataStore, WARCCo
           boolean isCopied = artifactState != null && artifactState.isCopied();
           boolean isDeleted = artifactState != null && artifactState.isDeleted();
 
-          // Q: Override isArtifactExpired()?
-          String dateVal = record.getHeader(WARCConstants.HEADER_KEY_DATE).value;
-          Instant created = Instant.from(DateTimeFormatter.ISO_INSTANT.parse(dateVal));
-          Instant expiration = created.plus(getUncommittedArtifactExpiration(), ChronoUnit.MILLIS);
-          boolean isExpired = Instant.ofEpochMilli(TimeBase.nowMs()).isAfter(expiration);
+          // Prefer the journal entry's date (set when the artifact write to the tmp
+          // WARC finished); fall back to the artifact's WARC-Date header if there's
+          // no journal entry for this artifact.
+          boolean isExpired;
+          if (artifactState != null) {
+            isExpired = isArtifactExpired(artifactState.getEntryDate());
+          } else {
+            String dateVal = record.getHeader(WARCConstants.HEADER_KEY_DATE).value;
+            Instant created = Instant.from(DateTimeFormatter.ISO_INSTANT.parse(dateVal));
+            Instant expiration = created.plus(getUncommittedArtifactExpiration(), ChronoUnit.MILLIS);
+            isExpired = Instant.ofEpochMilli(TimeBase.nowMs()).isAfter(expiration);
+          }
 
           // Avoid reindexing this artifact if it is deleted or this record is from a temporary
           // WARC and has been copied to a permanent WARC file (in which case, we should wait
