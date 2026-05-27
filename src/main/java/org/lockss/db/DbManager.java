@@ -1036,8 +1036,10 @@ public abstract class DbManager extends BaseLockssManager
       String driverClassName = dbcpProps.get("driverClassName");
       log.debug(DEBUG_HEADER + "driverClassName = " + driverClassName);
 
-      // Connection properties sent to the JDBC driver by DBCP
+      // Connection properties sent to the JDBC driver by DBCP. Start with
+      // subclass-provided defaults, then let operator-supplied config override.
       Configuration connProps = ConfigManager.newConfiguration();
+      connProps.copyFrom(getDefaultDbcpConnectionProperties());
       connProps.copyFrom(dbcpProps.getConfigTree("connectionProperties"));
 
       // Format and set connectionProperties if subtree is present
@@ -1080,6 +1082,18 @@ public abstract class DbManager extends BaseLockssManager
         .collect(Collectors.toList());
 
     return StringUtil.separatedString(kvs, ";");
+  }
+
+  /**
+   * Provides subclass-specific default values for DBCP {@code connectionProperties}
+   * entries. The returned Configuration is copied into the connection-properties
+   * map before operator-supplied config is applied, so operator config still wins.
+   * Default implementation returns an empty Configuration.
+   *
+   * @return a Configuration with default connection-property entries; never null.
+   */
+  protected Configuration getDefaultDbcpConnectionProperties() {
+    return ConfigManager.EMPTY_CONFIGURATION;
   }
 
   /**
