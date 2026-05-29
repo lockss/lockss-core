@@ -2436,30 +2436,35 @@ public class ConfigManager implements LockssManager {
     // publisher allowlists (which only know V1's IP) keep working.
     // Only inject if the operator hasn't already explicitly configured
     // the crawl proxy.
-    if (config.getBoolean(PARAM_PROXY_IN_MIGRATION_MODE, DEFAULT_PROXY_IN_MIGRATION_MODE)
-        && !config.containsKey(BaseCrawler.PARAM_PROXY_ENABLED)) {
-      String v1Addr = config.get(PARAM_V1_ROUTABLE_ADDR);
-      if (StringUtil.isNullString(v1Addr)) {
-        log.warning("Migration crawl proxy injection requested but "
-            + PARAM_V1_ROUTABLE_ADDR + " is not set; skipping.");
+    if (config.getBoolean(PARAM_PROXY_IN_MIGRATION_MODE,
+                          DEFAULT_PROXY_IN_MIGRATION_MODE)) {
+      if (config.getBoolean(BaseCrawler.PARAM_PROXY_ENABLED,
+                            BaseCrawler.DEFAULT_PROXY_ENABLED)) {
+        log.warning("Migration crawl proxy injection requested but crawler is already set to proxy through " + config.get(BaseCrawler.PARAM_PROXY_HOST) + "; skipping.");
       } else {
-        int proxyPort = config.getInt(PARAM_MIGRATION_PROXY_PORT, DEFAULT_MIGRATION_PROXY_PORT);
-        config.put(BaseCrawler.PARAM_PROXY_ENABLED, "true");
-        config.put(BaseCrawler.PARAM_PROXY_HOST, v1Addr);
-        config.put(BaseCrawler.PARAM_PROXY_PORT, Integer.toString(proxyPort));
+        String v1Addr = config.get(PARAM_V1_ROUTABLE_ADDR);
+        if (StringUtil.isNullString(v1Addr)) {
+          log.warning("Migration crawl proxy injection requested but "
+                      + PARAM_V1_ROUTABLE_ADDR + " is not set; skipping.");
+        } else {
+          int proxyPort = config.getInt(PARAM_MIGRATION_PROXY_PORT, DEFAULT_MIGRATION_PROXY_PORT);
+          config.put(BaseCrawler.PARAM_PROXY_ENABLED, "true");
+          config.put(BaseCrawler.PARAM_PROXY_HOST, v1Addr);
+          config.put(BaseCrawler.PARAM_PROXY_PORT, Integer.toString(proxyPort));
 
-        // Append X-Lockss-Source: publisher to existing request headers.
-        // PARAM_REQUEST_HEADERS is parsed as a ';'-separated list.
-        String hdrToAdd = "X-Lockss-Source: publisher";
-        List<String> hdrs =
+          // Append X-Lockss-Source: publisher to existing request headers.
+          // PARAM_REQUEST_HEADERS is parsed as a ';'-separated list.
+          String hdrToAdd = "X-Lockss-Source: publisher";
+          List<String> hdrs =
             new ArrayList<String>(config.getList(CrawlManagerImpl.PARAM_REQUEST_HEADERS));
-        hdrs.add(hdrToAdd);
-        config.put(CrawlManagerImpl.PARAM_REQUEST_HEADERS,
-            StringUtil.separatedString(hdrs, ";"));
+          hdrs.add(hdrToAdd);
+          config.put(CrawlManagerImpl.PARAM_REQUEST_HEADERS,
+                     StringUtil.separatedString(hdrs, ";"));
 
-        log.info("Migration mode: injecting crawl proxy "
-            + v1Addr + ":" + proxyPort
-            + " and appending header '" + hdrToAdd + "'");
+          log.info("Migration mode: injecting crawl proxy "
+                   + v1Addr + ":" + proxyPort
+                   + " and appending header '" + hdrToAdd + "'");
+        }
       }
     }
   }
