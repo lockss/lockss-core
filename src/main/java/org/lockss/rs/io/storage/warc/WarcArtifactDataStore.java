@@ -1237,6 +1237,11 @@ public abstract class WarcArtifactDataStore implements ArtifactDataStore, WARCCo
         log.warn("Could not remove a removable temporary WARC file", e);
         // Try again later - avoid reprocessing by marking as already processed and removable?
       }
+    } else {
+      // We do not want to resume writing to any existing temporary WARC files, but we need to
+      // add them to the WARC file pool for them to resume their GC lifecycle:
+      WarcFile warcFile = new WarcFile(tmpWarc, isCompressedWarcFile(tmpWarc));
+      tmpWarcPool.addAsFullWarcFile(warcFile);
     }
   }
 
