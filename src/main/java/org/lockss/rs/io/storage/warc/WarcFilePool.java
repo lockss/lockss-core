@@ -147,6 +147,12 @@ public class WarcFilePool {
     }
   }
 
+  public void addAsFullWarcFile(WarcFile warcFile) {
+    synchronized (this) {
+      fullWarcs.add(warcFile);
+    }
+  }
+
   /**
    * Checks whether a {@link WarcFile} object is a member of this pool.
    *
