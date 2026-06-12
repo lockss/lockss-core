@@ -1712,6 +1712,11 @@ public class PluginManager
       log.warning("Error fetching AU config: " + auId, lre);
     }
     if (auConfig != null) {
+      if (auConfig.getBoolean(AU_PARAM_DISABLED, false)) {
+        log.debug("Found disabled stored config for on demand AU: " +
+		auId + " : " + auConfig);
+        return null;
+      }
       log.debug("Found stored config for on demand AU: " +
 		auId + " : " + auConfig);
     } else {
