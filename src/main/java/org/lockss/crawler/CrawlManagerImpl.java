@@ -2241,10 +2241,15 @@ public class CrawlManagerImpl extends BaseLockssDaemonManager
       // If already time to run ensure queue gets rebuilt
       forceQueueRebuild();
     } else {
-      // Reduce time to next queue rebuild.  If already less than that
-      // leave it alone
+      // Reduce the time to the next queue rebuild and the next crawl starter
+      // wakeup, but never push either further out (with a stream of new AUs
+      // during migration that could delay them indefinitely).  Each deadline
+      // is pulled forward independently so a newly-added AU is still queued
+      // promptly even when the rebuild time is already near.
       if (timeToRebuildCrawlQueue.getRemainingTime() > paramQueueRecalcAfterNewAu) {
         timeToRebuildCrawlQueue.expireIn(paramQueueRecalcAfterNewAu);
+      }
+      if (startOneWait.getRemainingTime() > paramQueueRecalcAfterNewAu) {
         startOneWait.expireIn(paramQueueRecalcAfterNewAu);
       }
     }
