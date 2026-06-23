@@ -882,12 +882,27 @@ public class PluginManager
 	return;
       }
 
-      String auKey = PluginManager.auKeyFromAuId(auId);
-      ArchivalUnit curAu = auMap.get(auId);
-
       // Convert the Archival Unit configuration to a Configuration object.
       Configuration auConf =
 	AuConfigurationUtils.toUnprefixedConfiguration(auConfiguration);
+
+      startOrReconfigureAu(getPlugin(pluginKey), auConf, auId, scc);
+    }
+  }
+
+  /** Start or reconfigure an AU from an already-resolved Configuration.  Used
+   * both by the startup/reconfigure path (via the AuConfiguration overload)
+   * and by on-demand creation (PluginManager.getAuFromId()), so that AUs
+   * instantiated on demand go through the same configureAu() path - which
+   * applies missing non-def params from the tdb - as those started at
+   * startup. */
+  private void startOrReconfigureAu(Plugin plugin, Configuration auConf,
+				    String auId, SkipConfigCondition scc) {
+    String pluginKey = pluginKeyFromAuId(auId);
+
+    synchronized (auAddDelLock) {
+      String auKey = PluginManager.auKeyFromAuId(auId);
+      ArchivalUnit curAu = auMap.get(auId);
 
       if (auConf.getBoolean(AU_PARAM_DISABLED, false)) {
 	if (curAu != null) {
@@ -919,9 +934,6 @@ public class PluginManager
 
       try {
 	if (log.isDebug2()) log.debug2("Configuring AU id: " + auKey);
-
-	// Get the plugin of this Archival Unit.
-	Plugin plugin = getPlugin(pluginKey);
 
 	// Check the consistency of the Archival Unit configuration.
 	try {
@@ -1737,16 +1749,13 @@ public class PluginManager
       return null;
     }
 
-    ArchivalUnit au = null;
-    // Get the AU.
-    try {
-      au = createAu(plugin, auConfig,
-		    AuEvent.forAuId(auId, AuEvent.Type.Create));
-      if (log.isDebug3()) log.debug3(DEBUG_HEADER + "au = " + au);
-    } catch (Exception e) {
-      log.error("Failed to create Archival Unit - auId = " + auId
-		+ ", auConfig = " + auConfig, e);
-    }
+    // Instantiate the AU via the same configureAu() path used at startup, so
+    // that any non-def params added to the plugin since the AU was first
+    // configured are filled in from the tdb.  (Going through createAu()
+    // directly would bypass that.)
+    startOrReconfigureAu(plugin, auConfig, auId, SkipConfigCondition.AuRunning);
+    ArchivalUnit au = getAuFromIdIfExists(auId);
+    if (log.isDebug3()) log.debug3(DEBUG_HEADER + "au = " + au);
     return au;
   }
 
@@ -1758,6 +1767,18 @@ public class PluginManager
     }
     log.warning("Attempt to get TitleConfig for non-BasePlugin: " + auid);
     return null;
+  }
+
+  /** Fill in any of the plugin's non-def params that are missing from the AU
+   * config with values from the tdb.  Allows existing AUs to pick up non-def
+   * params added to a plugin after the AU was first configured.  Does nothing
+   * for non-BasePlugin plugins. */
+  Configuration addTdbNonDefParams(Plugin plugin, Configuration auConf,
+				   String auid) {
+    if (plugin instanceof BasePlugin) {
+      return ((BasePlugin)plugin).addNonDefParams(auConf, auid);
+    }
+    return auConf;
   }
 
   /** Infer a (possibly incomplete) AU configuration from an AUID.  This
@@ -2149,6 +2170,13 @@ public class PluginManager
 	  Configuration auConf = ent.getValue();
 	  String pkey = pluginKeyFromAuId(auid);
 	  Plugin plug = getPlugin(pkey);
+
+	  // The plugin may have been reloaded with a newer definition that
+	  // added non-def params; fill in any that are missing from the tdb.
+	  // (This restart path uses createAu() with a RestartCreate batch
+	  // event, so it can't go through configureAu() as the startup path
+	  // does.)
+	  auConf = addTdbNonDefParams(plug, auConf, auid);
 
 	  // To find the last AU.
 	  remainingAus--;
