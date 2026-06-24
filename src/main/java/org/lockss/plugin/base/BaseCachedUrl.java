@@ -798,7 +798,7 @@ public class BaseCachedUrl implements CachedUrl {
       checkValidTfcEntry();
       if (memberTf == null) {
 	memberTf = new TFile(getTFile(), ams.getName());
-	logger.debug("getMemberTFile: " + memberTf);
+	logger.debug2("getMemberTFile: " + memberTf);
       }
       return memberTf;
     }
