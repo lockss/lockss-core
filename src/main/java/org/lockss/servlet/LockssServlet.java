@@ -244,6 +244,14 @@ public abstract class LockssServlet extends HttpServlet
         resp.setStatus(HttpResponse.__503_Service_Unavailable);
 	return;
       }
+
+      if (isDisallowInMigration()) {
+        String dis = "This function is disabled in migration mode.  Please use the equivalent function in your LOCKSS 1.x instance instead.";
+        displayWarningInLieuOfPage(dis);
+        resp.setStatus(HttpResponse.__503_Service_Unavailable, "Disabled");
+        return;
+      }
+
       if (session != null) {
 	session.setAttribute(SESSION_KEY_RUNNING_SERVLET,
 			     getHeading());
@@ -1184,6 +1192,15 @@ public abstract class LockssServlet extends HttpServlet
 
   protected boolean isInMigrationMode() {
     return getLockssDaemon().getConfigManager().inMigrationMode();
+  }
+
+  protected boolean isDisallowInMigration() {
+    return isDisallowInMigration(myServletDescr());
+  }
+
+  protected boolean isDisallowInMigration(ServletDescr d) {
+    return isInMigrationMode() && d.isDisallowInMigration()
+      && getParameter(ACTION_TAG) != null;
   }
 
   /** Display a message in lieu of the normal page
