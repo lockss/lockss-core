@@ -994,6 +994,17 @@ public class SQLArtifactIndexManagerSql {
       + " ON CONFLICT (" + ARTIFACT_UUID_COLUMN + ") DO UPDATE SET "
       + ARTIFACT_COMMITTED_COLUMN + " = ? , " + ARTIFACT_STORAGE_URL_COLUMN + " = ?";
 
+  // Idempotent variant of INSERT_ARTIFACT_QUERY used by the bulk addArtifacts()
+  // path. Because that path now commits per batch, a retried finishBulkStore
+  // (e.g. after a partial failure) can re-present artifacts that already landed;
+  // ON CONFLICT refreshes the committed flag and storage URL instead of failing
+  // on the UUID unique constraint. Uses EXCLUDED so it binds the same 10
+  // parameters as INSERT_ARTIFACT_QUERY (see bindArtifactInsertParams).
+  private static final String UPSERT_ARTIFACT_QUERY = INSERT_ARTIFACT_QUERY
+      + " ON CONFLICT (" + ARTIFACT_UUID_COLUMN + ") DO UPDATE SET "
+      + ARTIFACT_COMMITTED_COLUMN + " = EXCLUDED." + ARTIFACT_COMMITTED_COLUMN
+      + ", " + ARTIFACT_STORAGE_URL_COLUMN + " = EXCLUDED." + ARTIFACT_STORAGE_URL_COLUMN;
+
   private static final String GET_SIZE_OF_ARTIFACTS_QUERY = "SELECT "
       + " SUM(" + ARTIFACT_LENGTH_COLUMN + ") total_size"
       + " FROM " + ARTIFACT_TABLE + " a"
@@ -2726,8 +2737,14 @@ public class SQLArtifactIndexManagerSql {
   private static final int ARTIFACT_INSERT_BATCH_SIZE = 1000;
 
   // How often (in rows) to refresh planner statistics on the URL table during
-  // a bulk addArtifacts call. See analyzeTable() for why this matters.
+  // a bulk addArtifacts call. See analyzeTableOutOfBand() for why this matters.
   private static final int STATS_REFRESH_INTERVAL = 10000;
+
+  // Advisory-lock namespace used to serialize out-of-band ANALYZE across
+  // concurrent bulk loads so they don't collide on a table's catalog rows
+  // (which produces PostgreSQL "tuple concurrently updated" errors). Combined
+  // with a per-table key in pg_try_advisory_xact_lock(int, int).
+  private static final int ANALYZE_ADVISORY_LOCK_NAMESPACE = 0x4C4B5341; // "LKSA"
 
   /** Add all the Artifacts to the DB, return a Set containing all
    * unique (Namespace, AUID) pairs */
@@ -2738,32 +2755,33 @@ public class SQLArtifactIndexManagerSql {
     Set<Pair<String,String>> nsAuids = new HashSet<>();
     int count = 0;
 
+    // Sequence numbers created for the rows accumulated in the current (not yet
+    // committed) batch. They are published to the shared LRU caches only after
+    // the batch commits, since the sequences do not durably exist until then.
+    Map<String, Long> pending_ns_seqs = new HashMap<>();
+    Map<String, Long> pending_auid_seqs = new HashMap<>();
+    Map<String, Long> pending_url_seqs = new HashMap<>();
+
     try {
       conn = getConnection();
-      ps = idxDbManager.prepareStatement(conn, INSERT_ARTIFACT_QUERY);
-
-      // These are here because the various sequence numbers do not really exist until
-      // the transaction has been committed to the database, so it does not make sense
-      // to update the LRUs (and would likely introduce inconsistencies in the database
-      // and race conditions).
-      Map<String, Long> new_ns_seqs = new HashMap<>();
-      Map<String, Long> new_auid_seqs = new HashMap<>();
-      Map<String, Long> new_url_seqs = new HashMap<>();
+      // Idempotent insert so a retried finishBulkStore that re-presents artifacts
+      // already committed by an earlier partial run updates rather than fails.
+      ps = idxDbManager.prepareStatement(conn, UPSERT_ARTIFACT_QUERY);
 
       for (Artifact artifact : artifacts) {
         nsAuids.add(Pair.of(artifact.getNamespace(), artifact.getAuid()));
 
-        Long namespaceSeq = new_ns_seqs.get(artifact.getNamespace());
+        Long namespaceSeq = pending_ns_seqs.get(artifact.getNamespace());
         if (namespaceSeq == null) {
           namespaceSeq = findOrCreateNamespaceSeq(conn, artifact.getNamespace());
         }
 
-        Long auidSeq = new_auid_seqs.get(artifact.getAuid());
+        Long auidSeq = pending_auid_seqs.get(artifact.getAuid());
         if (auidSeq == null) {
           auidSeq = findOrCreateAuidSeq(conn, artifact.getAuid());
         }
 
-        Long urlSeq = new_url_seqs.get(artifact.getUri());
+        Long urlSeq = pending_url_seqs.get(artifact.getUri());
         if (urlSeq == null) {
           urlSeq = findOrCreateUrlSeq(conn, artifact.getUri());
         }
@@ -2776,39 +2794,60 @@ public class SQLArtifactIndexManagerSql {
           throw new DbException("Error binding artifact INSERT parameters", e);
         }
 
-        new_ns_seqs.put(artifact.getNamespace(), namespaceSeq);
-        new_auid_seqs.put(artifact.getAuid(), auidSeq);
-        new_url_seqs.put(artifact.getUri(), urlSeq);
+        pending_ns_seqs.put(artifact.getNamespace(), namespaceSeq);
+        pending_auid_seqs.put(artifact.getAuid(), auidSeq);
+        pending_url_seqs.put(artifact.getUri(), urlSeq);
 
         if (count % ARTIFACT_INSERT_BATCH_SIZE == 0) {
+          // Flush and commit this batch so its rows are durable and visible to
+          // the out-of-band ANALYZE below. Committing per batch also bounds the
+          // blast radius of a mid-load failure to a single batch instead of the
+          // whole AU.
           flushArtifactBatch(ps);
-        }
+          DbManager.commitOrRollback(conn, log);
+          publishSeqLrus(pending_ns_seqs, pending_auid_seqs, pending_url_seqs);
+          pending_ns_seqs.clear();
+          pending_auid_seqs.clear();
+          pending_url_seqs.clear();
 
-        if (count % STATS_REFRESH_INTERVAL == 0) {
-          analyzeTable(conn, URL_TABLE);
+          // Periodically refresh URL-table planner stats so findOrCreateUrlSeq
+          // keeps using the index rather than degrading to a seq scan as the
+          // table grows (STATS_REFRESH_INTERVAL is a multiple of the batch size,
+          // so this always lands right after a commit).
+          if (count % STATS_REFRESH_INTERVAL == 0) {
+            analyzeTableOutOfBand(URL_TABLE);
+          }
         }
       }
 
-      // Flush any partial trailing batch
+      // Flush and commit any partial trailing batch.
       if (count % ARTIFACT_INSERT_BATCH_SIZE != 0) {
         flushArtifactBatch(ps);
+        DbManager.commitOrRollback(conn, log);
+        publishSeqLrus(pending_ns_seqs, pending_auid_seqs, pending_url_seqs);
       }
-
-      // Refresh artifact-table stats so post-commit reads don't have to wait
-      // for autovacuum to catch up.
-      analyzeTable(conn, ARTIFACT_TABLE);
-
-      DbManager.commitOrRollback(conn, log);
-
-      // Update the LRU caches
-      lru_namespace_seqs.putAll(new_ns_seqs);
-      lru_auids_seqs.putAll(new_auid_seqs);
-      lru_urls_seqs.putAll(new_url_seqs);
     } finally {
       DbManager.safeCloseStatement(ps);
       DbManager.safeRollbackAndClose(conn);
     }
+
+    // Refresh artifact-table stats once, after all rows are committed, so
+    // post-load reads don't have to wait for autovacuum to catch up. Done
+    // out-of-band for the same safety reason as the URL analyze.
+    if (count > 0) {
+      analyzeTableOutOfBand(ARTIFACT_TABLE);
+    }
+
     return nsAuids;
+  }
+
+  /** Publish committed sequence numbers to the shared LRU caches. */
+  private void publishSeqLrus(Map<String, Long> nsSeqs,
+                              Map<String, Long> auidSeqs,
+                              Map<String, Long> urlSeqs) {
+    lru_namespace_seqs.putAll(nsSeqs);
+    lru_auids_seqs.putAll(auidSeqs);
+    lru_urls_seqs.putAll(urlSeqs);
   }
 
   private void flushArtifactBatch(PreparedStatement ps) throws DbException {
@@ -2820,18 +2859,56 @@ public class SQLArtifactIndexManagerSql {
     }
   }
 
-  // Refresh planner statistics on the given table from inside the current
-  // transaction. Autovacuum can't ANALYZE in-flight tuples, so during a long
-  // batch transaction pg_class.reltuples stays at -1 ("never analyzed") and
-  // the planner picks seq scans for tables this transaction is filling -- e.g.
-  // FIND_URL_SEQ_QUERY degrades to O(N) per row, O(N²) over the batch.
-  // Running ANALYZE inside the transaction updates stats and invalidates
-  // cached plans, so subsequent lookups use the index.
-  private void analyzeTable(Connection conn, String table) {
-    try (Statement st = conn.createStatement()) {
-      st.execute("ANALYZE " + table);
-    } catch (SQLException e) {
-      log.warn("ANALYZE {} failed: {}", table, e.getMessage());
+  // Refresh planner statistics on the given table on a dedicated connection,
+  // OUTSIDE any data-loading transaction. This matters for correctness as much
+  // as performance: ANALYZE run inside the load transaction can fail (notably
+  // "tuple concurrently updated" when concurrent bulk loads touch the same
+  // table's catalog rows), and because that error aborts the whole transaction,
+  // a subsequent commit is silently turned into a rollback by PostgreSQL --
+  // discarding every insert in the batch with no exception thrown. Running it
+  // here means such a failure only loses the (best-effort) stats refresh.
+  //
+  // Why it still helps: autovacuum can't ANALYZE another connection's in-flight
+  // tuples, so during a bulk load pg_class.reltuples stays stale and the planner
+  // seq-scans tables the load is filling -- e.g. FIND_URL_SEQ_QUERY degrades to
+  // O(N) per row, O(N²) over the load. Because callers commit each batch before
+  // calling this, the rows ARE visible here; ANALYZE refreshes stats and its
+  // cross-backend cache invalidation makes the loader replan onto the index.
+  //
+  // A per-table advisory lock serializes concurrent refreshes so they don't
+  // collide (and so we skip redundant work: the holder's ANALYZE benefits us
+  // too). The advisory lock is transaction-scoped and released by the commit.
+  private void analyzeTableOutOfBand(String table) {
+    Connection conn = null;
+    try {
+      conn = getConnection();
+
+      boolean locked;
+      try (PreparedStatement lockPs =
+               conn.prepareStatement("SELECT pg_try_advisory_xact_lock(?, ?)")) {
+        lockPs.setInt(1, ANALYZE_ADVISORY_LOCK_NAMESPACE);
+        lockPs.setInt(2, table.hashCode());
+        try (ResultSet rs = lockPs.executeQuery()) {
+          locked = rs.next() && rs.getBoolean(1);
+        }
+      }
+
+      if (locked) {
+        try (Statement st = conn.createStatement()) {
+          st.execute("ANALYZE " + table);
+        }
+      }
+
+      // Commit to release the advisory lock (and the ANALYZE's catalog updates).
+      DbManager.commitOrRollback(conn, log);
+    } catch (SQLException | DbException e) {
+      // Best-effort: a failed ANALYZE (e.g. "tuple concurrently updated") aborts
+      // only this throwaway transaction; the finally rolls it back and closes.
+      log.warn("Out-of-band ANALYZE {} failed (ignored): {}", table, e.getMessage());
+    } finally {
+      if (conn != null) {
+        DbManager.safeRollbackAndClose(conn);
+      }
     }
   }
 

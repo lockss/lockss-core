@@ -191,6 +191,79 @@ public class TestSQLArtifactIndexDbManager extends LockssTestCase4 {
     assertTrue(art.isCommitted());
   }
 
+  /**
+   * Regression test for the bulk {@code addArtifacts} path: every artifact must
+   * survive across multiple internal batch commits (no batch silently dropped),
+   * and re-presenting the same artifacts (a retried finishBulkStore) must be
+   * idempotent rather than failing on the UUID unique constraint or creating
+   * duplicates.
+   */
+  @Test
+  public void testAddArtifactsAcrossBatchesIsCompleteAndIdempotent() throws Exception {
+    SQLArtifactIndexManagerSql idxdb = new SQLArtifactIndexManagerSql(idxDbManager);
+
+    String ns = "batch_ns";
+    String auid = "batch_auid";
+
+    // More than two ARTIFACT_INSERT_BATCH_SIZE (1000) rows so the per-batch
+    // flush+commit runs several times, followed by a partial trailing batch.
+    int n = 2500;
+    List<ArtifactSpec> specs = new ArrayList<>(n);
+    List<Artifact> artifacts = new ArrayList<>(n);
+    for (int i = 0; i < n; i++) {
+      ArtifactSpec spec = new ArtifactSpec()
+          .setArtifactUuid(UUID.randomUUID().toString())
+          .setNamespace(ns)
+          .setAuid(auid)
+          .setUrl("https://example.com/batch/" + i)
+          .setVersion(1)
+          .setStorageUrl(URI.create("tmp/" + i))
+          .setContentLength(1024)
+          .setContentDigest("digest-" + i)
+          .setCollectionDate(1234L)
+          .setCommitted(false);
+      specs.add(spec);
+      artifacts.add(spec.getArtifact());
+    }
+
+    idxdb.addArtifacts(artifacts);
+
+    // No batch was silently dropped.
+    for (ArtifactSpec spec : specs) {
+      assertNotNull("Artifact missing after bulk add: " + spec.getArtifactUuid(),
+          idxdb.getArtifact(spec.getArtifactUuid()));
+    }
+    assertEquals(n, countAllVersions(idxdb, ns, auid));
+
+    // Retried finishBulkStore: same UUIDs, now committed with permanent URLs.
+    List<Artifact> reflush = new ArrayList<>(n);
+    for (ArtifactSpec spec : specs) {
+      spec.setStorageUrl(URI.create("perm/" + spec.getArtifactUuid()));
+      spec.setCommitted(true);
+      reflush.add(spec.getArtifact());
+    }
+    idxdb.addArtifacts(reflush);
+
+    // No duplicates, and the upsert refreshed the committed flag.
+    assertEquals(n, countAllVersions(idxdb, ns, auid));
+    for (ArtifactSpec spec : specs) {
+      Artifact art = idxdb.getArtifact(spec.getArtifactUuid());
+      assertNotNull(art);
+      assertTrue("Re-flush should have marked committed: " + spec.getArtifactUuid(),
+          art.isCommitted());
+    }
+  }
+
+  private static int countAllVersions(SQLArtifactIndexManagerSql idxdb,
+                                      String ns, String auid) throws Exception {
+    int found = 0;
+    for (Artifact ignored :
+        idxdb.findArtifactsAllVersionsOfAllUrlsWithNamespaceAndAuid(ns, auid, true)) {
+      found++;
+    }
+    return found;
+  }
+
   @Test
   public void testGetArtifact() throws Exception {
     SQLArtifactIndexManagerSql idxdb = new SQLArtifactIndexManagerSql(idxDbManager);
