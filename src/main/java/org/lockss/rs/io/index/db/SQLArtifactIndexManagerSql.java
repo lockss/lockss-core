@@ -47,6 +47,7 @@ import org.lockss.util.time.TimeBase;
 import java.lang.ref.Cleaner;
 import java.sql.*;
 import java.util.*;
+import java.util.concurrent.atomic.AtomicLong;
 
 import static org.lockss.config.db.SqlConstants.*;
 
@@ -1231,6 +1232,9 @@ public class SQLArtifactIndexManagerSql {
 
         idxDbManager.executeUpdate(ps);
       }
+
+      // Count this new urls-table row toward the geometric ANALYZE cadence.
+      noteUrlRowCreated();
 
       return urlSeq;
     } catch (SQLException sqle) {
@@ -2736,9 +2740,27 @@ public class SQLArtifactIndexManagerSql {
   // How many artifact INSERTs to accumulate before flushing via executeBatch()
   private static final int ARTIFACT_INSERT_BATCH_SIZE = 1000;
 
-  // How often (in rows) to refresh planner statistics on the URL table during
-  // a bulk addArtifacts call. See analyzeTableOutOfBand() for why this matters.
-  private static final int STATS_REFRESH_INTERVAL = 10000;
+  // Geometric ANALYZE cadence for the urls table (see maybeAnalyzeUrls()). The
+  // seq-scan -> index-scan plan flip for FIND_URL_SEQ_QUERY happens once, very
+  // early; refreshing stats past that point does not change the equality-lookup
+  // plan. So we ANALYZE densely while the table is small and stop once it is
+  // large, letting autovacuum own steady state. A fixed row interval would be
+  // both too sparse early and pointlessly frequent at scale (100M / interval).
+  //
+  // URL_ANALYZE_MIN_ROWS: floor so the first refresh happens on a cold table.
+  // URL_ANALYZE_CAP_ROWS: above this the plan is settled; hand off to autovacuum.
+  // Package-visible so shouldAnalyzeUrls() can be unit-tested against them.
+  static final long URL_ANALYZE_MIN_ROWS = 1000;
+  static final long URL_ANALYZE_CAP_ROWS = 1_000_000;
+
+  // Running estimate of the number of rows in the urls table. Seeded lazily from
+  // the database (the index is not necessarily empty at startup) and incremented
+  // as new url rows are created; drives the geometric ANALYZE cadence. -1 means
+  // "not yet seeded".
+  private final AtomicLong urlTableRowEstimate = new AtomicLong(-1);
+  // The estimate as of the last urls ANALYZE. Guarded by urlAnalyzeLock.
+  private long urlRowsAtLastAnalyze;
+  private final Object urlAnalyzeLock = new Object();
 
   // Advisory-lock namespace used to serialize out-of-band ANALYZE across
   // concurrent bulk loads so they don't collide on a table's catalog rows
@@ -2810,13 +2832,11 @@ public class SQLArtifactIndexManagerSql {
           pending_auid_seqs.clear();
           pending_url_seqs.clear();
 
-          // Periodically refresh URL-table planner stats so findOrCreateUrlSeq
-          // keeps using the index rather than degrading to a seq scan as the
-          // table grows (STATS_REFRESH_INTERVAL is a multiple of the batch size,
-          // so this always lands right after a commit).
-          if (count % STATS_REFRESH_INTERVAL == 0) {
-            analyzeTableOutOfBand(URL_TABLE);
-          }
+          // Refresh URL-table planner stats on a geometric, whole-table cadence
+          // so findOrCreateUrlSeq keeps using the index rather than degrading to
+          // a seq scan while the table is small. Rows are committed above, so the
+          // out-of-band ANALYZE sees them.
+          maybeAnalyzeUrls();
         }
       }
 
@@ -2910,6 +2930,122 @@ public class SQLArtifactIndexManagerSql {
         DbManager.safeRollbackAndClose(conn);
       }
     }
+  }
+
+  /** Record that one new row was added to the urls table, seeding the estimate
+   *  first if this is the first url we've seen (the table may be non-empty at
+   *  startup). */
+  private void noteUrlRowCreated() {
+    seedUrlEstimateIfNeeded();
+    urlTableRowEstimate.incrementAndGet();
+  }
+
+  /** Lazily seed the urls-table row estimate from the database, since the index
+   *  is not necessarily empty when we start. Uses pg_class.reltuples (an
+   *  estimate; no full table scan). If the table has never been analyzed
+   *  (reltuples < 0) or the estimate can't be read, it seeds to 0, which only
+   *  makes us ANALYZE early -- harmless and self-correcting. */
+  private long seedUrlEstimateIfNeeded() {
+    long cur = urlTableRowEstimate.get();
+    if (cur >= 0) {
+      return cur;
+    }
+    long seed = 0;
+    try {
+      seed = estimatedRowCount(URL_TABLE);
+    } catch (DbException e) {
+      log.warn("Could not seed urls row estimate; assuming empty: {}", e.getMessage());
+    }
+    // Only the first thread to seed wins; others adopt whatever value was set.
+    if (urlTableRowEstimate.compareAndSet(-1, seed)) {
+      synchronized (urlAnalyzeLock) {
+        urlRowsAtLastAnalyze = seed;
+      }
+      return seed;
+    }
+    return urlTableRowEstimate.get();
+  }
+
+  /** Return PostgreSQL's estimated live row count for a table from
+   *  pg_class.reltuples, clamped at 0 (reltuples is -1 when never analyzed).
+   *  Package-visible for testing the non-empty-at-startup seed path. */
+  long estimatedRowCount(String table) throws DbException {
+    Connection conn = null;
+    PreparedStatement ps = null;
+    ResultSet rs = null;
+    try {
+      conn = getConnection();
+      ps = idxDbManager.prepareStatement(conn,
+          "SELECT reltuples::bigint FROM pg_class WHERE relname = ?");
+      ps.setString(1, table);
+      rs = idxDbManager.executeQuery(ps);
+      long n = rs.next() ? rs.getLong(1) : 0;
+      DbManager.commitOrRollback(conn, log);
+      return Math.max(n, 0);
+    } catch (SQLException e) {
+      throw new DbException("Could not read estimated row count for " + table, e);
+    } finally {
+      DbManager.safeCloseResultSet(rs);
+      DbManager.safeCloseStatement(ps);
+      DbManager.safeRollbackAndClose(conn);
+    }
+  }
+
+  /** Refresh urls-table planner stats on a geometric cadence scoped to the whole
+   *  table (not one addArtifacts call, since the table grows across many AUs):
+   *  ANALYZE once the table has roughly doubled since the last refresh, with a
+   *  floor for the initial cold-table flip, and not at all once the table is
+   *  large enough that the seq-scan -> index-scan plan is settled -- autovacuum
+   *  owns steady state from there. */
+  private void maybeAnalyzeUrls() {
+    seedUrlEstimateIfNeeded();
+    long cur = urlTableRowEstimate.get();
+
+    boolean doAnalyze = false;
+    synchronized (urlAnalyzeLock) {
+      if (shouldAnalyzeUrls(cur, urlRowsAtLastAnalyze)) {
+        urlRowsAtLastAnalyze = cur;
+        doAnalyze = true;
+      }
+    }
+
+    if (doAnalyze) {
+      analyzeTableOutOfBand(URL_TABLE);
+    }
+  }
+
+  /**
+   * Decide whether the urls table is due for an ANALYZE, given its current
+   * estimated row count and the estimate as of the previous ANALYZE.
+   *
+   * <p>The cadence is geometric: refresh stats each time the table has
+   * <em>doubled</em> since the last ANALYZE. Two bounds shape that:
+   * <ul>
+   *   <li><b>floor</b> ({@link #URL_ANALYZE_MIN_ROWS}): a near-empty table
+   *       "doubles" after a handful of rows (2&nbsp;&times;&nbsp;0&nbsp;==&nbsp;0),
+   *       which would fire on almost every batch, so we first wait for at least
+   *       this much growth; and
+   *   <li><b>cap</b> ({@link #URL_ANALYZE_CAP_ROWS}): once the table is this
+   *       large the seq-scan&nbsp;&rarr;&nbsp;index-scan plan for the url lookup
+   *       is settled and further refreshes won't change it, so we stop and let
+   *       autovacuum own steady state.
+   * </ul>
+   *
+   * @param currentRows       current estimated urls row count
+   * @param rowsAtLastAnalyze the estimate at the time of the last ANALYZE
+   * @return whether an ANALYZE should be run now
+   */
+  static boolean shouldAnalyzeUrls(long currentRows, long rowsAtLastAnalyze) {
+    // Past the cap: plan is settled, leave stats to autovacuum.
+    if (currentRows >= URL_ANALYZE_CAP_ROWS) {
+      return false;
+    }
+    // Fire once the table reaches double its size at the last ANALYZE, but never
+    // before it has grown by at least the floor.
+    long doubledSize = rowsAtLastAnalyze * 2;
+    long flooredSize = rowsAtLastAnalyze + URL_ANALYZE_MIN_ROWS;
+    long nextAnalyzeAt = Math.max(doubledSize, flooredSize);
+    return currentRows >= nextAnalyzeAt;
   }
 
   private void addArtifact(Connection conn, long auidSeq, long namespaceSeq, long urlSeq, Artifact artifact)
