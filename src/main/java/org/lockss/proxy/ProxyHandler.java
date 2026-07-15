@@ -102,7 +102,7 @@ public class ProxyHandler extends AbstractHttpHandler {
    * loopback connection.  We don't know when we're done with an entry
    * because CONNECT connections from clients are reused, so used a fixed
    * size LRU map.  This is the maximum size. */
-  static final String PARAM_LOOPBACK_CONNECT_MAP_MAX = 
+  static final String PARAM_LOOPBACK_CONNECT_MAP_MAX =
     Configuration.PREFIX + "proxy.loopbackConnectMapMax";
   static final int DEFAULT_LOOPBACK_CONNECT_MAP_MAX = 100;
 
@@ -1125,6 +1125,11 @@ public class ProxyHandler extends AbstractHttpHandler {
   boolean isLoopbackAddr(String addr) {
     if (addr == null) return false;
     return addr.equals("127.0.0.1") || addr.equals("::1");
+  }
+  static public boolean isLocalAddr(String addr) {
+    if (addr == null) return false;
+    return ("127.0.0.1".equals(addr) || "::1".equals(addr) ||
+      "localhost".equalsIgnoreCase(addr));
   }
 
   boolean isAllowedLocalAddress(String addr) {

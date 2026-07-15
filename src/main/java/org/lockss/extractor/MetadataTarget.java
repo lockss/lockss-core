@@ -41,12 +41,16 @@ package org.lockss.extractor;
 public class MetadataTarget {
 
   /** @deprecated Use {@link #isAny()} or {@link #Any()} instead. */
+  @Deprecated
   public static MetadataTarget Any = new MetadataTarget("Any");
   /** @deprecated Use {@link #isDoi()} or {@link #Doi()} instead. */
+  @Deprecated
   public static MetadataTarget DOI = new MetadataTarget("DOI");
   /** @deprecated Use {@link #isOpenURL()} or {@link #OpenURL()} instead. */
+  @Deprecated
   public static MetadataTarget OpenURL = new MetadataTarget("OpenURL");
   /** @deprecated Use {@link #isArticle()} or {@link #Article()} instead. */
+  @Deprecated
   public static MetadataTarget Article = new MetadataTarget("Article");
 
   /** Use when no knowledge of the particular type of metadata needed. */

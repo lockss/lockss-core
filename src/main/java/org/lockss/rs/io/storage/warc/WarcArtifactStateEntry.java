@@ -1,6 +1,6 @@
 /*
 
-Copyright (c) 2000-2022, Board of Trustees of Leland Stanford Jr. University
+Copyright (c) 2000-2025, Board of Trustees of Leland Stanford Jr. University
 
 Redistribution and use in source and binary forms, with or without
 modification, are permitted provided that the following conditions are met:
@@ -32,9 +32,10 @@ POSSIBILITY OF SUCH DAMAGE.
 
 package org.lockss.rs.io.storage.warc;
 
+import org.apache.commons.lang3.builder.ToStringBuilder;
+import org.apache.commons.lang3.builder.ToStringStyle;
 import com.fasterxml.jackson.annotation.JsonAutoDetect;
 import org.lockss.util.rest.repo.model.ArtifactIdentifier;
-import org.lockss.util.rest.repo.model.AuJournalEntry;
 import org.lockss.util.time.TimeBase;
 
 import java.util.Objects;
@@ -43,9 +44,7 @@ import java.util.Objects;
  * Encapsulates the LOCKSS repository -specific metadata of an artifact. E.g., whether an artifact is committed.
  */
 @JsonAutoDetect(isGetterVisibility = JsonAutoDetect.Visibility.NONE)
-public class WarcArtifactStateEntry implements AuJournalEntry {
-  public static String LOCKSS_JOURNAL_ID = "artifact_state";
-
+public class WarcArtifactStateEntry implements WarcJournal.WarcJournalEntry {
   private String artifactUuid;
   private long entryDate;
   private WarcArtifactState state;
@@ -70,12 +69,15 @@ public class WarcArtifactStateEntry implements AuJournalEntry {
   }
 
   /**
-   * Returns the metadata ID for this class of metadata.
+   * Constructor.
    *
-   * @return A {@code String} containing the metadata ID.
+   * @param artifactUuid The artifact ID string for this journal entry.
+   * @param state The {@link WarcArtifactState} of this artifact.
    */
-  public static String getJournalId() {
-    return LOCKSS_JOURNAL_ID;
+  public WarcArtifactStateEntry(String artifactUuid, WarcArtifactState state) {
+    this.artifactUuid = artifactUuid;
+    this.entryDate = TimeBase.nowMs();
+    this.state = state;
   }
 
   /**
@@ -96,6 +98,11 @@ public class WarcArtifactStateEntry implements AuJournalEntry {
   @Override
   public long getEntryDate() {
     return this.entryDate;
+  }
+
+  @Override
+  public WarcArtifactState getEntry() {
+    return this.state;
   }
 
   /**
@@ -162,5 +169,14 @@ public class WarcArtifactStateEntry implements AuJournalEntry {
   @Override
   public int hashCode() {
     return Objects.hash(artifactUuid, entryDate, state);
+  }
+
+  @Override
+  public String toString() {
+    return new ToStringBuilder(this, ToStringStyle.NO_CLASS_NAME_STYLE)
+      .append("artifactUuid", artifactUuid)
+      .append("entryDate", entryDate)
+      .append("state", state)
+      .toString();
   }
 }

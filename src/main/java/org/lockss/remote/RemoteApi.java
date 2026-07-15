@@ -1795,6 +1795,7 @@ public class RemoteApi
    * and "monthly".
    * @deprecated - use {@value #PARAM_BACKUP_FREQ} instead}
    */
+  @Deprecated
   public static final String PARAM_BACKUP_EMAIL_FREQ =
     BACKUP_EMAIL_PREFIX + "frequency";
   public static final String DEFAULT_BACKUP_EMAIL_FREQ = "monthly";

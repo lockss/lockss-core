@@ -32,17 +32,15 @@ package org.lockss.rs.io.storage.warc;
 
 import org.apache.commons.io.FileUtils;
 import org.apache.commons.io.output.ByteArrayOutputStream;
-import org.lockss.util.rest.repo.model.NamespacedAuid;
 import org.lockss.log.L4JLogger;
+import org.lockss.util.io.FileUtil;
 import org.lockss.util.storage.StorageInfo;
 import org.springframework.util.MultiValueMap;
 import org.springframework.web.util.UriComponentsBuilder;
 
-import java.io.FileNotFoundException;
-import java.io.IOException;
-import java.io.InputStream;
-import java.io.OutputStream;
+import java.io.*;
 import java.net.URI;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.Path;
 import java.util.*;
 import java.util.stream.Collectors;
@@ -58,7 +56,7 @@ public class VolatileWarcArtifactDataStore extends WarcArtifactDataStore {
 
   public final static long DEFAULT_BLOCKSIZE = FileUtils.ONE_MB;
 
-  protected Map<Path, ByteArrayOutputStream> warcs;
+  protected Map<Path, TruncatableByteArrayOutputStream> warcs;
 
   // *******************************************************************************************************************
   // * CONSTRUCTORS
@@ -67,8 +65,12 @@ public class VolatileWarcArtifactDataStore extends WarcArtifactDataStore {
   /**
    * Constructor.
    */
-  public VolatileWarcArtifactDataStore() {
-    this.basePaths = new Path[]{DEFAULT_BASEPATH};
+  public VolatileWarcArtifactDataStore() throws IOException {
+    this(FileUtil.createTempDir("volatile-ds", null).toPath());
+  }
+
+  public VolatileWarcArtifactDataStore(Path basePath) {
+    this.basePaths = new Path[]{basePath};
     this.tmpWarcPool = new WarcFilePool(this);
     this.warcs = new HashMap<>();
   }
@@ -84,35 +86,22 @@ public class VolatileWarcArtifactDataStore extends WarcArtifactDataStore {
 
   @Override
   public List<Path> initAu(String namespace, String auid) throws IOException {
-    NamespacedAuid key = new NamespacedAuid(namespace, auid);
-    List<Path> auPaths = auPathsMap.get(key);
-
-    if (auPaths == null) {
-      auPaths = new ArrayList<>();
-      auPaths.add(initAuDir(namespace, auid));
-      auPathsMap.put(key, auPaths);
-    }
-
-    return auPaths;
+    return Collections.emptyList();
   }
 
   @Override
-  protected Path initAuDir(String namespace, String auid) throws IOException {
-    return getAuPath(getBasePaths()[0], namespace, auid);
+  protected Path initAuDir(Path basePath, String namespace, String auid) throws IOException {
+    return generateAUPath(basePath, namespace, auid);
   }
 
   @Override
   public void initWarc(Path warcPath) throws IOException {
     initFile(warcPath);
-
-    try (OutputStream output = getAppendableOutputStream(warcPath)) {
-      writeWarcInfoRecord(output);
-    }
   }
 
   protected void initFile(Path filePath) {
     synchronized (warcs) {
-      warcs.putIfAbsent(filePath, new ByteArrayOutputStream());
+      warcs.putIfAbsent(filePath, new TruncatableByteArrayOutputStream());
     }
   }
 
@@ -206,6 +195,15 @@ public class VolatileWarcArtifactDataStore extends WarcArtifactDataStore {
   }
 
   /**
+   * Returns a deterministic UUID derived from the base path string.
+   * Volatile stores are ephemeral — no file I/O needed.
+   */
+  @Override
+  protected UUID getOrCreateBasePathUuid(Path basePath) {
+    return UUID.nameUUIDFromBytes(basePath.toString().getBytes(StandardCharsets.UTF_8));
+  }
+
+  /**
    * Returns a boolean indicating whether this artifact store is ready.
    * <p>
    * Always true in volatile implementation.
@@ -224,5 +222,34 @@ public class VolatileWarcArtifactDataStore extends WarcArtifactDataStore {
   @Override
   public StorageInfo getStorageInfo() {
     return StorageInfo.fromRuntime().setType(ARTIFACT_DATASTORE_TYPE);
+  }
+
+  @Override
+  protected void truncateWarc(Path warcPath, long length) throws IOException {
+    synchronized (warcs) {
+      TruncatableByteArrayOutputStream warc = warcs.get(warcPath);
+      if (warc == null) {
+        throw new FileNotFoundException("Volatile WARC not in map: " + warcPath);
+      }
+      if (length > warc.size()) {
+        throw new IOException(
+            String.format("Cannot truncate WARC past its length [path: %s, fileSize: %d, requested: %d]",
+                warcPath, warc.size(), length));
+      }
+      warc.truncate((int) length);
+    }
+  }
+
+  /**
+   * A {@link ByteArrayOutputStream} subclass that supports truncation.
+   */
+  static class TruncatableByteArrayOutputStream extends ByteArrayOutputStream {
+    public synchronized void truncate(int length) {
+      if (length < 0 || length > count) {
+        throw new IllegalArgumentException(
+            "Truncate length " + length + " out of range [0, " + count + "]");
+      }
+      count = length;
+    }
   }
 }

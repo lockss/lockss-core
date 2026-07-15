@@ -42,6 +42,8 @@ import org.apache.commons.io.*;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.commons.lang3.StringEscapeUtils;
 import org.apache.oro.text.regex.*;
+import org.lockss.crawler.BaseCrawler;
+import org.lockss.crawler.CrawlManagerImpl;
 import org.springframework.context.ApplicationEvent;
 import org.springframework.context.ApplicationContext;
 import org.lockss.app.*;
@@ -58,7 +60,6 @@ import org.lockss.plugin.*;
 import org.lockss.protocol.*;
 import org.lockss.proxy.*;
 import org.lockss.remote.*;
-import org.lockss.repository.*;
 import org.lockss.subscription.SubscriptionManager;
 import org.lockss.util.rest.exception.LockssRestException;
 import org.lockss.util.rest.exception.LockssRestHttpException;
@@ -77,6 +78,7 @@ import org.lockss.util.urlconn.*;
 import javax.jms.Message;
 import javax.jms.JMSException;
 import org.lockss.jms.*;
+import org.springframework.core.env.Environment;
 
 /** ConfigManager loads and periodically reloads the LOCKSS configuration
  * parameters, and provides services for updating locally changeable
@@ -337,7 +339,7 @@ public class ConfigManager implements LockssManager {
   public static final String PARAM_PLATFORM_SECOND_IP_ADDRESS =
     PLATFORM + "secondIP";
 
-  /** Subnet mask of subnet(s) tatht should be treated similarly to the
+  /** Subnet mask of subnet(s) that should be treated similarly to the
    * loopback address, to allow local access to the UI and REST services.
    * In a container environment the source IP of these connections is often
    * not the loopback address, but a container-specfic address.
@@ -450,7 +452,8 @@ public class ConfigManager implements LockssManager {
 
   /** Set internally because the port isn't passed in directly but is
    * now needed by both BlockingStreamComm and migration.  Easier to
-   * compute it once here and put in config for V1 MigrateSettings */
+   * compute it once here and put in config for V1 MigrateSettings.
+   * N.B., this param name also appears in lockss-daemon */
   public static final String PARAM_ACTUAL_V3_LCAP_PORT =
     MYPREFIX + "actualV3LcapPort";
 
@@ -465,19 +468,40 @@ public class ConfigManager implements LockssManager {
     MYPREFIX + "sameHostMigration";
   public static final boolean DEFAULT_SAME_HOST_MIGRATION = false;
 
-  // Local port to use for LCAP during migration, not nec. the same as
-  // that in the LCAP ID
+  /** Local port to use for LCAP during migration, not nec. the same as
+   * that in the LCAP ID */
   public static final String PARAM_MIGRATION_LCAP_PORT =
     MYPREFIX + "migrationLcapPort";
   public static final String DEFAULT_MIGRATION_LCAP_PORT = null;
 
-  // The IP used for V1's identity, not necessarily routble from here
+  /** The IP used for V1's identity, not necessarily routble from here */
   public static final String PARAM_V1_IDENTITY_IP =
     MYPREFIX + "v1IdentityIp";
 
-  // Routable from here IP of V1
+  /** Routable from here IP of V1 */
   public static final String PARAM_V1_ROUTABLE_ADDR =
     MYPREFIX + "v1RoutableIp";
+
+  /** If true, LCAP forwarding during different-host migration will
+   * identify us using our internal (NATted) IP addr, which is
+   * appropriate if V1 & V2 are beging the same NAT.  If othey are
+   * behing different NATs, or or only V2 is behind NAT, set this
+   * false (in Expert Config) */
+  public static final String PARAM_MIGRATION_SAME_NAT =
+    MYPREFIX + "migrationSameNAT";
+  public static final boolean DEFAULT_MIGRATION_SAME_NAT = true;
+
+  /** If true, during migration mode automatically configure V2's crawler
+   * to send HTTP through V1 so publisher allowlists (e.g. GLN, Atypon)
+   * continue to recognize the request source IP. */
+  public static final String PARAM_PROXY_IN_MIGRATION_MODE =
+    MYPREFIX + "proxyInMigrationMode";
+  public static final boolean DEFAULT_PROXY_IN_MIGRATION_MODE = false;
+
+  /** Port on V1 host that the migration crawl proxy listens on. */
+  public static final String PARAM_MIGRATION_PROXY_PORT =
+    MYPREFIX + "migrationProxyPort";
+  public static final int DEFAULT_MIGRATION_PROXY_PORT = 8083;
 
   public static final String CONFIG_FILE_UI_IP_ACCESS = "ui_ip_access.txt";
   public static final String CONFIG_FILE_PROXY_IP_ACCESS =
@@ -744,7 +768,6 @@ public class ConfigManager implements LockssManager {
   protected boolean isInited = false;
   protected boolean isStarted = false;
   protected boolean inMigrationMode = DEFAULT_IN_MIGRATION_MODE;
-  private int actualV3LcapPort = -1;
   private String transportPeerKey = null;
 
   private List configChangedCallbacks = new ArrayList();
@@ -863,8 +886,7 @@ public class ConfigManager implements LockssManager {
     URL_PARAMS.get(PARAM_TITLE_DB_URLS).put("predicate", titleDbOnlyPred);
 //     URL_PARAMS.get(PARAM_TITLE_DB_URLS).put("required", true);
 
-    this.bootstrapPropsUrls = bootstrapPropsUrls;
-    this.restConfigServiceUrl = restConfigServiceUrl;
+    initializeConfigurationSources(bootstrapPropsUrls, restConfigServiceUrl, urls, groupNames);
 
     // User credentials for rest client aren't available yet because the
     // app instance ins't known until initService() is called, but the
@@ -879,12 +901,24 @@ public class ConfigManager implements LockssManager {
       // Yes: Try the initial config load much more often.
       reloadInterval = 15 * Constants.SECOND;
     }
-    if (urls != null) {
-      configUrlList = new ArrayList(urls);
-    }
-    this.groupNames = groupNames;
     configCache = new ConfigCache(this);
     registerConfigurationCallback(MiscConfig.getConfigCallback());
+  }
+
+  private void initializeConfigurationSources(List<String> bootstrapPropsUrls,
+                                              String restConfigServiceUrl,
+                                              List<String> urls,
+                                              String groupNames) {
+
+    haveConfig = new OneShotSemaphore();
+
+    this.bootstrapPropsUrls = bootstrapPropsUrls;
+    this.restConfigServiceUrl = restConfigServiceUrl;
+    this.groupNames = groupNames;
+
+    if (urls != null) {
+      configUrlList = new ArrayList<>(urls);
+    }
   }
 
   public void setClusterUrls(List<String> urls) {
@@ -1031,6 +1065,21 @@ public class ConfigManager implements LockssManager {
 						List<String> urls,
 						String groupNames,
 						ApplicationContext springAppCtx) {
+
+    // If the ConfigManager was instantiated elsewhere and was made available
+    // through the Spring ApplicationContext, use it.
+    if (springAppCtx != null) {
+      Environment env = springAppCtx.getEnvironment();
+      ConfigManager cfgMgr =
+          env.getProperty("LockssConfigManager", ConfigManager.class);
+
+      if (cfgMgr != null) {
+        cfgMgr.initializeConfigurationSources(
+            bootstrapPropsUrls, restConfigServiceUrl, urls, groupNames);
+        return setConfigManager(cfgMgr, springAppCtx);
+      }
+    }
+
     return setConfigManager(new ConfigManager(bootstrapPropsUrls,
 					      restConfigServiceUrl,
 					      urls,
@@ -1799,6 +1848,12 @@ public class ConfigManager implements LockssManager {
       }
       return false;
     }
+    // If we're ConfigService, notify other services to reload if any
+    // constituent config files have changed.  Due to conditionals or
+    // different load lists (e.g., local expert config) other services'
+    // resulting config may have changed even if our hasn't.
+    notifyConfigChanged();
+
     Configuration newConfig = initNewConfiguration();
     // Add app defaults
     mergeAppConfig(newConfig, LockssApp::getBootDefault, "app bootstrap default");
@@ -2011,7 +2066,11 @@ public class ConfigManager implements LockssManager {
       return false;
     }
     copyPlatformParams(newConfig);
-    setMigrationParams(newConfig);
+    setUpNetworkRouting(newConfig);
+    if (newConfig.getBoolean(PARAM_IN_MIGRATION_MODE,
+                             DEFAULT_IN_MIGRATION_MODE)) {
+      setUpForMigration(newConfig);
+    }
     inferMiscParams(newConfig);
     setConfigMacros(newConfig);
     setCompatibilityParams(newConfig);
@@ -2041,7 +2100,6 @@ public class ConfigManager implements LockssManager {
     if (!didLogConfig) {
       logConfig(newConfig, oldConfig, diffs);
     }
-    notifyConfigChanged();
     if (log.isDebug2()) log.debug2(DEBUG_HEADER + "Returning true.");
     return true;
   }
@@ -2255,7 +2313,7 @@ public class ConfigManager implements LockssManager {
 							  DEFAULT_JSSE_ENABLESNIEXTENSION)));
 
     setIfNotSet(config,
-		org.lockss.crawler.CrawlManagerImpl.PARAM_EXCLUDE_URL_PATTERN,
+		CrawlManagerImpl.PARAM_EXCLUDE_URL_PATTERN,
 		MiscParams.PARAM_EXCLUDE_URL_PATTERN);
 
     String fromParam = LockssDaemon.PARAM_BIND_ADDRS;
@@ -2268,21 +2326,40 @@ public class ConfigManager implements LockssManager {
     org.lockss.poller.PollManager.processConfigMacros(config);
   }
   
-  public int getV3LcapListenPort() {
-    return actualV3LcapPort;
-  }
-
+  /** Return an LCAP ID-formatted string describing our
+   * <b>transport</b> address.  Normally the same as our official LCAP
+   * IP, but during migration this is our end (IP and port) of the
+   * LCAP forwarding path between us and V1 */
   public String getTransportPeerKey() {
     return transportPeerKey;
   }
 
-  // If configured for migration, tell other subsystems to behave
-  // differently
-  private void setMigrationParams(Configuration config) {
-    // Extract our LCAP port from the LCAP ID.  If in migration mode, the
-    // configured port must be the same as V1's port
-    // PARAM_LOCAL_V3_IDENTITY may get changed below; we're just
-    // getting the port here
+  private void setUpNetworkRouting(Configuration config) {
+    if (config.getBoolean(PARAM_IN_MIGRATION_MODE,
+                          DEFAULT_IN_MIGRATION_MODE)) {
+      setUpNetworkForMigration(config);
+    } else {
+      // In normal mode, BlockingStreamComm should identify us by our
+      // LCAP ID, which contains our external (or only) IP
+      transportPeerKey = config.get(IdentityManager.PARAM_LOCAL_V3_IDENTITY);
+    }
+  }
+
+  // In migration mode PARAM_LOCAL_V3_IDENTITY reflects the (external)
+  // IP and port confiured for this V2 instance (because that's what
+  // configure-lockss does).  We use that to find the configured LCAP
+  // port to find the port we should use to communicate with V1
+  // (though that may be overridden if PARAM_MIGRATION_LCAP_PORT is
+  // set), then we reset PARAM_LOCAL_V3_IDENTITY to match V1's LCAP
+  // ID, as during migration we adopt that identity.
+
+  // Separately, we configure BlockingStreamComm to communicate with
+  // V1 using our actual IP & port, and its IP that's routable from here.
+
+  private void setUpNetworkForMigration(Configuration config) {
+    log.info("Setting up for migration from V1");
+
+    // Extract the LCAP port from our LCAP ID.
     String lcapId = config.get(IdentityManager.PARAM_LOCAL_V3_IDENTITY);
     int v1IdPort;
     String v1IdPortStr;
@@ -2293,50 +2370,102 @@ public class ConfigManager implements LockssManager {
       log.error("Couldn't parse LCAP V3 identity " + lcapId);
       return;  // IdentityManager will fail shortly if ID is malformed
     }
-    // find the actual listen port and copy to config as
-    // it's needed by both BlockingStreamComm and V1 migration
-    int lcapListenPort = config.getInt(PARAM_MIGRATION_LCAP_PORT, v1IdPort);
-    actualV3LcapPort = lcapListenPort;
-
-    // Set transportPeerKey to the PeerAddress string that reflects
-    // our actual IP addr and LCAP port (for BlockingStreamComm)
 
     String transportIp;
     if (config.getBoolean(PARAM_SAME_HOST_MIGRATION,
                           DEFAULT_SAME_HOST_MIGRATION)) {
+      // For same-host migration the transport mechanism must identify
+      // itself with the machine's actual IP addr, as localhost won't
+      // work with containers.
       transportIp = config.get(PARAM_PLATFORM_IP_ADDRESS);
     } else {
-      // XXX BUG.  If NATted, this is the internal addr, which might
-      // not be the right address for V1 to reach us at, if it's
-      transportIp = config.get(PARAM_PLATFORM_IP_ADDRESS);
+      // In different-host, we need to identify ourself as the IP that
+      // V1 should use to talk to us.  If NATed, that might be the
+      // internal addr (if both machines are behind the same NAT) or
+      // the external addr (if only one behind NAT, or behind
+      // different NATs).  By default assume they're behind the same
+      // NAT, but allow the user to override that using Expert Config
+      if (config.getBoolean(PARAM_MIGRATION_SAME_NAT,
+                            DEFAULT_MIGRATION_SAME_NAT)) {
+        transportIp = config.get(PARAM_PLATFORM_IP_ADDRESS);
+      } else {
+        String idStr = config.get(IdentityManager.PARAM_LOCAL_V3_IDENTITY);
+        try {
+          PeerAddress myPad = PeerAddress.makePeerAddress(idStr);
+          if (myPad instanceof PeerAddress.Tcp v3Pad) {
+            transportIp = v3Pad.getIPAddr().getHostAddress();
+          } else {
+            log.error("LCAP ID isn't a V3 ID");
+            return;  // IdentityManager will fail shortly if not V3 ID
+          }
+        } catch (Exception e) {
+          log.error("Malformed LCAP ID: " + idStr, e);
+          return;
+        }
+      }
     }
-    transportPeerKey = IDUtil.ipAddrToKey(transportIp, lcapListenPort);
-    if (config.getBoolean(PARAM_IN_MIGRATION_MODE,
-                          DEFAULT_IN_MIGRATION_MODE)) {
-      log.info("Setting up for migration from V1");
+    // Find the actual listen port, make available to BlockingStreamComm,
+    int actualV3LcapPort = config.getInt(PARAM_MIGRATION_LCAP_PORT, v1IdPort);
+    transportPeerKey = IDUtil.ipAddrToKey(transportIp, actualV3LcapPort);
 
-      // Put in config for easy access by V1 MigrateSettings
-      config.put(PARAM_ACTUAL_V3_LCAP_PORT, Integer.toString(lcapListenPort));
+    // and put in the config for easy access by V1 MigrateSettings
+    config.put(PARAM_ACTUAL_V3_LCAP_PORT, Integer.toString(actualV3LcapPort));
 
-      // Set LcapRouter.PARAM_MIGRATE_FROM to
-      // an ID made from PARAM_V1_ROUTABLE_ADDR (the routable V1 IP)
-      // and the port from PARAM_LOCAL_V3_IDENTITY
-      String sendToV1Id =
-        IDUtil.ipAddrToKey(config.get(PARAM_V1_ROUTABLE_ADDR), v1IdPortStr);
-      log.info("Configuring to forward LCAP to: " + sendToV1Id);
-      config.put(LcapRouter.PARAM_MIGRATE_FROM, sendToV1Id);
+    // Tell LcapRouter where to forward outgoing messages (the
+    // routable V1 IP, and the port from PARAM_LOCAL_V3_IDENTITY)
+    String sendToV1Id =
+      IDUtil.ipAddrToKey(config.get(PARAM_V1_ROUTABLE_ADDR), v1IdPortStr);
+    log.info("Configuring to forward LCAP to: " + sendToV1Id);
+    config.put(LcapRouter.PARAM_MIGRATE_FROM, sendToV1Id);
 
-      // Set IdentityManager.PARAM_LOCAL_V3_IDENTITY and
-      // PARAM_PLATFORM_LOCAL_V3_IDENTITY to the LCAP ID of the daemon
-      // we're migrating from.
+    // Now (possibly) reset IdentityManager.PARAM_LOCAL_V3_IDENTITY and
+    // PARAM_PLATFORM_LOCAL_V3_IDENTITY to the LCAP ID of the daemon
+    // we're migrating from.
+    String myLcapId =
+      IDUtil.ipAddrToKey(config.get(PARAM_V1_IDENTITY_IP), v1IdPortStr);
+    config.put(PARAM_PLATFORM_LOCAL_V3_IDENTITY, myLcapId);
+    config.put(IdentityManager.PARAM_LOCAL_V3_IDENTITY, myLcapId);
+  }
 
-      String myLcapId =
-        IDUtil.ipAddrToKey(config.get(PARAM_V1_IDENTITY_IP), v1IdPortStr);
-      config.put(PARAM_PLATFORM_LOCAL_V3_IDENTITY, myLcapId);
-      config.put(IdentityManager.PARAM_LOCAL_V3_IDENTITY, myLcapId);
+  // Non transport-related migration config
+  void setUpForMigration(Configuration config) {
+    // Tell SubscriptionManager to defer instantiating subscriptions
+    config.put(SubscriptionManager.PARAM_SUBSCRIPTION_DEFERRED, "true");
 
-      // Tell SubscriptionManager to defer instantiating subscriptions
-      config.put(SubscriptionManager.PARAM_SUBSCRIPTION_DEFERRED, "true");
+    // Route V2 crawler HTTP through V1's host during migration so that
+    // publisher allowlists (which only know V1's IP) keep working.
+    // Only inject if the operator hasn't already explicitly configured
+    // the crawl proxy.
+    if (config.getBoolean(PARAM_PROXY_IN_MIGRATION_MODE,
+                          DEFAULT_PROXY_IN_MIGRATION_MODE)) {
+      if (config.getBoolean(BaseCrawler.PARAM_PROXY_ENABLED,
+                            BaseCrawler.DEFAULT_PROXY_ENABLED)) {
+        log.warning("Migration crawl proxy injection requested but crawler is already set to proxy through " + config.get(BaseCrawler.PARAM_PROXY_HOST) + "; skipping.");
+      } else {
+        String v1Addr = config.get(PARAM_V1_ROUTABLE_ADDR);
+        if (StringUtil.isNullString(v1Addr)) {
+          log.warning("Migration crawl proxy injection requested but "
+                      + PARAM_V1_ROUTABLE_ADDR + " is not set; skipping.");
+        } else {
+          int proxyPort = config.getInt(PARAM_MIGRATION_PROXY_PORT, DEFAULT_MIGRATION_PROXY_PORT);
+          config.put(BaseCrawler.PARAM_PROXY_ENABLED, "true");
+          config.put(BaseCrawler.PARAM_PROXY_HOST, v1Addr);
+          config.put(BaseCrawler.PARAM_PROXY_PORT, Integer.toString(proxyPort));
+
+          // Append X-Lockss-Source: publisher to existing request headers.
+          // PARAM_REQUEST_HEADERS is parsed as a ';'-separated list.
+          String hdrToAdd = "X-Lockss-Source: publisher";
+          List<String> hdrs =
+            new ArrayList<String>(config.getList(CrawlManagerImpl.PARAM_REQUEST_HEADERS));
+          hdrs.add(hdrToAdd);
+          config.put(CrawlManagerImpl.PARAM_REQUEST_HEADERS,
+                     StringUtil.separatedString(hdrs, ";"));
+
+          log.info("Migration mode: injecting crawl proxy "
+                   + v1Addr + ":" + proxyPort
+                   + " and appending header '" + hdrToAdd + "'");
+        }
+      }
     }
   }
 
@@ -2556,7 +2685,7 @@ public class ConfigManager implements LockssManager {
     // keys includes param name prefixes that aren't actual params, so
     // numDiffs is inflated by several.
     for (String key : keys) {
-      if (numDiffs <= 40 || log.isDebug3() || shouldParamBeLogged(key)) {
+      if ((numDiffs <= 100 || log.isDebug3()) && shouldParamBeLogged(key)) {
 	if (config.containsKey(key)) {
 	  String val = config.get(key);
 	  log.debug("  " +key + " = " + StringUtils.abbreviate(val, maxLogValLen));
@@ -3568,7 +3697,7 @@ public class ConfigManager implements LockssManager {
     this.groupNames = groups;
   }
 
-  // TinyUI comes up on port 8081 if can't complete initial props load
+  // TinyUI comes up on port 24602 if can't complete initial props load
 
   TinyUi tiny = null;
   String[] tinyData = new String[1];
@@ -4225,7 +4354,7 @@ public class ConfigManager implements LockssManager {
       try {
 	jmsProducer.sendMap(map);
       } catch (JMSException e) {
-	log.error("foo", e);
+	log.error("Couldn't send GlobalConfigChanged notification", e);
       }
     }
   }
@@ -4791,6 +4920,32 @@ public class ConfigManager implements LockssManager {
       stateMgr = theApp.getManagerByType(StateManager.class);
     }
     return stateMgr;
+  }
+
+  /**
+   * Sets the per-AU {@code isMetadataExtractionEnabled} flag on the AU's
+   * {@link AuState}. Replaces the legacy per-AU enable/disable in
+   * MetadataExtractorManager (enableAuIndexing / disableAuIndexing, removed
+   * on the feature-mdLegacyRemoval branch). The setter notifies the
+   * StateManager so the change is persisted and broadcast in the usual
+   * way.
+   *
+   * @param au       the Archival Unit whose state is to be updated.
+   * @param enabled  the new value of isMetadataExtractionEnabled.
+   * @throws IllegalStateException if no StateManager is available.
+   */
+  public void setAuMetadataExtractionEnabled(ArchivalUnit au, boolean enabled) {
+    if (au == null) {
+      throw new IllegalArgumentException("Null ArchivalUnit");
+    }
+    StateManager sm = getStateManager();
+    if (sm == null) {
+      throw new IllegalStateException(
+          "No StateManager available; cannot set metadata extraction state"
+              + " for AU '" + au.getAuId() + "'");
+    }
+    AuState aus = sm.getAuState(au);
+    aus.setMetadataExtractionEnabled(enabled);
   }
 
   /**

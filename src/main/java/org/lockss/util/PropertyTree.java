@@ -204,6 +204,7 @@ public class PropertyTree extends Properties
   /** From Properties
    * @deprecated
    */
+  @Deprecated
   public synchronized void save(OutputStream out,String header)
   {
     PrintWriter writer = new PrintWriter(new OutputStreamWriter(out));

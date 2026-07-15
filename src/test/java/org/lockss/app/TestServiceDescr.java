@@ -31,6 +31,11 @@ package org.lockss.app;
 import org.lockss.test.*;
 import org.lockss.util.*;
 
+import java.util.Properties;
+
+import static org.lockss.app.ServiceDescr.SVC_OPENWAYBACK;
+import static org.lockss.app.ServiceDescr.SVC_PYWB;
+
 public class TestServiceDescr extends LockssTestCase {
   private final static Logger log = Logger.getLogger();
 
@@ -61,10 +66,8 @@ public class TestServiceDescr extends LockssTestCase {
   public void testBuiltin() {
     assertEquals(new ServiceDescr("Config Service", "cfg"),
 		 ServiceDescr.SVC_CONFIG);
-    assertEquals(new ServiceDescr("Metadata Extraction Service", "mdx"),
-		 ServiceDescr.SVC_MDX);
-    assertEquals(new ServiceDescr("Metadata Query Service", "mdq"),
-		 ServiceDescr.SVC_MDQ);
+    assertEquals(new ServiceDescr("Metadata Service", "md"),
+		 ServiceDescr.SVC_MD);
     assertEquals(new ServiceDescr("Poller Service", "poller"),
 		 ServiceDescr.SVC_POLLER);
     assertEquals(new ServiceDescr("Crawler Service", "crawler"),
@@ -74,16 +77,18 @@ public class TestServiceDescr extends LockssTestCase {
 
     assertEquals(new ServiceDescr("Config Service", "cfg"),
 		 ServiceDescr.fromAbbrev("cfg"));
-    assertEquals(new ServiceDescr("Metadata Extraction Service", "mdx"),
-		 ServiceDescr.fromAbbrev("mdx"));
-    assertEquals(new ServiceDescr("Metadata Query Service", "mdq"),
-		 ServiceDescr.fromAbbrev("mdq"));
+    assertEquals(new ServiceDescr("Metadata Service", "md"),
+		 ServiceDescr.fromAbbrev("md"));
     assertEquals(new ServiceDescr("Poller Service", "poller"),
 		 ServiceDescr.fromAbbrev("poller"));
     assertEquals(new ServiceDescr("Crawler Service", "crawler"),
 		 ServiceDescr.fromAbbrev("crawler"));
     assertEquals(new ServiceDescr("Repository Service", "repo"),
 		 ServiceDescr.fromAbbrev("repo"));
+    assertEquals(new ServiceDescr("OpenWayback Service", "owb"),
+        ServiceDescr.fromAbbrev("owb"));
+    assertEquals(new ServiceDescr("PyWb Service", "pywb"),
+        ServiceDescr.fromAbbrev("pywb"));
 
     try {
       ServiceDescr.register(new ServiceDescr("Not Repository Service", "repo"));
@@ -91,6 +96,27 @@ public class TestServiceDescr extends LockssTestCase {
     } catch (IllegalStateException e) {
     }
 
+  }
+
+  public void testGetServiceUrls() {
+    ServiceDescr svcDescr = new ServiceDescr("LOCKSS Service", "lockss");
+    ServiceBinding svcBinding = new ServiceBinding("test.lockss.org", 123, 456);
+
+    // Default service URL
+    assertEquals("http://test.lockss.org:456",
+        svcDescr.getServiceUrl(svcBinding, null));
+
+    // OpenWayback
+    String owbUrl = SVC_OPENWAYBACK.getServiceUrl(
+        svcBinding, PropUtil.fromArgs("url", "http://example.lockss.org/"));
+    assertEquals("http://test.lockss.org:456/wayback/*/http://example.lockss.org/", owbUrl);
+
+    // PyWb
+    String pywbUrl = SVC_PYWB.getServiceUrl(
+        svcBinding, PropUtil.fromArgs(
+            "url", "http://example.lockss.org/",
+            "namespace", "test-namespace"));
+    assertEquals("http://test.lockss.org:456/test-namespace/*/http://example.lockss.org/", pywbUrl);
   }
 }
 

@@ -247,27 +247,36 @@ public class ProxyAndContent extends LockssServlet {
 					   getEnableParamDefault());
     }
 
+    /**
+     * Retrieves the default port for the server configuration. The method determines the port value
+     * based on several conditions, including the form input, configuration parameters, or the provided
+     * default settings. If no valid port is resolved, an empty string is returned.
+     *
+     * @return the default port as a string if a valid port is found; otherwise, an empty string
+     */
     String getDefaultPort() {
       String port = null;
       if (isForm) {
-	port = formPort;
+        port = formPort;
       }
       if (StringUtil.isNullString(port)) {
-	port = CurrentConfig.getParam(getPortParam());
+        port = CurrentConfig.getParam(getPortParam());
       }
       if (StringUtil.isNullString(port)) {
-	if (getPortDefault() > 0) {
-	  port = Integer.toString(getPortDefault());
-	}
+        if (getPortDefault() > 0) {
+          port = Integer.toString(getPortDefault());
+        }
       }
 
+      // Validate that we received an integer
       if (!StringUtil.isNullString(port)) {
-	try {
-	  int portNumber = Integer.parseInt(port);
-	  if (portNumber <= 0) {
-	    port = "";
-	  }
-	} catch (NumberFormatException nfeIgnore) {}
+        try {
+          int portNumber = Integer.parseInt(port);
+          if (portNumber <= 0) {
+            port = "";
+          }
+        } catch (NumberFormatException ignored) {
+        }
       }
       return port;
     }
@@ -304,33 +313,33 @@ public class ProxyAndContent extends LockssServlet {
       enable = formEnable;
       port = -1;
       try {
-	port = Integer.parseInt(formPort);
+        port = Integer.parseInt(getDefaultPort());
       } catch (NumberFormatException nfe) {
-	if (formEnable) {
-        // bad number is an error only if enabling
-	  errList.add(getName() + " port must be a number: " + formPort);
-	}
+        if (formEnable) {
+          // bad number is an error only if enabling
+          errList.add(getName() + " port must be a number: " + formPort);
+        }
       }
       if (formEnable && !isLegalPort(port) && !isDuplicatePort(port)) {
-	errList.add("Illegal " + getName() + " port number: " + formPort
-          + ", must be >=1024 and not in use");
+        errList.add("Illegal " + getName() + " port number: " + formPort
+            + ", must be >=1024 and not in use");
       }
       sslPort = -1;
       if (!StringUtil.isNullString(formSslPort)) {
-	try {
-	  sslPort = Integer.parseInt(formSslPort);
-	} catch (NumberFormatException nfe) {
-	  if (formEnable) {
-	    // bad number is an error only if enabling
-	    errList.add(getName() +
-			" SSL port must be a number: " + formSslPort);
-	  }
-	}
-	if (formEnable && !isLegalPort(sslPort) && !isDuplicatePort(sslPort)) {
-	  errList.add("Illegal " + getName() +
-		      " SSL port number: " + formSslPort
-		      + ", must be >=1024 and not in use");
-	}
+        try {
+          sslPort = Integer.parseInt(getDefaultSslPort());
+        } catch (NumberFormatException nfe) {
+          if (formEnable) {
+            // bad number is an error only if enabling
+            errList.add(getName() +
+                " SSL port must be a number: " + formSslPort);
+          }
+        }
+        if (formEnable && !isLegalPort(sslPort) && !isDuplicatePort(sslPort)) {
+          errList.add("Illegal " + getName() +
+              " SSL port number: " + formSslPort
+              + ", must be >=1024 and not in use");
+        }
       }
     }
 
@@ -353,6 +362,10 @@ public class ProxyAndContent extends LockssServlet {
     abstract List getUsablePorts();
     abstract boolean isLegalPort(int port);
     abstract boolean isDuplicatePort(int port);
+
+    public boolean isReadOnlyPorts() {
+      return true;
+    }
   }
 
   class TcpServerInfo extends ServerInfo {
@@ -494,6 +507,7 @@ public class ProxyAndContent extends LockssServlet {
     ServletUtil.layoutEnablePortRow(this,
                                     tbl,
                                     si.getEnableKey(),
+                                    si.isReadOnlyPorts(),
                                     si.getDefaultEnable(),
                                     enableDescription,
                                     enableFootnote,
@@ -557,6 +571,14 @@ public class ProxyAndContent extends LockssServlet {
     // Start page
     Page page = newPage();
     addJavaScript(page);
+    if (isInMigrationMode() &&
+        CurrentConfig.getBooleanParam(ConfigManager.PARAM_PROXY_IN_MIGRATION_MODE,
+                                      ConfigManager.DEFAULT_PROXY_IN_MIGRATION_MODE)) {
+      ServletUtil.layoutExplanationBlock(page,
+          "<b>WARNING:</b> LOCKSS is currently in migration mode."
+          + "  Crawl proxy settings are managed automatically"
+          + " &mdash; changing them may break content migration.");
+    }
     ServletUtil.layoutExplanationBlock(page, PROXY_CLIENT_EXPLANATION);
     layoutErrorBlock(page);
 
@@ -635,7 +657,7 @@ public class ProxyAndContent extends LockssServlet {
 
 
   private Iterator getDescriptors_Content() {
-    return new ObjectArrayIterator(new LinkWithExplanation[] {
+    return new ObjectArrayIterator((Object[])new LinkWithExplanation[] {
         makeDescriptor("Edit Default Access Group",
                        BAD_ACTION,
                        "Edit the members of the default access group."),

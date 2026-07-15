@@ -38,6 +38,7 @@ import org.apache.commons.collections4.IteratorUtils;
 import org.apache.commons.collections4.map.LRUMap;
 import org.apache.commons.io.filefilter.*;
 import org.apache.commons.lang3.StringUtils;
+import org.apache.commons.lang3.tuple.Pair;
 import org.apache.solr.client.solrj.*;
 import org.apache.solr.client.solrj.beans.DocumentObjectBinder;
 import org.apache.solr.client.solrj.impl.BaseHttpSolrClient;
@@ -59,6 +60,7 @@ import org.lockss.repository.RepositoryManagerSql;
 import org.lockss.rs.BaseLockssRepository;
 import org.lockss.rs.io.index.AbstractArtifactIndex;
 import org.lockss.rs.io.index.ArtifactIndex;
+import org.lockss.rs.io.index.ArtifactIndexVersion;
 import org.lockss.util.io.FileUtil;
 import org.lockss.util.rest.repo.model.*;
 import org.lockss.util.rest.repo.util.ArtifactComparators;
@@ -80,7 +82,6 @@ import java.time.ZoneOffset;
 import java.time.format.DateTimeFormatter;
 import java.util.*;
 import java.util.concurrent.*;
-import java.util.function.Predicate;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
@@ -92,6 +93,13 @@ import java.util.stream.StreamSupport;
  */
 public class SolrArtifactIndex extends AbstractArtifactIndex {
   private final static L4JLogger log = L4JLogger.getLogger();
+
+  @Override
+  public ArtifactIndexVersion getArtifactIndexTargetVersion() {
+    return new ArtifactIndexVersion()
+        .setIndexType(SolrArtifactIndex.class.getSimpleName())
+        .setIndexVersion(1);
+  }
 
   private final static String DEFAULT_COLLECTION_NAME = "lockss-repo";
   public final static long DEFAULT_SOLR_HARDCOMMIT_INTERVAL = 15000;
@@ -116,10 +124,10 @@ public class SolrArtifactIndex extends AbstractArtifactIndex {
 
   protected LockssApp theApp = null;
 
-  private Map<String, CompletableFuture<AuSize>> auSizeFutures =
+  private final Map<String, CompletableFuture<AuSize>> auSizeFutures =
       new ConcurrentHashMap<>();
 
-  private Map<String, Boolean> invalidatedAuSizes =
+  private final Map<String, Boolean> invalidatedAuSizes =
       Collections.synchronizedMap(new LRUMap<>(100));
 
   /**
@@ -147,7 +155,7 @@ public class SolrArtifactIndex extends AbstractArtifactIndex {
   /**
    * Map from artifact stem to semaphore. Used for artifact version locking.
    */
-  private SemaphoreMap<ArtifactIdentifier.ArtifactStem> versionLock = new SemaphoreMap<>();
+  private final SemaphoreMap<ArtifactIdentifier.ArtifactStem> versionLock = new SemaphoreMap<>();
 
   /**
    * Handle to Solr soft commit journal writer.
@@ -287,10 +295,8 @@ public class SolrArtifactIndex extends AbstractArtifactIndex {
       }
 
       // Path to artifact index state directory
-      Path indexStateDir =
-          ((BaseLockssRepository)repository).getRepositoryStateDir()
-              .toPath()
-              .resolve("index"); // TODO: Parameterize
+      Path indexStateDir = repository.getRepositoryStateDirPath()
+          .resolve("index"); // TODO: Parameterize
 
       // Ensure index state directory exists
       FileUtil.ensureDirExists(indexStateDir.toFile());
@@ -400,9 +406,7 @@ public class SolrArtifactIndex extends AbstractArtifactIndex {
    * @return A {@link Path} containing the path of the journal.
    */
   private Path getSolrJournalDirectory() {
-    return ((BaseLockssRepository) repository)
-        .getRepositoryStateDir()
-        .toPath()
+    return repository.getRepositoryStateDirPath()
         .resolve("index/solr");
   }
 
@@ -458,7 +462,7 @@ public class SolrArtifactIndex extends AbstractArtifactIndex {
    * hardCommitInterval ms.
    */
   private void scheduleHardCommitter() {
-    ((BaseLockssRepository) repository).getScheduledExecutorService()
+    repository.getScheduledExecutorService()
       .schedule(new SolrHardCommitTask(), hardCommitInterval, TimeUnit.MILLISECONDS);
     log.debug2("Scheduled Solr hard commit in {}",
                TimeUtil.timeIntervalToString(hardCommitInterval));
@@ -816,21 +820,11 @@ public class SolrArtifactIndex extends AbstractArtifactIndex {
       return;
     }
 
-    boolean isFirstArtifact = true;
+    Set<Pair<String,String>> nsAuids = new HashSet<>();
 
     while (ai.hasNext()) {
       Artifact artifact = ai.next();
-
-      // This is ugly but we need the namespace and AUID of this batch of artifacts
-      if (isFirstArtifact) {
-        try {
-          invalidateAuSize(artifact.getNamespace(), artifact.getAuid());
-        } catch (DbException e) {
-          // TODO
-          log.warn("Could not invalidate AU size", e);
-        }
-        isFirstArtifact = false;
-      }
+      nsAuids.add(Pair.of(artifact.getNamespace(), artifact.getAuid()));
 
       req.add(objBinder.toSolrInputDocument(ArtifactSolrDocument.fromArtifact(artifact)));
       docsAdded++;
@@ -864,7 +858,35 @@ public class SolrArtifactIndex extends AbstractArtifactIndex {
       log.error("Failed to perform hard commit", e);
     }
 
+    for (Pair<String,String> nsAuid : nsAuids) {
+      try {
+        invalidateAuSize(nsAuid.getLeft(), nsAuid.getRight());
+      } catch (DbException e) {
+        log.warn("Could not invalidate AU size for: {}",
+                 nsAuid.getRight(), e);
+      }
+    }
+
     log.debug("Total documents added = {}", docsAdded);
+  }
+
+  /**
+   * Adds or updates an artifact to the artifactIndex.
+   *
+   * @param artifact The {@link Artifact} to be added to this index.
+   */
+  @Override
+  public void reindexArtifact(Artifact artifact) throws IOException {
+    indexArtifact(artifact);
+  }
+  /**
+   * Bulk index artifacts into Solr.
+   *
+   * @param artifacts An {@link Iterable<Artifact>} containing the {@link Artifact}s to index.
+   */
+  @Override
+  public void reindexArtifacts(Iterable<Artifact> artifacts) {
+    indexArtifacts(artifacts);
   }
 
   private void logSolrUpdate(SolrCommitJournal.SolrOperation op, String artifactUuid, String data) {
@@ -1123,6 +1145,28 @@ public class SolrArtifactIndex extends AbstractArtifactIndex {
       // Artifact not found in index; nothing deleted
       log.debug("Artifact not found [uuid: {}]", artifactUuid);
       return false;
+    }
+  }
+
+  @Override
+  public void clearIndex() throws IOException {
+    if (indexState == ArtifactIndexState.RUNNING) {
+      throw new IllegalStateException("Cannot clear the artifact index while in running state");
+    }
+    try {
+      UpdateRequest request = new UpdateRequest();
+      request.deleteByQuery("*:*");
+      addSolrCredentials(request);
+      handleSolrResponse(
+          request.process(solrClient, solrCollection),
+          "Problem clearing Solr index");
+      handleSolrResponse(
+          handleSolrCommit(SolrCommitStrategy.HARD),
+          "Problem committing Solr index clear");
+      invalidatedAuSizes.clear();
+      log.info("Cleared Solr index [collection: {}]", solrCollection);
+    } catch (SolrResponseErrorException | SolrServerException e) {
+      throw new IOException("Could not clear Solr index", e);
     }
   }
 
@@ -1460,17 +1504,17 @@ public class SolrArtifactIndex extends AbstractArtifactIndex {
    *
    * @param namespace A String with the namespace.
    * @param urlPrefix     A String with the URL prefix.
-   * @param versions   A {@link ArtifactVersions} indicating whether to include all versions or only the latest
+   * @param versions   A {@link VersionsEnum} indicating whether to include all versions or only the latest
    *                   versions of an artifact.
    * @return An {@code Iterator<Artifact>} containing the committed artifacts of all versions of all URLs matching a
    * prefix.
    */
   @Override
   public Iterable<Artifact> getArtifactsWithUrlPrefixFromAllAus(String namespace, String urlPrefix,
-                                                                ArtifactVersions versions) throws IOException {
+                                                                VersionsEnum versions) throws IOException {
 
-    if (!(versions == ArtifactVersions.ALL ||
-        versions == ArtifactVersions.LATEST)) {
+    if (!(versions == VersionsEnum.ALL ||
+        versions == VersionsEnum.LATEST)) {
       throw new IllegalArgumentException("Versions must be ALL or LATEST");
     }
 
@@ -1505,7 +1549,7 @@ public class SolrArtifactIndex extends AbstractArtifactIndex {
     Iterator<Artifact> allVersionsIterator =
         new SolrQueryArtifactIterator(solrCollection, solrClient, solrCredentials, q);
 
-    if (versions == ArtifactVersions.LATEST) {
+    if (versions == VersionsEnum.LATEST) {
       // Convert Iterator<Artifact> to Stream<Artifact>
       Stream<Artifact> allVersions = StreamSupport.stream(
           Spliterators.spliteratorUnknownSize(allVersionsIterator, Spliterator.ORDERED), false);
@@ -1561,16 +1605,16 @@ public class SolrArtifactIndex extends AbstractArtifactIndex {
    *
    * @param namespace A {@code String} with the namespace.
    * @param url        A {@code String} with the URL to be matched.
-   * @param versions   A {@link ArtifactVersions} indicating whether to include all versions or only the latest
+   * @param versions   A {@link VersionsEnum} indicating whether to include all versions or only the latest
    *                   versions of an artifact.
    * @return An {@code Iterator<Artifact>} containing the committed artifacts of all versions of a given URL.
    */
   @Override
-  public Iterable<Artifact> getArtifactsWithUrlFromAllAus(String namespace, String url, ArtifactVersions versions)
+  public Iterable<Artifact> getArtifactsWithUrlFromAllAus(String namespace, String url, VersionsEnum versions)
       throws IOException {
 
-    if (!(versions == ArtifactVersions.ALL ||
-        versions == ArtifactVersions.LATEST)) {
+    if (!(versions == VersionsEnum.ALL ||
+        versions == VersionsEnum.LATEST)) {
       throw new IllegalArgumentException("Versions must be ALL or LATEST");
     }
 
@@ -1602,7 +1646,7 @@ public class SolrArtifactIndex extends AbstractArtifactIndex {
     Iterator<Artifact> allVersionsIterator =
         new SolrQueryArtifactIterator(solrCollection, solrClient, solrCredentials, q);
 
-    if (versions == ArtifactVersions.LATEST) {
+    if (versions == VersionsEnum.LATEST) {
       // Convert Iterator<Artifact> to Stream<Artifact>
       Stream<Artifact> allVersions = StreamSupport.stream(
           Spliterators.spliteratorUnknownSize(allVersionsIterator, Spliterator.ORDERED), false);

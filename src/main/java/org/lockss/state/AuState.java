@@ -56,16 +56,12 @@ public class AuState implements LockssSerializable {
 
   public enum AccessType {OpenAccess, Subscription};
 
-
   protected AuStateBean bean;
-
-  protected transient long lastPollAttempt; // last time we attempted to
-					    // start a poll
 
   // Non-persistent state vars
 
-  // saves previous lastCrawl* state while crawl is running
-  protected transient AuStateBean previousCrawlState = null;
+  protected transient long lastPollAttempt; // last time we attempted to
+					    // start a poll
 
   // Runtime (non-state) vars
   protected transient ArchivalUnit au;
@@ -77,12 +73,13 @@ public class AuState implements LockssSerializable {
   // deprecated, kept for compatibility with old state files
   protected transient long lastTreeWalk = -1;
 
-  // should be deprecated?
-  protected HashSet crawlUrls;
-
   // deprecated, kept for compatibility with old state files
   /** @deprecated */
+  @Deprecated
   protected transient boolean hasV3Poll = false;
+
+  // should be deprecated?
+  protected HashSet crawlUrls;
 
   // No longer set, never had a non-standard value
   protected transient String lastPollResultMsg;   // result of last poll
@@ -198,7 +195,11 @@ public class AuState implements LockssSerializable {
   }
 
   public boolean isCrawlActive() {
-    return previousCrawlState != null;
+    return getPrevState() != null;
+  }
+
+  private AuStateBean.PreviousCrawlState getPrevState() {
+    return bean.previousCrawlState;
   }
 
   /**
@@ -234,7 +235,7 @@ public class AuState implements LockssSerializable {
    */
   public long getLastCrawlAttempt() {
     if (isCrawlActive()) {
-      return previousCrawlState.getLastCrawlAttempt();
+      return getPrevState().lastCrawlAttempt;
     }
     return bean.lastCrawlAttempt;
   }
@@ -244,7 +245,7 @@ public class AuState implements LockssSerializable {
    */
   public int getLastCrawlResult() {
     if (isCrawlActive()) {
-      return previousCrawlState.getLastCrawlResult();
+      return getPrevState().lastCrawlResult;
     }
     return bean.lastCrawlResult;
   }
@@ -254,7 +255,7 @@ public class AuState implements LockssSerializable {
    */
   public synchronized String getLastCrawlResultMsg() {
     if (isCrawlActive()) {
-      return previousCrawlState.getLastCrawlResultMsg();
+      return getPrevState().lastCrawlResultMsg;
     }
     if (bean.lastCrawlResultMsg == null) {
       return CrawlerStatus.getDefaultMessage(bean.lastCrawlResult);
@@ -276,7 +277,7 @@ public class AuState implements LockssSerializable {
    */
   public long getLastDeepCrawlAttempt() {
     if (isCrawlActive()) {
-      return previousCrawlState.getLastDeepCrawlAttempt();
+      return getPrevState().lastDeepCrawlAttempt;
     }
     return bean.lastDeepCrawlAttempt;
   }
@@ -286,7 +287,7 @@ public class AuState implements LockssSerializable {
    */
   public int getLastDeepCrawlResult() {
     if (isCrawlActive()) {
-      return previousCrawlState.getLastDeepCrawlResult();
+      return getPrevState().lastDeepCrawlResult;
     }
     return bean.lastDeepCrawlResult;
   }
@@ -296,7 +297,7 @@ public class AuState implements LockssSerializable {
    */
   public String getLastDeepCrawlResultMsg() {
     if (isCrawlActive()) {
-      return previousCrawlState.getLastDeepCrawlResultMsg();
+      return getPrevState().lastDeepCrawlResultMsg;
     }
     if (bean.lastDeepCrawlResultMsg == null) {
       return CrawlerStatus.getDefaultMessage(bean.lastDeepCrawlResult);
@@ -571,10 +572,10 @@ public class AuState implements LockssSerializable {
   }
 
   private void saveLastCrawl() {
-    if (previousCrawlState != null) {
+    if (getPrevState() != null) {
       logger.error("saveLastCrawl() called twice", new Throwable());
     }
-    previousCrawlState = saveCrawlState();
+    bean.previousCrawlState = saveCrawlState();
   }
 
   /**
@@ -602,9 +603,11 @@ public class AuState implements LockssSerializable {
       bean.lastDeepCrawlResult = Crawler.STATUS_RUNNING_AT_CRASH;
       bean.lastDeepCrawlResultMsg = null;
       needSave("lastCrawlAttempt", "lastCrawlResult", "lastCrawlResultMsg",
-	       "lastDeepCrawlAttempt", "lastDeepCrawlResult", "lastDeepCrawlResultMsg");
+               "lastDeepCrawlAttempt", "lastDeepCrawlResult", "lastDeepCrawlResultMsg",
+               "previousCrawlState");
     } else {
-      needSave("lastCrawlAttempt", "lastCrawlResult", "lastCrawlResultMsg");
+      needSave("lastCrawlAttempt", "lastCrawlResult", "lastCrawlResultMsg",
+               "previousCrawlState");
     }
   }
 
@@ -640,9 +643,10 @@ public class AuState implements LockssSerializable {
       logger.warning("Storing Active state", new Throwable());
       break;
     }
-    previousCrawlState = null;
+    bean.previousCrawlState = null;
     needSave("lastCrawlTime", "lastCrawlAttempt",
-	     "lastCrawlResult", "lastCrawlResultMsg");
+             "lastCrawlResult", "lastCrawlResultMsg",
+             "previousCrawlState");
   }
 
   /**
@@ -650,7 +654,7 @@ public class AuState implements LockssSerializable {
    */
   public synchronized void contentChanged() {
     // Is a crawl in progress?
-    if (previousCrawlState != null) {
+    if (getPrevState() != null) {
       // Is the previous content change after the start of this
       // crawl?
       if (bean.lastContentChange > bean.lastCrawlAttempt) {
@@ -663,8 +667,8 @@ public class AuState implements LockssSerializable {
     needSave("lastContentChange");
   }
 
-  private AuStateBean saveCrawlState() {
-    AuStateBean res = new AuStateBean();
+  private AuStateBean.PreviousCrawlState saveCrawlState() {
+    AuStateBean.PreviousCrawlState res = new AuStateBean.PreviousCrawlState();
     res.lastCrawlResultMsg = getLastCrawlResultMsg();
     res.lastCrawlResult = getLastCrawlResult();
     res.lastCrawlAttempt = getLastCrawlAttempt();
@@ -808,6 +812,7 @@ public class AuState implements LockssSerializable {
    * server restarts.  Consequently, it is non-persistent.
    * @deprecated
    */
+  @Deprecated
   void setLastTreeWalkTime() {
     lastTreeWalk = TimeBase.nowMs();
   }
@@ -817,6 +822,7 @@ public class AuState implements LockssSerializable {
    * @return a {@link Collection}
    * @deprecated
    */
+  @Deprecated
   public HashSet getCrawlUrls() {
     if (crawlUrls==null) {
       crawlUrls = new HashSet();

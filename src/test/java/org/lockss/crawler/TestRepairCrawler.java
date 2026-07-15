@@ -436,6 +436,7 @@ public class TestRepairCrawler extends LockssTestCase {
 
     assertTrue("doCrawl() returned false", crawler.doCrawl());
     CrawlerStatus crawlStatus = crawler.getCrawlerStatus();
+    assertTrue(crawler.getCrawlerStatus().isRepairCrawl());
     assertEquals(3, crawlStatus.getNumFetched()); //2 repairs & permission page
     assertEquals(0, crawlStatus.getNumParsed());
     assertEquals(SetUtil.set(permissionPage, repairUrl1, repairUrl2),

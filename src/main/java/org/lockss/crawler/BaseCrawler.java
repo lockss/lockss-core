@@ -172,8 +172,14 @@ public abstract class BaseCrawler implements Crawler {
   protected Set<String> origStems;
   protected Set<String> cdnStems;
   protected AuCacheResultMap auResultMap;
+  protected Set<String> failedUrls = new HashSet<String>();
 
-  public enum StorePermissionScheme {Legacy, StoreAllInSpec};
+  public enum StorePermissionScheme {
+    Legacy,
+    StoreAllInSpec,
+    AllowOffHostExcursion,
+    AllowOffHostExcursionToOrigUrl,
+  };
 
   /**  the crawl queues are sorted.  <code>CrawlDate</code>:
    * By recency of previous crawl attempt, etc. (Attempts to give all AUs
@@ -195,7 +201,8 @@ public abstract class BaseCrawler implements Crawler {
   public static final String PARAM_STORE_PERMISSION_SCHEME =
     PREFIX + "storePermissionScheme";
   public static final StorePermissionScheme DEFAULT_STORE_PERMISSION_SCHEME =
-    StorePermissionScheme.Legacy;
+    StorePermissionScheme.AllowOffHostExcursion;
+//     StorePermissionScheme.Legacy;
   
   public static final String PARAM_MIME_TYPE_PAUSE_AFTER_304 =
     PREFIX + "mimeTypePauseAfter304";
@@ -376,6 +383,8 @@ public abstract class BaseCrawler implements Crawler {
       if (crawlMgr != null) {
         crl = crawlMgr.getCrawlRateLimiter(this);
       } else {
+        // This is only used by tests, not a problem that multiplier
+        // isn't applied
         crl = CrawlRateLimiter.Util.forAu(au);
       }
     }
@@ -527,32 +536,40 @@ public abstract class BaseCrawler implements Crawler {
   }
 
   protected boolean populatePermissionMap() {
-    Collection<String> permissionUrls = null;
     try {
-      permissionUrls = getCrawlSeed().getPermissionUrls();
-    } catch (ConfigurationException|PluginException|IOException e) {
-      logger.error("Could not compute permission URLs", e);
-      crawlStatus.setCrawlStatus(Crawler.STATUS_PLUGIN_ERROR, 
-                                 "Plugin failed to provide permission URLs");
-      return false;
-    }
-
-    permissionMap = new PermissionMap(getCrawlerFacade(),
-                                      getDaemonPermissionCheckers(),
-                                      au.makePermissionCheckers(),
-                                      permissionUrls);
-    String perHost = au.getPerHostPermissionPath();
-    if (perHost != null) {
+      Collection<String> permissionUrls = null;
       try {
-        permissionMap.setPerHostPermissionPath(perHost);
+        permissionUrls = getCrawlSeed().getPermissionUrls();
+      } catch (ConfigurationException | PluginException | IOException e) {
+        logger.error("Could not compute permission URLs", e);
+        crawlStatus.setCrawlStatus(Crawler.STATUS_PLUGIN_ERROR,
+            "Plugin failed to provide permission URLs");
+        return false;
       }
-      catch (MalformedURLException mue) {
-        logger.error("Plugin error", mue);
-        // XXX we currently just go on, should we do something else?
+
+      permissionMap = new PermissionMap(getCrawlerFacade(),
+          getDaemonPermissionCheckers(),
+          au.makePermissionCheckers(),
+          permissionUrls);
+      String perHost = au.getPerHostPermissionPath();
+      if (perHost != null) {
+        try {
+          permissionMap.setPerHostPermissionPath(perHost);
+        } catch (MalformedURLException mue) {
+          logger.error("Plugin error", mue);
+          // XXX we currently just go on, should we do something else?
+        }
       }
+      permissionMap.setFailOnPermissionError(paramFailOnPermissionError);
+      return permissionMap.populate();
+    } finally {
+      // Plugins with alternate permission URLs on the same host may
+      // get permission fetch errors and continue.  Ensure that a
+      // fetch is attempted for all such URLs during the normal crawl,
+      // in order for proper error handling.  (E.g., start URL failure
+      // usually causes the crawl to abort.)
+      failedUrls.clear();
     }
-    permissionMap.setFailOnPermissionError(paramFailOnPermissionError);
-    return permissionMap.populate();
   }
   
   /**
@@ -727,6 +744,12 @@ public abstract class BaseCrawler implements Crawler {
       break;
     case StoreAllInSpec:
       uf.setRedirectScheme(UrlFetcher.REDIRECT_SCHEME_STORE_ALL_IN_SPEC);
+      break;
+    case AllowOffHostExcursion:
+      uf.setRedirectScheme(UrlFetcher.REDIRECT_SCHEME_ALLOW_HOST_EXCURSION);
+      break;
+    case AllowOffHostExcursionToOrigUrl:
+      uf.setRedirectScheme(UrlFetcher.REDIRECT_SCHEME_ALLOW_HOST_EXCURSION_TO_ORIG_URL);
       break;
     }
     BitSet permFetchFlags = uf.getFetchFlags();

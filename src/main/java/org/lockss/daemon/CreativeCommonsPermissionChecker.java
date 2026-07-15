@@ -1,6 +1,6 @@
 /*
 
-Copyright (c) 2000-2024, Board of Trustees of Leland Stanford Jr. University
+Copyright (c) 2000-2025, Board of Trustees of Leland Stanford Jr. University
 
 Redistribution and use in source and binary forms, with or without
 modification, are permitted provided that the following conditions are met:
@@ -35,6 +35,7 @@ package org.lockss.daemon;
 import java.io.*;
 import java.util.regex.*;
 
+import org.apache.commons.lang3.StringUtils;
 import org.lockss.config.*;
 import org.lockss.plugin.*;
 import org.lockss.util.*;
@@ -168,7 +169,7 @@ public class CreativeCommonsPermissionChecker extends BasePermissionChecker {
                             permissionUrl, new MyLinkExtractorCallback());
     } catch (IOException ex) {
       log.error("Exception trying to parse permission URL " + permissionUrl,
-                   ex);
+                ex);
       return false;
     }
     if (foundCcLicense) {
@@ -197,22 +198,26 @@ public class CreativeCommonsPermissionChecker extends BasePermissionChecker {
           }
           if (beginsWithTag(link, LINKTAG) || beginsWithTag(link, ATAG)) {
             String relStr = getAttributeValue(REL, link);
-            if (LICENSE.equalsIgnoreCase(relStr)) {
-              // This tag has the rel="license" attribute
-              String candidateUrl = getAttributeValue(HREF, link);
-              if (candidateUrl == null) {
-                break;
-              }
-              if (log.isDebug2()) {
-                log.debug2("CC license URL: " + candidateUrl);
-              }
-              // Already checked that licensePat != null
-              Matcher mat = licensePat.matcher(candidateUrl);
-              if (log.isDebug2()) {
-                log.debug2("Match: " + mat.matches() + ": " + candidateUrl);
-              }
-              if (mat.find()) {
-                foundCcLicense = true;
+            if (relStr == null) {
+              relStr = "";
+            }
+            for (String relStrWord : StringUtils.split(relStr)) {
+              if (LICENSE.equalsIgnoreCase(relStrWord)) {
+                // This tag has the rel="license" attribute
+                String candidateUrl = getAttributeValue(HREF, link);
+                if (candidateUrl == null) {
+                  break;
+                }
+                candidateUrl = candidateUrl.trim();
+                log.debug2("Candidate license URL: " + candidateUrl);
+                Matcher mat = licensePat.matcher(candidateUrl);
+                if (mat.find()) {
+                  log.debug2("CC license found: " + candidateUrl);
+                  foundCcLicense = true;
+                }
+                else {
+                  log.debug2("CC license not found: " + candidateUrl);
+                }
               }
             }
           }

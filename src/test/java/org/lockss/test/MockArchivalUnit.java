@@ -377,6 +377,7 @@ public class MockArchivalUnit implements ArchivalUnit {
   /**
    * @deprecated
    */
+  @Deprecated
   public void addContent(String url, String content) {
     MockCachedUrl cu = (MockCachedUrl)makeCachedUrl(url);
     if (cu != null) {

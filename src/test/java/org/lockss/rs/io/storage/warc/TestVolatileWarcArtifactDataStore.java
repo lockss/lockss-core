@@ -30,7 +30,7 @@
 
 package org.lockss.rs.io.storage.warc;
 
-import org.apache.commons.io.output.ByteArrayOutputStream;
+import org.junit.jupiter.api.Test;
 import org.lockss.log.L4JLogger;
 import org.lockss.rs.BaseLockssRepository;
 import org.lockss.rs.io.index.ArtifactIndex;
@@ -39,6 +39,7 @@ import org.lockss.util.rest.repo.model.ArtifactIdentifier;
 import org.mockito.ArgumentMatchers;
 import org.springframework.util.MultiValueMap;
 
+import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.io.OutputStream;
 import java.net.URI;
@@ -51,7 +52,7 @@ import static org.mockito.Mockito.*;
 /**
  * Test class for {@link VolatileWarcArtifactDataStore}.
  */
-public class TestVolatileWarcArtifactStore extends AbstractWarcArtifactDataStoreTest<VolatileWarcArtifactDataStore> {
+public class TestVolatileWarcArtifactDataStore extends AbstractWarcArtifactDataStoreTest<VolatileWarcArtifactDataStore> {
   private final static L4JLogger log = L4JLogger.getLogger();
 
   // *******************************************************************************************************************
@@ -74,7 +75,8 @@ public class TestVolatileWarcArtifactStore extends AbstractWarcArtifactDataStore
   protected VolatileWarcArtifactDataStore makeWarcArtifactDataStore(
       ArtifactIndex index, VolatileWarcArtifactDataStore other) throws IOException {
 
-    VolatileWarcArtifactDataStore n_store = new VolatileWarcArtifactDataStore();
+    VolatileWarcArtifactDataStore n_store =
+        new VolatileWarcArtifactDataStore(store.basePaths[0]);
 
     // Mock getArtifactIndex() called by data store
     BaseLockssRepository repo = mock(BaseLockssRepository.class);
@@ -91,7 +93,7 @@ public class TestVolatileWarcArtifactStore extends AbstractWarcArtifactDataStore
 
   @Override
   protected Path[] expected_getBasePaths() {
-    return new Path[]{VolatileWarcArtifactDataStore.DEFAULT_BASEPATH};
+    return new Path[]{store.basePaths[0]};
   }
 
   @Override
@@ -145,30 +147,8 @@ public class TestVolatileWarcArtifactStore extends AbstractWarcArtifactDataStore
    */
   @Override
   public void testInitAuImpl() throws Exception {
-    List<Path> auPaths;
-
-    // Mocks
-    VolatileWarcArtifactDataStore ds = mock(VolatileWarcArtifactDataStore.class);
-    Path auPath = mock(Path.class);
-    ds.auPathsMap = mock(Map.class);
-
-    // Mock behavior
-    doCallRealMethod().when(ds).initAu(ArgumentMatchers.anyString(), ArgumentMatchers.anyString());
-    when(ds.initAuDir(NS1, AUID1)).thenReturn(auPath);
-
-    // Assert initAuDir() called if a list of AU paths does not exist in the map
-    auPaths = ds.initAu(NS1, AUID1);
-    assertNotNull(auPaths);
-    assertTrue(auPaths.contains(auPath));
-    verify(ds).initAuDir(NS1, AUID1);
-    clearInvocations(ds);
-
-    // Assert initAuDir() is not called if a list of AU paths exists in the map
-    auPaths = ds.initAu(NS1, AUID1);
-    assertNotNull(auPaths);
-    assertTrue(auPaths.contains(auPath));
-    verify(ds).initAuDir(NS1, AUID1);
-    clearInvocations(ds);
+    VolatileWarcArtifactDataStore ds = new VolatileWarcArtifactDataStore();
+    assertEmpty(ds.initAu(NS1, AUID1));
   }
 
   /**
@@ -180,7 +160,7 @@ public class TestVolatileWarcArtifactStore extends AbstractWarcArtifactDataStore
   public void testMakeStorageUrlImpl() throws Exception {
     ArtifactIdentifier aid = new ArtifactIdentifier(NS1, AUID1, "http://example.com/u1", 1);
 
-    Path activeWarcPath = store.getAuActiveWarcPath(aid.getNamespace(), aid.getAuid(), 4321L, false);
+    Path activeWarcPath = store.getAppendablePermanentWarcInAU(aid.getNamespace(), aid.getAuid(), false, 4321L);
 
     URI expectedStorageUrl = URI.create(String.format(
         "volatile://%s?offset=%d&length=%d",
@@ -217,9 +197,6 @@ public class TestVolatileWarcArtifactStore extends AbstractWarcArtifactDataStore
     // Assert a ByteArrayOutputStream is in the map for this WARC path
     OutputStream output = ds.getAppendableOutputStream(warcPath);
     assertNotNull(output);
-
-    // Assert that a WARC info record was written
-    verify(ds).writeWarcInfoRecord(output);
   }
 
   /**
@@ -234,7 +211,8 @@ public class TestVolatileWarcArtifactStore extends AbstractWarcArtifactDataStore
     Path warcPath = mock(Path.class);
 
     ds.warcs = new HashMap<>();
-    ByteArrayOutputStream output = new ByteArrayOutputStream();
+    VolatileWarcArtifactDataStore.TruncatableByteArrayOutputStream output =
+        new VolatileWarcArtifactDataStore.TruncatableByteArrayOutputStream();
 
     // Write 123 bytes
     for (int i = 0; i < 123; i++) {
@@ -342,24 +320,218 @@ public class TestVolatileWarcArtifactStore extends AbstractWarcArtifactDataStore
   }
 
   /**
-   * Test for {@link VolatileWarcArtifactDataStore#initAuDir(String, String)}.
-   *
-   * @throws Exception
+   * Test for {@link VolatileWarcArtifactDataStore#initAuDir(Path, String, String)}.
    */
-  // FIXME: This test seems kind of pointless - we're effectively exercising the mocks
   @Override
   public void testInitAuDirImpl() throws Exception {
-    // Mocks
+    Path basePath = Paths.get("/lockss");
     VolatileWarcArtifactDataStore ds = mock(VolatileWarcArtifactDataStore.class);
-    Path basePath = mock(Path.class);
-    Path auPath = mock(Path.class);
 
-    // Mock behavior
-    doCallRealMethod().when(ds).initAuDir(ArgumentMatchers.anyString(), ArgumentMatchers.anyString());
-    when(ds.getBasePaths()).thenReturn(new Path[]{basePath});
-    when(ds.getAuPath(basePath, NS1, AUID1)).thenReturn(auPath);
+    doCallRealMethod().when(ds).initAuDir(eq(basePath), ArgumentMatchers.anyString(), ArgumentMatchers.anyString());
+    doCallRealMethod().when(ds).generateAUPath(eq(basePath), ArgumentMatchers.anyString(), ArgumentMatchers.anyString());
+    doCallRealMethod().when(ds).getNamespacePath(eq(basePath), ArgumentMatchers.anyString());
+    doCallRealMethod().when(ds).getNamespacesBasePath(eq(basePath));
 
-    // Assert initAuDir() returns expected result
-    assertEquals(auPath, ds.initAuDir(NS1, AUID1));
+    Path expectedAuPath = Paths.get("/lockss/ns/ns1/au-116cf2bbfdcfbe0c9ad94987b00101cd");
+    Path auPath = ds.initAuDir(basePath, NS1, AUID1);
+    assertEquals(expectedAuPath, auPath);
+  }
+
+  // *******************************************************************************************************************
+  // * TRUNCATION TESTS
+  // *******************************************************************************************************************
+
+  /**
+   * Test that appending to a TruncatableByteArrayOutputStream after truncating works correctly.
+   */
+  @Test
+  public void testTruncate_thenAppend() throws Exception {
+    VolatileWarcArtifactDataStore.TruncatableByteArrayOutputStream out =
+        new VolatileWarcArtifactDataStore.TruncatableByteArrayOutputStream();
+
+    // Write initial data
+    byte[] initial = new byte[]{10, 20, 30, 40, 50};
+    out.write(initial);
+    assertEquals(5, out.size());
+
+    // Truncate to 3 bytes
+    out.truncate(3);
+    assertEquals(3, out.size());
+
+    // Append new data after truncation
+    byte[] appended = new byte[]{60, 70, 80};
+
+    out.write(appended);
+    assertEquals(6, out.size());
+
+    // Verify result: first 3 bytes from original + appended bytes
+    byte[] result = out.toByteArray();
+    assertArrayEquals(new byte[]{10, 20, 30, 60, 70, 80}, result);
+  }
+
+  /**
+   * Test that truncate() reduces size and retains the first M bytes.
+   */
+  @Test
+  public void testTruncate_reducesSize() throws Exception {
+    VolatileWarcArtifactDataStore.TruncatableByteArrayOutputStream out =
+        new VolatileWarcArtifactDataStore.TruncatableByteArrayOutputStream();
+
+    byte[] data = new byte[]{10, 20, 30, 40, 50};
+    out.write(data);
+    assertEquals(5, out.size());
+
+    out.truncate(3);
+    assertEquals(3, out.size());
+
+    byte[] result = out.toByteArray();
+    assertEquals(3, result.length);
+    assertEquals(10, result[0]);
+    assertEquals(20, result[1]);
+    assertEquals(30, result[2]);
+  }
+
+  /**
+   * Test that truncate(0) results in an empty stream.
+   */
+  @Test
+  public void testTruncate_toZero() throws Exception {
+    VolatileWarcArtifactDataStore.TruncatableByteArrayOutputStream out =
+        new VolatileWarcArtifactDataStore.TruncatableByteArrayOutputStream();
+
+    out.write(new byte[]{1, 2, 3});
+    assertEquals(3, out.size());
+
+    out.truncate(0);
+    assertEquals(0, out.size());
+    assertEquals(0, out.toByteArray().length);
+  }
+
+  /**
+   * Test that truncate(count) (current length) is a no-op.
+   */
+  @Test
+  public void testTruncate_toCurrentLength() throws Exception {
+    VolatileWarcArtifactDataStore.TruncatableByteArrayOutputStream out =
+        new VolatileWarcArtifactDataStore.TruncatableByteArrayOutputStream();
+
+    byte[] data = new byte[]{1, 2, 3, 4, 5};
+    out.write(data);
+    assertEquals(5, out.size());
+
+    out.truncate(5);
+    assertEquals(5, out.size());
+    assertArrayEquals(data, out.toByteArray());
+  }
+
+  /**
+   * Test that truncate() with a negative length throws IllegalArgumentException.
+   */
+  @Test
+  public void testTruncate_negativeLength() throws Exception {
+    VolatileWarcArtifactDataStore.TruncatableByteArrayOutputStream out =
+        new VolatileWarcArtifactDataStore.TruncatableByteArrayOutputStream();
+
+    out.write(new byte[]{1, 2, 3});
+
+    assertThrows(IllegalArgumentException.class, () -> out.truncate(-1));
+  }
+
+  /**
+   * Test that truncate() with length greater than count throws IllegalArgumentException.
+   */
+  @Test
+  public void testTruncate_lengthExceedsCount() throws Exception {
+    VolatileWarcArtifactDataStore.TruncatableByteArrayOutputStream out =
+        new VolatileWarcArtifactDataStore.TruncatableByteArrayOutputStream();
+
+    out.write(new byte[]{1, 2, 3});
+
+    assertThrows(IllegalArgumentException.class, () -> out.truncate(10));
+  }
+
+  /**
+   * Test that truncateWarc() throws FileNotFoundException when the WARC is not in the map.
+   */
+  @Test
+  public void testTruncateWarc_notInMap() throws Exception {
+    VolatileWarcArtifactDataStore ds = mock(VolatileWarcArtifactDataStore.class);
+    ds.warcs = new HashMap<>();
+    doCallRealMethod().when(ds).truncateWarc(ArgumentMatchers.any(), anyLong());
+
+    Path warcPath = Paths.get("/lockss/test.warc");
+
+    assertThrows(FileNotFoundException.class, () -> ds.truncateWarc(warcPath, 0));
+  }
+
+  /**
+   * Test that truncateWarc() correctly truncates bytes in a WARC present in the map.
+   */
+  @Test
+  public void testTruncateWarc_validTruncation() throws Exception {
+    VolatileWarcArtifactDataStore ds = mock(VolatileWarcArtifactDataStore.class);
+    ds.warcs = new HashMap<>();
+    doCallRealMethod().when(ds).truncateWarc(ArgumentMatchers.any(), anyLong());
+
+    Path warcPath = Paths.get("/lockss/test.warc");
+    VolatileWarcArtifactDataStore.TruncatableByteArrayOutputStream out =
+        new VolatileWarcArtifactDataStore.TruncatableByteArrayOutputStream();
+
+    byte[] data = new byte[]{10, 20, 30, 40, 50};
+    out.write(data);
+    ds.warcs.put(warcPath, out);
+
+    ds.truncateWarc(warcPath, 3);
+
+    assertEquals(3, out.size());
+    byte[] result = out.toByteArray();
+    assertEquals(3, result.length);
+    assertEquals(10, result[0]);
+    assertEquals(20, result[1]);
+    assertEquals(30, result[2]);
+  }
+
+  /**
+   * Test that truncateWarc() with length 0 empties the WARC.
+   */
+  @Test
+  public void testTruncateWarc_toZero() throws Exception {
+    VolatileWarcArtifactDataStore ds = mock(VolatileWarcArtifactDataStore.class);
+    ds.warcs = new HashMap<>();
+    doCallRealMethod().when(ds).truncateWarc(ArgumentMatchers.any(), anyLong());
+
+    Path warcPath = Paths.get("/lockss/test.warc");
+    VolatileWarcArtifactDataStore.TruncatableByteArrayOutputStream out =
+        new VolatileWarcArtifactDataStore.TruncatableByteArrayOutputStream();
+
+    out.write(new byte[]{1, 2, 3, 4, 5});
+    ds.warcs.put(warcPath, out);
+
+    ds.truncateWarc(warcPath, 0);
+
+    assertEquals(0, out.size());
+    assertEquals(0, out.toByteArray().length);
+  }
+
+  /**
+   * Test that truncateWarc() throws IOException when length exceeds WARC size.
+   */
+  @Test
+  public void testTruncateWarc_truncatePastLength() throws Exception {
+    VolatileWarcArtifactDataStore ds = mock(VolatileWarcArtifactDataStore.class);
+    ds.warcs = new HashMap<>();
+    doCallRealMethod().when(ds).truncateWarc(ArgumentMatchers.any(), anyLong());
+
+    Path warcPath = Paths.get("/lockss/test.warc");
+    VolatileWarcArtifactDataStore.TruncatableByteArrayOutputStream out =
+        new VolatileWarcArtifactDataStore.TruncatableByteArrayOutputStream();
+
+    out.write(new byte[]{1, 2, 3, 4, 5});
+    ds.warcs.put(warcPath, out);
+
+    assertThrows(IOException.class, () -> ds.truncateWarc(warcPath, 100));
+
+    // Verify WARC is unchanged
+    assertEquals(5, out.size());
   }
 }

@@ -602,6 +602,7 @@ public class ParticipantUserData implements LockssSerializable {
    * @deprecated Use setStatus instead.
    * @param s The status of this peer.
    */
+  @Deprecated
   public void setStatusString(String s) {
     // Not implemented
   }

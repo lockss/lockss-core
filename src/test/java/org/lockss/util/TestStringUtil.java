@@ -132,6 +132,8 @@ public class TestStringUtil extends LockssTestCase {
   }
 
   public void testSeparatedString() {
+    assertEquals("", StringUtil.separatedString(Collections.emptyList()));
+    assertEquals("", StringUtil.separatedString(Collections.emptyList(), ", "));
     assertEquals("1, 2, 3",
 		 StringUtil.separatedString(ListUtil.list("1","2","3")));
     assertEquals("1,2,3",
@@ -1301,6 +1303,8 @@ public class TestStringUtil extends LockssTestCase {
     assertEquals("1 box", StringUtil.numberOfUnits(1, "box", "boxes"));
     assertEquals("2 boxes", StringUtil.numberOfUnits(2, "box", "boxes"));
     assertEquals("-3 boxes", StringUtil.numberOfUnits(-3, "box", "boxes"));
+    assertEquals("3000000000 trees", StringUtil.numberOfUnits(3000000000L, "tree"));
+    assertEquals("3,000,000,000 trees", StringUtil.bigNumberOfUnits(3000000000L, "tree"));
   }
 
   public void testEqualsIgnoreCase() {
@@ -1451,5 +1455,13 @@ public class TestStringUtil extends LockssTestCase {
     assertSame("", StringUtil.nonNull(""));
     assertEquals("", StringUtil.nonNull(null));
   }
-  
+
+  public void testMaybeAuid() throws Exception {
+    assertFalse(StringUtil.maybeAuid(null));
+    assertFalse(StringUtil.maybeAuid(""));
+    assertTrue(StringUtil.maybeAuid("pack|plugin&x~1"));
+    assertFalse(StringUtil.maybeAuid("pack|plugin&x~"));
+    assertFalse(StringUtil.maybeAuid("pack|plugin&x1"));
+    assertFalse(StringUtil.maybeAuid("!pack.plugin&x~1"));
+  }
 }

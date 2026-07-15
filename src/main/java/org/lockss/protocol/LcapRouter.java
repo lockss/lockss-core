@@ -125,7 +125,7 @@ public class LcapRouter
         if (!StringUtil.isNullString(migrateFromVal)) {
           try {
             migrateFrom = idMgr.findPeerIdentity(migrateFromVal);
-            log.info("Forwading outgoing LCAP traffic to: " + migrateFrom);
+            log.info("Forwarding outgoing LCAP traffic to: " + migrateFrom);
           } catch (IdentityManager.MalformedIdentityKeyException e) {
             log.error("Malformed migrateFrom peer identity: " +
                       migrateFromVal);
@@ -136,6 +136,10 @@ public class LcapRouter
         }
       }
     }
+  }
+
+  public PeerIdentity getMigrateFrom() {
+    return migrateFrom;
   }
 
   /** Send a message to a peer.

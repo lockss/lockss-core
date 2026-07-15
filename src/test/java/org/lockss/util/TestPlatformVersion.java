@@ -1,10 +1,6 @@
 /*
- * $Id$
- */
 
-/*
-
-Copyright (c) 2000-2003 Board of Trustees of Leland Stanford Jr. University,
+Copyright (c) 2000-2025 Board of Trustees of Leland Stanford Jr. University,
 all rights reserved.
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
@@ -43,7 +39,7 @@ public class TestPlatformVersion extends LockssTestCase {
     org.lockss.util.PlatformVersion.class
   };
 
-  private static String OPENBSD = "OpenBSD CD";
+  private static String OPENBSD = "OpenBSD_CD";
 
   public void testOld() throws Exception {
     PlatformVersion a = new PlatformVersion("1");
@@ -82,9 +78,9 @@ public class TestPlatformVersion extends LockssTestCase {
     assertEquals(1, a.toLong());
     assertEquals("foo", a.getName());
     assertEquals("foo-1", a.toString());
-    PlatformVersion b = new PlatformVersion("now is the time-123");
+    PlatformVersion b = new PlatformVersion("now_is_the_time-123");
     assertEquals(123, b.toLong());
-    assertEquals("now is the time", b.getName());
+    assertEquals("now_is_the_time", b.getName());
     PlatformVersion c = new PlatformVersion("plat-321-foobar");
     assertEquals(321, c.toLong());
     assertEquals("plat", c.getName());
@@ -107,6 +103,39 @@ public class TestPlatformVersion extends LockssTestCase {
       new PlatformVersion("a-123456789012");
       fail("a-123456789012 Should have thrown.");
     } catch (IllegalArgumentException e) {}
+  }
+
+  public void testKube() {
+    {
+      PlatformVersion pv = new PlatformVersion("K8s v1.31.5-1");
+      assertEquals("K8s 1.31.5-1", pv.toString(" "));
+      assertEquals("K8s-1.31.5-1", pv.toString());
+      assertEquals(1031005, pv.toLong());
+      assertEquals("1.31.5", pv.getVersion());
+      assertEquals("K8s", pv.getName());
+      assertTrue(pv.isKubernetes());
+      assertFalse(pv.isRuncluster());
+    }
+    {
+      PlatformVersion pv = new PlatformVersion("K8s v1.31.5+k3s1-1");
+      assertEquals("K8s 1.31.5-k3s1-1", pv.toString(" "));
+      assertEquals("K8s-1.31.5-k3s1-1", pv.toString());
+      assertEquals(1031005, pv.toLong());
+      assertEquals("1.31.5", pv.getVersion());
+      assertEquals("K8s", pv.getName());
+      assertTrue(pv.isKubernetes());
+      assertFalse(pv.isRuncluster());
+    }
+  }
+
+  public void testRuncluster() {
+    PlatformVersion pv = new PlatformVersion("runcluster-6");
+    assertEquals("runcluster-6", pv.toString());
+    assertEquals("runcluster 6", pv.toString(" "));
+    assertTrue(pv.isRuncluster());
+    assertFalse(pv.isKubernetes());
+    assertEquals(6, pv.toLong());
+    assertEquals("6", pv.getVersion());
   }
 
   public void testIllegalFormat() {

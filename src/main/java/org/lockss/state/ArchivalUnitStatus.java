@@ -32,10 +32,10 @@ POSSIBILITY OF SUCH DAMAGE.
 
 package org.lockss.state;
 
-import java.io.*;
 import java.util.*;
+import java.util.function.Consumer;
 import java.text.*;
-import java.net.MalformedURLException;
+import org.apache.commons.lang.mutable.MutableBoolean;
 
 import org.lockss.config.*;
 import org.lockss.daemon.*;
@@ -607,12 +607,15 @@ public class ArchivalUnitStatus
     static final String TABLE_TITLE = "AUs containing URL";
     static final String COL_AU_NAME = "AuName";
     static final String COL_SIZE = "Size";
+    static final String COL_COMPRESSED = "Compressed";
     static final String COL_COLLECTED_DATE = "CollectedDate";
     static final String COL_VERSIONS = "Versions";
 
     private static final List columnDescriptors = ListUtil.list(
         new ColumnDescriptor(COL_AU_NAME, "AU", ColumnDescriptor.TYPE_STRING),
         new ColumnDescriptor(COL_SIZE, "Size", ColumnDescriptor.TYPE_INT),
+        new ColumnDescriptor(COL_COMPRESSED, "C", ColumnDescriptor.TYPE_STRING,
+                             "Content is compressed"),
         new ColumnDescriptor(COL_COLLECTED_DATE, "Date Collected",
             ColumnDescriptor.TYPE_DATE),
         new ColumnDescriptor(COL_VERSIONS, "Versions", ColumnDescriptor.TYPE_INT)
@@ -647,9 +650,15 @@ public class ArchivalUnitStatus
         if (cuLst.isEmpty()) {
           table.setSummaryInfo(getNoMatchSummaryInfo());
         } else {
-          table.setColumnDescriptors(columnDescriptors);
+          final MutableBoolean includeCompressed = new MutableBoolean(false);
+          table.setRows(getRows(table, cuLst,
+                                (x) -> includeCompressed.setValue(x)));
+          if (!includeCompressed.booleanValue()) {
+            table.setColumnDescriptors(columnDescriptors, null, "-Compressed");
+          } else {
+            table.setColumnDescriptors(columnDescriptors);
+          }
           table.setDefaultSortRules(sortRules);
-          table.setRows(getRows(table, cuLst));
         }
       } catch (Exception e) {
         logger.warning("Error building table", e);
@@ -660,13 +669,14 @@ public class ArchivalUnitStatus
     }
 
     private List getRows(StatusTable table,
-        List<CachedUrl> cuLst) {
+                         List<CachedUrl> cuLst,
+                         Consumer<Boolean> includeCompressedColumnSetter) {
       PluginManager pluginMgr = theDaemon.getPluginManager();
 
       List rowL = new ArrayList();
       for (CachedUrl cu : cuLst) {
         try {
-          rowL.add(makeRow(table, cu));
+          rowL.add(makeRow(table, cu, includeCompressedColumnSetter));
         } catch (Exception e) {
           logger.warning("Unexpected execption building row", e);
         }
@@ -674,7 +684,8 @@ public class ArchivalUnitStatus
       return rowL;
     }
 
-    private Map makeRow(StatusTable table, CachedUrl cu) {
+    private Map makeRow(StatusTable table, CachedUrl cu,
+                        Consumer<Boolean> includeCompressedColumnSetter) {
       try {
         HashMap rowMap = new HashMap();
         ArchivalUnit au = cu.getArchivalUnit();
@@ -688,7 +699,10 @@ public class ArchivalUnitStatus
                 PropUtil.fromArgs("auid", au.getAuId(),
                     "url", cu.getUrl()));
         rowMap.put(COL_SIZE, val);
-
+        if (AuUtil.hasContentEncoding(cu)) {
+          includeCompressedColumnSetter.accept(true);
+          rowMap.put(COL_COMPRESSED, "Y");
+        }
         int version = cu.getVersion();
         Object versionObj = Long.valueOf(version);
         if (version > 1) {
@@ -781,11 +795,19 @@ public class ArchivalUnitStatus
 
     static final String COL_NODE_CONTENT_SIZE = "NodeContentSize";
 
+    static final String COL_NODE_CONTENT_COMPRESSED = "Compressed";
+
     static final String COL_NODE_TREE_SIZE = "NodeTreeSize";
 
     static final String COL_NODE_CHILD_COUNT = "NodeChildCount";
 
-    static final String FOOT_SERVE_AU_VS_CONTENT = "Serve AU serves this AU.  Serve Content constructs an OpenURL query from the bibliographic information for this AU in the title database, which may result in a choice of AUs if the content is available from more than one source.";
+    static final String FOOT_SERVE_AU = "Uses ServeContent to display the start page(s) of this AU.";
+
+    static final String FOOT_SERVE_CONTENT = "Uses ServeContent to display the results of an OpenURL query of the bibliographic information for this AU. May display a choice of content from this and other AUs if the content is available from more than one source.";
+
+    static final String FOOT_SERVE_PYWB = "Uses Pywb to search for all preserved copies of this AU's first start page.";
+
+    static final String FOOT_SERVE_OPENWAYBACK = "Uses OpenWayback to search for all preserved copies of this AU's first start page.";
 
     private static final List columnDescriptors = ListUtil.list(
         new ColumnDescriptor(COL_NODE_NAME, "URL",
@@ -795,7 +817,10 @@ public class ArchivalUnitStatus
         new ColumnDescriptor(COL_NODE_VERSION, "Version",
             ColumnDescriptor.TYPE_INT),
         new ColumnDescriptor(COL_NODE_CONTENT_SIZE, "Size",
-            ColumnDescriptor.TYPE_INT)
+                             ColumnDescriptor.TYPE_INT),
+        new ColumnDescriptor(COL_NODE_CONTENT_COMPRESSED, "C",
+                             ColumnDescriptor.TYPE_STRING,
+                             "Content is compressed")
     );
 
     private static final List sortRules =
@@ -816,14 +841,21 @@ public class ArchivalUnitStatus
       table.setSummaryInfo(getSummaryInfo(table, au,
           AuUtil.getAuState(au), false));
       if (!table.getOptions().get(StatusTable.OPTION_NO_ROWS)) {
-        table.setColumnDescriptors(columnDescriptors);
+        final MutableBoolean includeCompressed = new MutableBoolean(false);
+	table.setRows(getV2Rows(table, au,
+                                (x) -> includeCompressed.setValue(x)));
+        if (!includeCompressed.booleanValue()) {
+          table.setColumnDescriptors(columnDescriptors, null, "-Compressed");
+        } else {
+          table.setColumnDescriptors(columnDescriptors);
+        }
         table.setDefaultSortRules(sortRules);
-	table.setRows(getV2Rows(table, au));
       }
     }
 
 
-    private List getV2Rows(StatusTable table, ArchivalUnit au) {
+    private List getV2Rows(StatusTable table, ArchivalUnit au,
+                           Consumer<Boolean> includeCompressedColumnSetter) {
       int startRow = table.getStartRow();
       int numRows = table.getNumRows(defaultNumRows);
 
@@ -857,7 +889,7 @@ public class ArchivalUnitStatus
 //           if (normUrl.endsWith(UrlUtil.URL_PATH_SEPARATOR)) {
 //             normUrl = normUrl.substring(0, normUrl.length() - 1);
 //           }
-          Map row = makeRow(au, cu, startUrls);
+          Map row = makeRow(au, cu, startUrls, includeCompressedColumnSetter);
           row.put("sort", curRow);
           rowL.add(row);
         } finally {
@@ -873,7 +905,8 @@ public class ArchivalUnitStatus
     }
 
     private Map makeRow(ArchivalUnit au, CachedUrl cu,
-			Collection<String> startUrls) {
+			Collection<String> startUrls,
+                        Consumer<Boolean> includeCompressedColumnSetter) {
       boolean hasContent = cu.hasContent();
       String url = cu.getUrl();
       boolean isStartUrl = false;
@@ -932,6 +965,10 @@ public class ArchivalUnitStatus
           }
         }
         sizeObj = new OrderedObject(Long.valueOf(cu.getContentSize()));
+        if (AuUtil.hasContentEncoding(cu)) {
+          includeCompressedColumnSetter.accept(true);
+          rowMap.put(COL_NODE_CONTENT_COMPRESSED, "Y");
+        }
       }
       rowMap.put("NodeHasContent", (hasContent ? "yes" : "no"));
       rowMap.put(COL_NODE_VERSION, versionObj);
@@ -1220,24 +1257,80 @@ public class ArchivalUnitStatus
           audef));
       List serveLinks = new ArrayList();
 
+      StatusTable.DisplayedValue saudv = new StatusTable.DisplayedValue("ServeContent").addFootnote(FOOT_SERVE_AU);
       Object saulink =
-          new StatusTable.SrvLink("Serve AU",
+          new StatusTable.SrvLink(saudv,
               AdminServletManager.SERVLET_SERVE_CONTENT,
               PropUtil.fromArgs("auid", au.getAuId()));
       serveLinks.add(saulink);
 
+      StatusTable.DisplayedValue scdv = new StatusTable.DisplayedValue("ServeContent (OpenURL)").addFootnote(FOOT_SERVE_CONTENT);
       Object sclink =
-          new StatusTable.SrvLink("Serve Content",
+          new StatusTable.SrvLink(scdv,
               AdminServletManager.SERVLET_SERVE_CONTENT,
               PropUtil.fromArgs("auid", au.getAuId(),
                   "use_openurl", "true"));
-
       serveLinks.add(", ");
       serveLinks.add(sclink);
+
+      ServiceBinding owbBinding =
+          theDaemon.getServiceBinding(ServiceDescr.SVC_OPENWAYBACK);
+      ServiceBinding pywbBinding =
+          theDaemon.getServiceBinding(ServiceDescr.SVC_PYWB);
+
+      String replayUrl = null;
+
+      // Find first start URL with content to use as the default replay URL
+      for (String startUrl : au.getStartUrls()) {
+        // Use first start URL if we cannot find one with content
+        // Q: Do we really want this behavior? If not what should we do
+        //  if no start URLs have content (yet)?
+        if (StringUtil.isNullString(replayUrl)) {
+          replayUrl = startUrl;
+        }
+
+        CachedUrl cu = null;
+        try {
+          cu = au.makeCachedUrl(startUrl);
+          if (cu.hasContent()) {
+            replayUrl = startUrl;
+            break;
+          }
+        } finally {
+          AuUtil.safeRelease(cu);
+        }
+      }
+
+      if (pywbBinding != null) {
+        RepositoryManager repoMgr = theDaemon.getRepositoryManager();
+        String namespace = repoMgr.getV2Repository().getNamespace();
+
+        StatusTable.DisplayedValue pydv = new StatusTable.DisplayedValue("Pywb").addFootnote(FOOT_SERVE_PYWB);
+        Object pywbLink = new StatusTable.SvcLink(pydv,
+            ServiceDescr.SVC_PYWB.getServiceUrl(
+                pywbBinding, PropUtil.fromArgs(
+                    "url", replayUrl,
+                    "namespace", namespace)));
+
+        serveLinks.add(", ");
+        serveLinks.add(pywbLink);
+      }
+
+      if (owbBinding != null) {
+        StatusTable.DisplayedValue owdv = new StatusTable.DisplayedValue("OpenWayback").addFootnote(FOOT_SERVE_OPENWAYBACK);
+        Object owbLink = new StatusTable.SvcLink(owdv,
+            ServiceDescr.SVC_OPENWAYBACK.getServiceUrl(
+                owbBinding, PropUtil.fromArgs(
+                    "url", replayUrl)));
+
+        serveLinks.add(", ");
+        serveLinks.add(owbLink);
+      }
+
       StatusTable.SummaryInfo serveSum =
           new StatusTable.SummaryInfo(null, ColumnDescriptor.TYPE_STRING,
               serveLinks);
-      serveSum.setValueFootnote(FOOT_SERVE_AU_VS_CONTENT);
+//       serveSum.setValueFootnote(FOOT_SERVE_AU_VS_CONTENT);
       res.add(serveSum);
 
       List peerLinks = new ArrayList();
@@ -1278,7 +1371,7 @@ public class ArchivalUnitStatus
 		       AdminServletManager.SERVLET_LIST_OBJECTS,
 		       PropUtil.fromArgs("type", "urls",
 					 "auid", au.getAuId(),
-					 "fields", "ContentType,Size,PollWeight")));
+					 "fields", "ContentType,Size,Compressed,PollWeight")));
 
       if (au.getArchiveFileTypes() != null) {
         addLink(urlLinks,
@@ -1553,11 +1646,14 @@ public class ArchivalUnitStatus
 
     static final String COL_VERSION = "Version";
     static final String COL_SIZE = "Size";
+    static final String COL_COMPRESSED = "Compressed";
     static final String COL_DATE_COLLECTED = "DateCollected";
 
     private static final List columnDescriptors = ListUtil.list(
         new ColumnDescriptor(COL_VERSION, "Version", ColumnDescriptor.TYPE_INT),
         new ColumnDescriptor(COL_SIZE, "Size", ColumnDescriptor.TYPE_INT),
+        new ColumnDescriptor(COL_COMPRESSED, "C", ColumnDescriptor.TYPE_STRING,
+                             "Content is compressed"),
         new ColumnDescriptor(COL_DATE_COLLECTED, "Date Collected",
             ColumnDescriptor.TYPE_DATE)
     );
@@ -1573,12 +1669,19 @@ public class ArchivalUnitStatus
         throws StatusService.NoSuchTableException {
       String url = table.getProperty("url");
       table.setTitle("Versions of " + url + " in " + au.getName());
-      table.setColumnDescriptors(columnDescriptors);
+      final MutableBoolean includeCompressed = new MutableBoolean(false);
+      table.setRows(getRows(table, au, url,
+                            (x) -> includeCompressed.setValue(x)));
+      if (!includeCompressed.booleanValue()) {
+        table.setColumnDescriptors(columnDescriptors, null, "-Compressed");
+      } else {
+        table.setColumnDescriptors(columnDescriptors);
+      }
       table.setDefaultSortRules(sortRules);
-      table.setRows(getRows(table, au, url));
     }
 
-    private List getRows(StatusTable table, ArchivalUnit au, String url)
+    private List getRows(StatusTable table, ArchivalUnit au, String url,
+                         Consumer<Boolean> includeCompressedColumnSetter)
         throws StatusService.NoSuchTableException {
       int startRow = Math.max(0, table.getIntProp("skiprows"));
       int numRows = table.getIntProp("numrows");
@@ -1618,7 +1721,8 @@ public class ArchivalUnitStatus
 	      rowL.add(makeOtherRowsLink(true, endRow1, au.getAuId(), url));
 	      break;
 	    }
-	    Map row = makeRow(au, cu, cu.getVersion());
+	    Map row = makeRow(au, cu, cu.getVersion(),
+                              includeCompressedColumnSetter);
 	    row.put("sort", curRow);
 	    rowL.add(row);
 
@@ -1632,7 +1736,8 @@ public class ArchivalUnitStatus
       }
     }
 
-    private Map makeRow(ArchivalUnit au, CachedUrl cu, int ver) {
+    private Map makeRow(ArchivalUnit au, CachedUrl cu, int ver,
+                        Consumer<Boolean> includeCompressedColumnSetter) {
       String url = cu.getUrl();
       HashMap rowMap = new HashMap();
       Properties args = new Properties();
@@ -1644,6 +1749,10 @@ public class ArchivalUnitStatus
               AdminServletManager.SERVLET_DISPLAY_CONTENT,
               args);
       rowMap.put(COL_VERSION, val);
+      if (AuUtil.hasContentEncoding(cu)) {
+        includeCompressedColumnSetter.accept(true);
+        rowMap.put(COL_COMPRESSED, "Y");
+      }
       rowMap.put(COL_SIZE, cu.getContentSize());
       try {
 	long collected = Long.parseLong(AuUtil.getFetchTimeString(cu));

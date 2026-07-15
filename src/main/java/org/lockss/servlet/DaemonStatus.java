@@ -30,17 +30,18 @@ package org.lockss.servlet;
 
 import java.io.*;
 import java.util.*;
-import java.util.regex.*;
 
 import javax.servlet.*;
 
 import org.apache.commons.lang3.StringUtils;
+import org.lockss.app.LockssDaemon;
+import org.lockss.app.ServiceBinding;
+import org.lockss.app.ServiceDescr;
 import org.mortbay.html.*;
 import org.w3c.dom.Document;
 
 import org.lockss.config.*;
 import org.lockss.daemon.status.*;
-import org.lockss.plugin.PluginManager;
 import org.lockss.util.*;
 import org.lockss.util.time.TimeBase;
 
@@ -163,6 +164,7 @@ public class DaemonStatus extends BaseDaemonStatus {
   private Page newTablePage() throws IOException {
     Page page = newPage();
     addJavaScript(page);
+    layoutErrorBlock(page);
 
     if (!pluginMgr.areAusStartedOrStartOnDemand()) {
       page.add(ServletUtil.notStartedWarning());
@@ -301,14 +303,12 @@ public class DaemonStatus extends BaseDaemonStatus {
     try {
       statTable = makeTable();
     } catch (StatusService.NoSuchTableException e) {
-      page = newTablePage();
       errMsg = "No such table: " + e.getMessage();
-      layoutErrorBlock(page);
+      page = newTablePage();
       return page;
     } catch (Exception e) {
-      page = newTablePage();
       errMsg = "Error getting table: " + e.toString();
-      layoutErrorBlock(page);
+      page = newTablePage();
       if (isDebugUser()) {
 	page.add("<br><pre>    ");
 	page.add(StringUtil.trimStackTrace(e.toString(),
@@ -767,6 +767,8 @@ public class DaemonStatus extends BaseDaemonStatus {
   private String getDisplayString0(Object val, int type) {
     if (val instanceof StatusTable.Reference) {
       return getRefString((StatusTable.Reference)val, type);
+    } else if (val instanceof StatusTable.SvcLink svcLink) {
+      return getSvcLinkString(svcLink, type);
     } else if (val instanceof StatusTable.SrvLink) {
       // Display as link iff user is allowed access to the target servlet
       StatusTable.SrvLink slink = (StatusTable.SrvLink)val;
@@ -782,6 +784,11 @@ public class DaemonStatus extends BaseDaemonStatus {
     } else {
       return getDisplayString1(val, type);
     }
+  }
+
+  private String getSvcLinkString(StatusTable.SvcLink svcLink, int type) {
+    String dispStr = getDisplayString1(svcLink.getValue(), type);
+    return new Link(svcLink.getUrl(), dispStr).toString();
   }
 
   // add display attributes from a DisplayedValue

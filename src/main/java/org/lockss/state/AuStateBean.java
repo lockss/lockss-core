@@ -46,6 +46,17 @@ import org.lockss.state.AuState.AccessType;
 @JsonFilter("auStateFilter")
 public class AuStateBean {
 
+  /** Used to store the previous crawl state when a crawl is in
+   * progress.  Transmitted to other services but not persisted. */
+  static class PreviousCrawlState {
+    protected long lastCrawlAttempt = -1;
+    protected String lastCrawlResultMsg = null;
+    protected int lastCrawlResult = -1;
+    protected long lastDeepCrawlAttempt = -1; // last deep crawl start
+    protected String lastDeepCrawlResultMsg;
+    protected int lastDeepCrawlResult = -1;
+  }
+
   // Persistent state vars
   protected long auCreationTime = -1;
   // Note that WS exposes lastCrawlTime as lastCompletedCrawl, and
@@ -60,6 +71,7 @@ public class AuStateBean {
   protected int lastDeepCrawlResult = -1;
   protected int lastDeepCrawlDepth = -1;// requested depth of last
 					// successful deep crawl
+  protected PreviousCrawlState previousCrawlState;
   protected long lastTopLevelPollTime = -1;	// last completed PoR poll time
   protected long lastPollStart = -1;	// last time a poll started
   protected int lastPollResult = -1;	// ditto

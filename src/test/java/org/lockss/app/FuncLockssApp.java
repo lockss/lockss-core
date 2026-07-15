@@ -109,7 +109,7 @@ public class FuncLockssApp extends LockssTestCase {
       .addAppDefault("deftest3", "app3")
       .addBootDefault("o.l.plat.xxy", "zzz")
       .addAppConfig("org.lockss.app.serviceBindings",
-		    "cfg=:24620:24621;mdx=:1234")
+		    "cfg=:24612:24602;md=:1234")
       .addAppConfig("org.lockss.app.touchWhenStarted",
 		    touchFile.toString())
       ;
@@ -141,7 +141,7 @@ public class FuncLockssApp extends LockssTestCase {
     assertTrue(app.isMyService(ServiceDescr.SVC_CONFIG));
     assertFalse(app.isMyService(ServiceDescr.SVC_POLLER));
 
-    assertEquals(new ServiceBinding(null, 24620, 24621),
+    assertEquals(new ServiceBinding(null, 24612, 24602),
 		 app.getMyServiceBinding());
 
     assertEquals("zzz",

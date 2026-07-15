@@ -47,7 +47,7 @@ public class TestTransformFirstPage extends LockssTestCase {
     };
     MockPdfDocument mockPdfDocument = new MockPdfDocument() {
       public PdfPage getPage(int index) { return pages[index]; }
-      public ListIterator getPageIterator() { return new ObjectArrayListIterator(pages); }
+      public ListIterator getPageIterator() { return new ObjectArrayListIterator((Object[])pages); }
     };
 
     TransformSelectedPages documentTransform = new TransformFirstPage(new PageTransformUtil.IdentityPageTransform());

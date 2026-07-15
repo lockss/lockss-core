@@ -432,7 +432,7 @@ public class LockssTestCase extends TestCase {
    */
   public static Test variantSuites(Class thisClass, Class extendedClass) {
     ArrayList list = new ArrayList();
-    for (Iterator iter = new ObjectArrayIterator(thisClass.getDeclaredClasses()) ;
+    for (Iterator iter = new ObjectArrayIterator((Object[])thisClass.getDeclaredClasses()) ;
          iter.hasNext() ; ) {
       Class cla = (Class)iter.next();
       if (extendedClass.isAssignableFrom(cla)) {
@@ -1106,7 +1106,7 @@ public class LockssTestCase extends TestCase {
 
   public static void assertNotEquals(String message,
 				     short expected, short actual) {
-    assertNotEquals(message, new Short(expected), new Short(actual));
+    assertNotEquals(message, Short.valueOf(expected), Short.valueOf(actual));
   }
 
   public static void assertNotEquals(byte expected, byte actual) {
@@ -1115,7 +1115,7 @@ public class LockssTestCase extends TestCase {
 
   public static void assertNotEquals(String message,
 				     byte expected, byte actual) {
-    assertNotEquals(message, new Byte(expected), new Byte(actual));
+    assertNotEquals(message, Byte.valueOf(expected), Byte.valueOf(actual));
   }
 
   public static void assertNotEquals(char expected, char actual) {
@@ -1124,7 +1124,7 @@ public class LockssTestCase extends TestCase {
 
   public static void assertNotEquals(String message,
 				     char expected, char actual) {
-    assertNotEquals(message, new Character(expected), new Character(actual));
+    assertNotEquals(message, Character.valueOf(expected), Character.valueOf(actual));
   }
 
   public static void assertNotEquals(boolean expected, boolean actual) {

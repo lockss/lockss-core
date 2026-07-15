@@ -29,14 +29,17 @@ package org.lockss.config;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.core.type.TypeReference;
+import com.fasterxml.jackson.databind.DeserializationFeature;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.ObjectReader;
 import org.lockss.account.UserAccount;
+import org.lockss.config.rest.AuConfigPageInfo;
 import org.lockss.plugin.AuUtil;
 import org.lockss.util.*;
 import org.lockss.util.auth.AuthUtil;
 import org.lockss.util.rest.HttpResponseStatusAndHeaders;
 import org.lockss.util.rest.RestUtil;
+import org.lockss.util.rest.config.PageInfo;
 import org.lockss.util.rest.exception.LockssRestException;
 import org.lockss.util.rest.multipart.MultipartConnector;
 import org.lockss.util.rest.multipart.MultipartResponse;
@@ -48,7 +51,6 @@ import org.springframework.util.LinkedMultiValueMap;
 import org.springframework.util.MultiValueMap;
 import org.springframework.web.client.HttpClientErrorException;
 import org.springframework.web.client.RestTemplate;
-import org.springframework.web.util.UriComponents;
 import org.springframework.web.util.UriComponentsBuilder;
 
 import javax.mail.MessagingException;
@@ -57,6 +59,7 @@ import java.io.InputStream;
 import java.net.MalformedURLException;
 import java.net.URI;
 import java.net.URL;
+import java.time.OffsetDateTime;
 import java.util.*;
 
 /**
@@ -308,7 +311,7 @@ public class RestConfigClient {
 
       // Make the request and get the response.
       response = callGetMultipartRequest(requestUrl,
-	  input.getHttpRequestPreconditions());
+          input.getHttpRequestPreconditions());
       output.setResponse(response);
     } catch (HttpClientErrorException hcee) {
       String errorMessage = "Couldn't load config section '" + sectionName
@@ -408,11 +411,8 @@ public class RestConfigClient {
     }
 
     // Create the URI of the request to the REST service.
-    UriComponents uriComponents =
-	UriComponentsBuilder.fromUriString(url).build();
-
-    URI uri = UriComponentsBuilder.newInstance().uriComponents(uriComponents)
-	.build().encode().toUri();
+    URI uri = UriComponentsBuilder.fromUriString(url)
+	.encode().build().toUri();
 
     // Initialize the request headers.
     HttpHeaders requestHeaders = new HttpHeaders();
@@ -604,11 +604,8 @@ public class RestConfigClient {
     }
 
     // Create the URI of the request to the REST service.
-    UriComponents uriComponents =
-	UriComponentsBuilder.fromUriString(url).build();
-
-    URI uri = UriComponentsBuilder.newInstance().uriComponents(uriComponents)
-	.build().encode().toUri();
+    URI uri = UriComponentsBuilder.fromUriString(url)
+	.encode().build().toUri();
     if (log.isDebug3()) log.debug3(DEBUG_HEADER + "uri = " + uri);
 
     // Initialize the part headers.
@@ -711,10 +708,8 @@ public class RestConfigClient {
     }
 
     // Get the URL template.
-    UriComponents uriComponents =
-      UriComponentsBuilder.fromUriString(serviceLocation + "/auids").build();
-    URI uri = UriComponentsBuilder.newInstance().uriComponents(uriComponents)
-	.build().encode().toUri();
+    URI uri = UriComponentsBuilder.fromUriString(serviceLocation + "/auids")
+	.encode().build().toUri();
 
     // Initialize the request headers.
     HttpHeaders requestHeaders = new HttpHeaders();
@@ -755,44 +750,83 @@ public class RestConfigClient {
    */
   public Collection<AuConfiguration> getAllArchivalUnitConfiguration()
       throws LockssRestException {
-    // Create the URI of the request to the REST service.
-    UriComponents uriComponents =
-	UriComponentsBuilder.fromUriString(serviceLocation + "/aus").build();
+    List<AuConfiguration> allResults = new ArrayList<>();
+    String continuationToken = null;
 
-    URI uri = UriComponentsBuilder.newInstance().uriComponents(uriComponents)
-	.build().encode().toUri();
-    if (log.isDebug3()) log.debug3("uri = " + uri);
+    // Loop through all pages
+    do {
+      AuConfigPageInfo pageInfo =
+          getArchivalUnitConfigurationsPage(continuationToken);
+      if (pageInfo == null) {
+        break;
+      }
+      Collection<AuConfiguration> pageResults = pageInfo.getAuConfigs();
+      if (pageResults != null) {
+        allResults.addAll(pageResults);
+      }
+      PageInfo pageInfoData = pageInfo.getPageInfo();
+      continuationToken =
+          (pageInfoData == null) ? null : pageInfoData.getContinuationToken();
+    } while (continuationToken != null);
 
-    // Initialize the request headers.
-    HttpHeaders requestHeaders = new HttpHeaders();
-
-    // Set the authentication credentials.
-    setAuthenticationCredentials(requestHeaders);
-
-    // Create the request entity.
-    HttpEntity<Collection<AuConfiguration>> requestEntity =
-	new HttpEntity<Collection<AuConfiguration>>(null, requestHeaders);
-
-    // Make the request and get the response. 
-    ResponseEntity<String> response =
-	RestUtil.callRestService(restTemplate, uri, HttpMethod.GET,
-	    requestEntity, String.class, "Cannot get all AU configurations");
-
-    Collection<AuConfiguration> result = Collections.emptyList();
-
-    try {
-      ObjectMapper mapper = new ObjectMapper();
-      result = mapper.readValue((String)response.getBody(),
-	  new TypeReference<Collection<AuConfiguration>>(){});
-    } catch (Exception e) {
-      log.error("Cannot get body of response", e);
-    }
-
-    for (AuConfiguration auc : result) {
+    // Intern all AU configurations
+    for (AuConfiguration auc : allResults) {
       auc.intern();
     }
-    if (log.isDebug2()) log.debug2("result = " + result);
-    return result;
+    if (log.isDebug2()) log.debug2("result = " + allResults);
+    return allResults;
+  }
+
+  /**
+   * Provides a single page of Archival Unit configurations.
+   *
+   * <p>Callers that want page-by-page processing (e.g. a scan that should
+   * not accumulate every {@link AuConfiguration} in memory before doing any
+   * work) should call this method directly in a loop: start with
+   * {@code null}, then pass back the {@link PageInfo#getContinuationToken()}
+   * from the previous response. The returned {@link AuConfigPageInfo} also
+   * exposes the page's continuation token; iteration ends when that token
+   * is {@code null}.
+   *
+   * <p>AuConfigurations returned by this method are not interned — callers
+   * that retain them across pages should call
+   * {@link AuConfiguration#intern()} themselves. Per-page processing
+   * callers can typically skip interning.
+   *
+   * @param continuationToken
+   *          A String with the continuation token from the previous page,
+   *          or {@code null} for the first page.
+   * @return an {@link AuConfigPageInfo} with this page's AuConfigurations
+   *         and pagination info, or {@code null} on an empty response.
+   * @throws LockssRestException
+   *           if there are problems contacting the REST service.
+   */
+  public AuConfigPageInfo getArchivalUnitConfigurationsPage(
+      String continuationToken) throws LockssRestException {
+    UriComponentsBuilder builder =
+        UriComponentsBuilder.fromUriString(serviceLocation + "/aus");
+
+    Map<String, String> params = new HashMap<>();
+    if (continuationToken != null) {
+      builder.queryParam("continuationToken", "{continuationToken}");
+      params.put("continuationToken", continuationToken);
+    }
+
+    URI uri = builder.encode().build().expand(params).toUri();
+    if (log.isDebug3()) log.debug3("uri = " + uri);
+
+    HttpHeaders requestHeaders = new HttpHeaders();
+    setAuthenticationCredentials(requestHeaders);
+
+    HttpEntity<AuConfigPageInfo> requestEntity =
+        new HttpEntity<>(null, requestHeaders);
+
+    ResponseEntity<AuConfigPageInfo> response =
+        RestUtil.callRestService(restTemplate, uri, HttpMethod.GET,
+            requestEntity, AuConfigPageInfo.class,
+            "Cannot get a page of AU configurations");
+
+    return response.getBody();
   }
 
   /**
@@ -813,11 +847,8 @@ public class RestConfigClient {
     String template = getAuConfigRequestUrl();
 
     // Create the URI of the request to the REST service.
-    UriComponents uriComponents = UriComponentsBuilder.fromUriString(template)
-	.build().expand(Collections.singletonMap("auid", auId));
-
-    URI uri = UriComponentsBuilder.newInstance().uriComponents(uriComponents)
-	.build().encode().toUri();
+    URI uri = UriComponentsBuilder.fromUriString(template)
+	.encode().build().expand(Collections.singletonMap("auid", auId)).toUri();
     if (log.isDebug3()) log.debug3("uri = " + uri);
 
     // Initialize the request headers.
@@ -830,7 +861,7 @@ public class RestConfigClient {
     HttpEntity<AuConfiguration> requestEntity =
 	new HttpEntity<AuConfiguration>(null, requestHeaders);
 
-    // Make the request and get the response. 
+    // Make the request and get the response.
     ResponseEntity<AuConfiguration> response =
 	RestUtil.callRestService(restTemplate, uri, HttpMethod.GET,
 	    requestEntity, AuConfiguration.class,
@@ -861,11 +892,8 @@ public class RestConfigClient {
     String template = getAuConfigRequestUrl();
 
     // Create the URI of the request to the REST service.
-    UriComponents uriComponents = UriComponentsBuilder.fromUriString(template)
-	.build().expand(Collections.singletonMap("auid", auId));
-
-    URI uri = UriComponentsBuilder.newInstance().uriComponents(uriComponents)
-	.build().encode().toUri();
+    URI uri = UriComponentsBuilder.fromUriString(template)
+	.encode().build().expand(Collections.singletonMap("auid", auId)).toUri();
     if (log.isDebug3()) log.debug3("uri = " + uri);
 
     // Initialize the request headers.
@@ -878,7 +906,7 @@ public class RestConfigClient {
     HttpEntity<AuConfiguration> requestEntity =
 	new HttpEntity<AuConfiguration>(null, requestHeaders);
 
-    // Make the request and get the response. 
+    // Make the request and get the response.
     ResponseEntity<AuConfiguration> response =
 	RestUtil.callRestService(restTemplate, uri, HttpMethod.DELETE,
 	    requestEntity, AuConfiguration.class,
@@ -908,12 +936,8 @@ public class RestConfigClient {
     String template = getAuConfigRequestUrl();
 
     // Create the URI of the request to the REST service.
-    UriComponents uriComponents = UriComponentsBuilder.fromUriString(template)
-	.build().expand(Collections.singletonMap("auid",
-	    auConfiguration.getAuId()));
-
-    URI uri = UriComponentsBuilder.newInstance().uriComponents(uriComponents)
-	.build().encode().toUri();
+    URI uri = UriComponentsBuilder.fromUriString(template)
+	.encode().build().expand(Collections.singletonMap("auid", auConfiguration.getAuId())).toUri();
     if (log.isDebug3()) log.debug3("uri = " + uri);
 
     // Initialize the request headers.
@@ -948,11 +972,8 @@ public class RestConfigClient {
     String template = getAuStateRequestUrl();
 
     // Create the URI of the request to the REST service.
-    UriComponents uriComponents = UriComponentsBuilder.fromUriString(template)
-	.build().expand(Collections.singletonMap("auid", auId));
-
-    URI uri = UriComponentsBuilder.newInstance().uriComponents(uriComponents)
-	.build().encode().toUri();
+    URI uri = UriComponentsBuilder.fromUriString(template)
+	.encode().build().expand(Collections.singletonMap("auid", auId)).toUri();
     if (log.isDebug3()) log.debug3("uri = " + uri);
 
     // Initialize the request headers.
@@ -965,7 +986,7 @@ public class RestConfigClient {
     HttpEntity<String> requestEntity =
 	new HttpEntity<String>(null, requestHeaders);
 
-    // Make the request and get the response. 
+    // Make the request and get the response.
     ResponseEntity<String> response =
 	RestUtil.callRestService(restTemplate, uri, HttpMethod.GET,
 	    requestEntity, String.class, "Cannot get AU state");
@@ -999,11 +1020,8 @@ public class RestConfigClient {
     String template = getAuStateRequestUrl();
 
     // Create the URI of the request to the REST service.
-    UriComponents uriComponents = UriComponentsBuilder.fromUriString(template)
-	.build().expand(Collections.singletonMap("auid", auId));
-
-    URI uri = UriComponentsBuilder.newInstance().uriComponents(uriComponents)
-	.build().encode().toUri();
+    URI uri = UriComponentsBuilder.fromUriString(template)
+	.encode().build().expand(Collections.singletonMap("auid", auId)).toUri();
     if (log.isDebug3()) log.debug3("uri = " + uri);
 
     // Initialize the request headers.
@@ -1024,7 +1042,7 @@ public class RestConfigClient {
     HttpEntity<String> requestEntity =
 	new HttpEntity<String>(auState, requestHeaders);
 
-    // Make the request and get the response. 
+    // Make the request and get the response.
     RestUtil.callRestService(restTemplate, uri, HttpMethod.PATCH,
 	requestEntity, String.class, "Cannot update AU state");
   }
@@ -1047,11 +1065,8 @@ public class RestConfigClient {
     String template = getAuAgreementsRequestUrl();
 
     // Create the URI of the request to the REST service.
-    UriComponents uriComponents = UriComponentsBuilder.fromUriString(template)
-	.build().expand(Collections.singletonMap("auid", auId));
-
-    URI uri = UriComponentsBuilder.newInstance().uriComponents(uriComponents)
-	.build().encode().toUri();
+    URI uri = UriComponentsBuilder.fromUriString(template)
+	.encode().build().expand(Collections.singletonMap("auid", auId)).toUri();
     if (log.isDebug3()) log.debug3("uri = " + uri);
 
     // Initialize the request headers.
@@ -1064,7 +1079,7 @@ public class RestConfigClient {
     HttpEntity<String> requestEntity =
 	new HttpEntity<String>(null, requestHeaders);
 
-    // Make the request and get the response. 
+    // Make the request and get the response.
     ResponseEntity<String> response =
 	RestUtil.callRestService(restTemplate, uri, HttpMethod.GET,
 	    requestEntity, String.class, "Cannot get AU poll agreements");
@@ -1098,11 +1113,8 @@ public class RestConfigClient {
     String template = getAuAgreementsRequestUrl();
 
     // Create the URI of the request to the REST service.
-    UriComponents uriComponents = UriComponentsBuilder.fromUriString(template)
-	.build().expand(Collections.singletonMap("auid", auId));
-
-    URI uri = UriComponentsBuilder.newInstance().uriComponents(uriComponents)
-	.build().encode().toUri();
+    URI uri = UriComponentsBuilder.fromUriString(template)
+	.encode().build().expand(Collections.singletonMap("auid", auId)).toUri();
     if (log.isDebug3()) log.debug3("uri = " + uri);
 
     // Initialize the request headers.
@@ -1147,11 +1159,8 @@ public class RestConfigClient {
     String template = getAuSuspectUrlVersionsRequestUrl();
 
     // Create the URI of the request to the REST service.
-    UriComponents uriComponents = UriComponentsBuilder.fromUriString(template)
-	.build().expand(Collections.singletonMap("auid", auId));
-
-    URI uri = UriComponentsBuilder.newInstance().uriComponents(uriComponents)
-	.build().encode().toUri();
+    URI uri = UriComponentsBuilder.fromUriString(template)
+	.encode().build().expand(Collections.singletonMap("auid", auId)).toUri();
     if (log.isDebug3()) log.debug3("uri = " + uri);
 
     // Initialize the request headers.
@@ -1164,7 +1173,7 @@ public class RestConfigClient {
     HttpEntity<String> requestEntity =
 	new HttpEntity<String>(null, requestHeaders);
 
-    // Make the request and get the response. 
+    // Make the request and get the response.
     ResponseEntity<String> response =
 	RestUtil.callRestService(restTemplate, uri, HttpMethod.GET,
 	    requestEntity, String.class, "Cannot get AU suspect URL versions");
@@ -1201,11 +1210,8 @@ public class RestConfigClient {
     String template = getAuSuspectUrlVersionsRequestUrl();
 
     // Create the URI of the request to the REST service.
-    UriComponents uriComponents = UriComponentsBuilder.fromUriString(template)
-	.build().expand(Collections.singletonMap("auid", auId));
-
-    URI uri = UriComponentsBuilder.newInstance().uriComponents(uriComponents)
-	.build().encode().toUri();
+    URI uri = UriComponentsBuilder.fromUriString(template)
+	.encode().build().expand(Collections.singletonMap("auid", auId)).toUri();
     if (log.isDebug3()) log.debug3("uri = " + uri);
 
     // Initialize the request headers.
@@ -1249,11 +1255,8 @@ public class RestConfigClient {
     String template = getNoAuPeersRequestUrl();
 
     // Create the URI of the request to the REST service.
-    UriComponents uriComponents = UriComponentsBuilder.fromUriString(template)
-	.build().expand(Collections.singletonMap("auid", auId));
-
-    URI uri = UriComponentsBuilder.newInstance().uriComponents(uriComponents)
-	.build().encode().toUri();
+    URI uri = UriComponentsBuilder.fromUriString(template)
+	.encode().build().expand(Collections.singletonMap("auid", auId)).toUri();
     if (log.isDebug3()) log.debug3("uri = " + uri);
 
     // Initialize the request headers.
@@ -1266,7 +1269,7 @@ public class RestConfigClient {
     HttpEntity<String> requestEntity =
 	new HttpEntity<String>(null, requestHeaders);
 
-    // Make the request and get the response. 
+    // Make the request and get the response.
     ResponseEntity<String> response =
 	RestUtil.callRestService(restTemplate, uri, HttpMethod.GET,
 	    requestEntity, String.class, "Cannot get AU NoAuPeerSet object");
@@ -1301,11 +1304,8 @@ public class RestConfigClient {
     String template = getNoAuPeersRequestUrl();
 
     // Create the URI of the request to the REST service.
-    UriComponents uriComponents = UriComponentsBuilder.fromUriString(template)
-	.build().expand(Collections.singletonMap("auid", auId));
-
-    URI uri = UriComponentsBuilder.newInstance().uriComponents(uriComponents)
-	.build().encode().toUri();
+    URI uri = UriComponentsBuilder.fromUriString(template)
+	.encode().build().expand(Collections.singletonMap("auid", auId)).toUri();
     if (log.isDebug3()) log.debug3("uri = " + uri);
 
     // Initialize the request headers.
@@ -1340,11 +1340,8 @@ public class RestConfigClient {
     String template = getUserAccountNamesRequestUrl();
 
     // Create the URI of the request to the REST service.
-    UriComponents uriComponents = UriComponentsBuilder.fromUriString(template)
-        .build();
-
-    URI uri = UriComponentsBuilder.newInstance().uriComponents(uriComponents)
-        .build().encode().toUri();
+    URI uri = UriComponentsBuilder.fromUriString(template)
+        .encode().build().toUri();
     if (log.isDebug3()) log.debug3("uri = " + uri);
 
     // Initialize the request headers.
@@ -1367,6 +1364,36 @@ public class RestConfigClient {
     return result;
   }
 
+  public OffsetDateTime getLastUpdateTime() throws LockssRestException {
+    // Get the URL template.
+    String template = getLastUpdateTimeUrl();
+
+    // Create the URI of the request to the REST service.
+    URI uri = UriComponentsBuilder.fromUriString(template)
+        .encode().build().toUri();
+    if (log.isDebug3()) log.debug3("uri = " + uri);
+
+    // Initialize the request headers.
+    HttpHeaders requestHeaders = new HttpHeaders();
+
+    // Set the authentication credentials.
+    setAuthenticationCredentials(requestHeaders);
+
+    // Create the request entity.
+    HttpEntity<String> requestEntity =
+        new HttpEntity<String>(null, requestHeaders);
+
+    // Make the request and get the response.
+    ResponseEntity<OffsetDateTime> response =
+        RestUtil.callRestService(restTemplate, uri, HttpMethod.GET,
+            requestEntity, OffsetDateTime.class, "Cannot get lastupdatetime object");
+
+    OffsetDateTime result = response.getBody();
+
+    if (log.isDebug2()) log.debug2("result = " + result);
+    return result;
+  }
+
   public UserAccount getUserAccount(String username) throws IOException {
     if (log.isDebug2()) log.debug2("username = " + username);
 
@@ -1374,11 +1401,8 @@ public class RestConfigClient {
     String template = getUserAccountRequestUrl();
 
     // Create the URI of the request to the REST service.
-    UriComponents uriComponents = UriComponentsBuilder.fromUriString(template)
-        .build().expand(Collections.singletonMap("username", username));
-
-    URI uri = UriComponentsBuilder.newInstance().uriComponents(uriComponents)
-        .build().encode().toUri();
+    URI uri = UriComponentsBuilder.fromUriString(template)
+        .encode().build().expand(Collections.singletonMap("username", username)).toUri();
     if (log.isDebug3()) log.debug3("uri = " + uri);
 
     // Initialize the request headers.
@@ -1415,11 +1439,8 @@ public class RestConfigClient {
     String template = getUserAccountsRequestUrl();
 
     // Create the URI of the request to the REST service.
-    UriComponents uriComponents = UriComponentsBuilder.fromUriString(template)
-        .build();
-
-    URI uri = UriComponentsBuilder.newInstance().uriComponents(uriComponents)
-        .build().encode().toUri();
+    URI uri = UriComponentsBuilder.fromUriString(template)
+        .encode().build().toUri();
     if (log.isDebug3()) log.debug3("uri = " + uri);
 
     // Initialize the request headers.
@@ -1463,11 +1484,8 @@ public class RestConfigClient {
     String template = getUserAccountRequestUrl();
 
     // Create the URI of the request to the REST service.
-    UriComponents uriComponents = UriComponentsBuilder.fromUriString(template)
-        .build().expand(Collections.singletonMap("username", username));
-
-    URI uri = UriComponentsBuilder.newInstance().uriComponents(uriComponents)
-        .build().encode().toUri();
+    URI uri = UriComponentsBuilder.fromUriString(template)
+        .encode().build().expand(Collections.singletonMap("username", username)).toUri();
     if (log.isDebug3()) log.debug3("uri = " + uri);
 
     // Initialize the request headers.
@@ -1504,11 +1522,8 @@ public class RestConfigClient {
     String template = getUserAccountRequestUrl();
 
     // Create the URI of the request to the REST service.
-    UriComponents uriComponents = UriComponentsBuilder.fromUriString(template)
-        .build().expand(Collections.singletonMap("username", username));
-
-    URI uri = UriComponentsBuilder.newInstance().uriComponents(uriComponents)
-        .build().encode().toUri();
+    URI uri = UriComponentsBuilder.fromUriString(template)
+        .encode().build().expand(Collections.singletonMap("username", username)).toUri();
     if (log.isDebug3()) log.debug3("uri = " + uri);
 
     // Initialize the request headers.
@@ -1600,6 +1615,10 @@ public class RestConfigClient {
     return serviceLocation + "/users/{username}";
   }
 
+  private String getLastUpdateTimeUrl() {
+    return serviceLocation + "/config/lastupdatetime";
+  }
+
   /**
    * Sets the authentication credentials in a request.
    * 
@@ -1612,4 +1631,5 @@ public class RestConfigClient {
     requestHeaders.set("Authorization", authHeaderValue);
     if (log.isDebug3()) log.debug3("requestHeaders = " + requestHeaders);
   }
+
 }

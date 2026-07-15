@@ -51,6 +51,8 @@ import java.nio.file.Path;
 import java.util.*;
 import java.util.stream.Stream;
 
+import static org.lockss.rs.io.storage.warc.WarcArtifactDataStore.getJournalPath;
+
 public class WarcFilePool {
   private static final L4JLogger log = L4JLogger.getLogger();
 
@@ -66,15 +68,15 @@ public class WarcFilePool {
    * Creates a new temporary WARC file under one of the temporary WARC directories configured
    * in the data store.
    */
-  protected WarcFile createWarcFile() throws IOException {
+  protected WarcFile createWarcFile(boolean wantCompressedWarcFile) throws IOException {
     Path basePath = Arrays.stream(store.getBasePaths())
-        .max((a, b) -> (int) (store.getFreeSpace(a) - store.getFreeSpace(b)))
+        .max((a, b) -> Long.compare(store.getFreeSpace(a), store.getFreeSpace(b)))
         .orElse(null);
 
     Path tmpWarcDir = basePath.resolve(WarcArtifactDataStore.TMP_WARCS_DIR);
 
     WarcFile warcFile =
-        new WarcFile(tmpWarcDir.resolve(generateTmpWarcFileName()), store.getUseWarcCompression());
+        new WarcFile(tmpWarcDir.resolve(generateTmpWarcFileName(wantCompressedWarcFile)), wantCompressedWarcFile);
 
     store.initWarc(warcFile.getPath());
 
@@ -83,25 +85,25 @@ public class WarcFilePool {
     return warcFile;
   }
 
-  protected String generateTmpWarcFileName() {
-    return UUID.randomUUID() + store.getWarcFileExtension();
+  protected String generateTmpWarcFileName(boolean wantCompressedWarcFile) {
+    return UUID.randomUUID() + WarcArtifactDataStore.getWarcFileExtension(wantCompressedWarcFile);
   }
 
   /**
    * Checks out an existing WARC file from the pool or creates a new one.
    */
-  public WarcFile checkoutWarcFileForWrite() throws IOException {
+  public WarcFile checkoutWarcFileForWrite(boolean wantCompressedWarcFile) throws IOException {
     synchronized (this) {
       Optional<WarcFile> optWarc = allWarcs.stream()
           .filter(warc -> warc.getStats().getArtifactsTotal() < store.getMaxArtifactsThreshold())
           // TODO: Implement separate thresholds for temp and permanent WARCs
           .filter(warc -> warc.getLength() < store.getThresholdWarcSize())
-          .filter(warc -> warc.isCompressed() == store.getUseWarcCompression())
+          .filter(warc -> warc.isCompressed() == wantCompressedWarcFile)
           .filter(warc -> !warc.isCheckedOut())
           .findAny();
 
       WarcFile warc = optWarc.isPresent() ?
-          optWarc.get() : createWarcFile();
+          optWarc.get() : createWarcFile(wantCompressedWarcFile);
 
       warc.setCheckedOut(true);
       return warc;
@@ -142,6 +144,12 @@ public class WarcFilePool {
         fullWarcs.add(warcFile);
         allWarcs.remove(warcFile);
       }
+    }
+  }
+
+  public void addAsFullWarcFile(WarcFile warcFile) {
+    synchronized (this) {
+      fullWarcs.add(warcFile);
     }
   }
 
@@ -190,7 +198,7 @@ public class WarcFilePool {
     // Iterate over WarcFiles in this pool
     synchronized (this) {
       for (WarcFile warcFile : allWarcs) {
-        long blocks = (long) Math.ceil(new Float(warcFile.getLength()) / new Float(store.getBlockSize()));
+        long blocks = (long) Math.ceil(Float.valueOf(warcFile.getLength()) / Float.valueOf(store.getBlockSize()));
         totalBlocksAllocated += blocks;
         totalBytesUsed += warcFile.getLength();
 
@@ -281,8 +289,9 @@ public class WarcFilePool {
             }
           }
 
-          // Remove WARC file from the data store
+          // Remove WARC file and journal from the data store
           store.removeWarc(warc.getPath());
+          store.removeWarc(getJournalPath(warc.getPath()));
         } catch (IOException e) {
           // Log error and leave to reload
           log.error("Could not remove WARC file " + warc.getPath(), e);

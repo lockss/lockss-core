@@ -482,9 +482,9 @@ public class TestIpFilter extends LockssTestCase {
   }
 
   public void testToString() throws Exception {
-    assertToString("127.0.1.0");
+    assertToString("127.0.1.0/32", "127.0.1.0");
     assertToString("127.0.1.0/24");
-    assertToString("1.2.3.4", "1.2.3.4/32");
+    assertToString("1.2.3.4/32", "1.2.3.4/32");
     assertToString("0:0:0:0:0:0:0:1", "::1");
     assertToString("ffff:0:0:0:0:0:0:0/16", "ffff::0/16");
     assertToString("0:0:0:0:0:0:0:1", "::1/128");

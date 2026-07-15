@@ -89,6 +89,7 @@ public class MockUrlCacher implements UrlCacher {
   }
 
   /** @deprecated */
+  @Deprecated
   public CachedUrlSet getCachedUrlSet() {
     return cus;
   }

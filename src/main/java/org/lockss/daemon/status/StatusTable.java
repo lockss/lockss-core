@@ -30,6 +30,7 @@ package org.lockss.daemon.status;
 
 import java.util.*;
 
+import org.lockss.app.ServiceDescr;
 import org.lockss.util.*;
 import org.lockss.util.net.IPAddr;
 import org.lockss.protocol.*;
@@ -1029,6 +1030,25 @@ public class StatusTable {
       sb.append(stem);
       sb.append("]");
       return sb.toString();
+    }
+  }
+
+  public static class SvcLink implements LinkValue {
+    private Object value;
+    private String url;
+
+    public SvcLink(Object value, String url) {
+      this.value = value;
+      this.url = url;
+    }
+
+    @Override
+    public Object getValue() {
+      return value;
+    }
+
+    public String getUrl() {
+      return url;
     }
   }
 

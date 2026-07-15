@@ -168,6 +168,9 @@ public class TestFollowLinkCrawler extends LockssTestCase {
 			     "http://www.example2.com/index2.html",
 			     "Start URL from CrawlSeed not within crawl rules"),
 		 cs.getUrlsWithErrors());
+
+    // Handy place to check CrawlerStatus.isRepairCrawl() predicate
+    assertFalse(crawler.getCrawlerStatus().isRepairCrawl());
   }
 
   public void testCrawlSeedReturnsDuplicates()
@@ -1424,7 +1427,6 @@ public class TestFollowLinkCrawler extends LockssTestCase {
     Set<String> urlsToFollow = new HashSet<String>();
     Set<String> nonStartUrlsToFollow = new HashSet<String>();
     Set fetched = new HashSet();
-    boolean isFailOnStartUrlError = true;
     List<PermissionChecker> daemonPermissionCheckers;
 
     protected TestableFollowLinkCrawler(ArchivalUnit au, AuState aus){
@@ -1498,15 +1500,6 @@ public class TestFollowLinkCrawler extends LockssTestCase {
       return super.fetch(curl);
     }
 
-    void setFailOnStartUrlError(boolean isFailOnStartUrlError) {
-      this.isFailOnStartUrlError = isFailOnStartUrlError;
-    }
-
-    @Override
-    protected boolean isFailOnStartUrlError() {
-      return isFailOnStartUrlError;
-    }
-    
     List<PermissionChecker> getDaemonPermissionCheckers() {
       if(daemonPermissionCheckers != null) {
         return daemonPermissionCheckers;

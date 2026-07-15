@@ -602,7 +602,7 @@ public abstract class BaseArchivalUnit implements ArchivalUnit {
       }
     }
     
-    if (key == null && log.isDebug()) {
+    if (key == null && log.isDebug3()) {
       log.debug3("Rate limiter source (" + limiterSource + ") is null, using AU");
     }
     if (log.isDebug3()) {
@@ -803,7 +803,7 @@ public abstract class BaseArchivalUnit implements ArchivalUnit {
    * @return the FilterRule
    * @deprecated
    */
-
+  @Deprecated
   public FilterRule getFilterRule(String contentType) {
     return plugin.getFilterRule(contentType);
   }

@@ -56,7 +56,7 @@ public class ProxyManager extends BaseProxyManager {
   public static final boolean DEFAULT_START = false;
 
   public static final String PARAM_PORT = PREFIX + "port";
-  public static final int DEFAULT_PORT = 24670;
+  public static final int DEFAULT_PORT = 24630;
 
   /** List of IP addresses to which to bind listen socket.  If not set,
    * server listens on all interfaces.  All listeners must be on the same

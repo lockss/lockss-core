@@ -110,11 +110,11 @@ function cascadeSelectEnable(elem, nextId) {
 function selectEnable(elem, id1, id2) {
  var enable = elem.checked;
  var el1 = document.getElementById(id1);
- if (el1 !== undefined) {
+ if (el1 != null) {
   el1.disabled = !enable;
  }
  var el2 = document.getElementById(id2);
- if (el2 !== undefined) {
+ if (el2 != null) {
   el2.disabled = !enable;
  }
 }

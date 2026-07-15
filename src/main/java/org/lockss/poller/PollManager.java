@@ -40,6 +40,7 @@ import org.apache.commons.collections4.map.*;
 import org.apache.commons.lang3.mutable.MutableInt;
 import org.lockss.crawler.*;
 import org.lockss.util.rest.crawler.CrawlDesc;
+import org.lockss.util.rest.crawler.CrawlKindEnum;
 import org.mortbay.util.B64Code;
 
 import org.lockss.alert.*;
@@ -817,7 +818,7 @@ public class PollManager
     CrawlDesc desc = new CrawlDesc()
       .auId(au.getAuId())
       .crawlList(pendingPublisherRepairs)
-      .crawlKind(CrawlDesc.CrawlKindEnum.REPAIR)
+      .crawlKind(CrawlKindEnum.REPAIR)
       .putExtraCrawlerDataItem(POLL_ID_KEY, key);
     return ((CrawlManagerImpl)getDaemon().getCrawlManager()).sendCrawlRequest(au, desc);
   }

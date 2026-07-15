@@ -55,18 +55,16 @@ import org.lockss.daemon.status.*;
 public class LoginForm extends LockssServlet {
   static Logger log = Logger.getLogger();
 
-  static final String FORM_ACTION = "j_security_check";
+  public static final String FORM_ACTION = "j_security_check";
   static final String FORM_METHOD = "post";
-  static final String KEY_USERNAME = "j_username";
-  static final String KEY_PASSWORD = "j_password";
+  public static final String KEY_USERNAME = "j_username";
+  public static final String KEY_PASSWORD = "j_password";
 
   static final String ACTION_SUBMIT = "Login";
 
   /** String to display on login page. */
   static final String PARAM_UI_LOGIN_BANNER =
     Configuration.PREFIX + "ui.loginBanner";
-
-
 
   private LockssDaemon daemon;
   private ConfigManager cfgMgr;
@@ -83,6 +81,11 @@ public class LoginForm extends LockssServlet {
       logout();
     }
     displayForm();
+  }
+
+  // Do not add css links to login page - causes recursive login
+  @Override
+  protected void addCssLocations(Page page) {
   }
 
   private void logout() {

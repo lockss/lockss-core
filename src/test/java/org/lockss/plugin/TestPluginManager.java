@@ -1,32 +1,32 @@
 /*
 
-Copyright (c) 2000-2021, Board of Trustees of Leland Stanford Jr. University.
-All rights reserved.
+Copyright (c) 2000-2025, Board of Trustees of Leland Stanford Jr. University
 
-Redistribution and use in source and binary forms, with or without modification,
-are permitted provided that the following conditions are met:
+Redistribution and use in source and binary forms, with or without
+modification, are permitted provided that the following conditions are met:
 
-1. Redistributions of source code must retain the above copyright notice, this
-list of conditions and the following disclaimer.
+1. Redistributions of source code must retain the above copyright notice,
+this list of conditions and the following disclaimer.
 
 2. Redistributions in binary form must reproduce the above copyright notice,
-this list of conditions and the following disclaimer in the documentation and/or
-other materials provided with the distribution.
+this list of conditions and the following disclaimer in the documentation
+and/or other materials provided with the distribution.
 
 3. Neither the name of the copyright holder nor the names of its contributors
 may be used to endorse or promote products derived from this software without
 specific prior written permission.
 
-THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND
-ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED
-WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
-DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE FOR
-ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES
-(INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES;
-LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON
-ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
-(INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
-SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
+AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
+ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE
+LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
+CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
+SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
+INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN
+CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
+ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
+POSSIBILITY OF SUCH DAMAGE.
 
 */
 
@@ -965,6 +965,30 @@ public class TestPluginManager extends LockssTestCase4 {
   }
 
   @Test
+  public void testDontCreateOnDemandAuFromDisabledConfig() throws Exception {
+    onDemandSetup();
+    String auid1 = cod_tc1.getAuId(mgr);
+    Configuration auc1 = cod_tc1.getConfig();
+    mgr.updateAuInDatabase(auid1, auc1);
+    String auid2 = cod_tc2.getAuId(mgr);
+    Configuration auc2 = cod_tc2.getConfig();
+    // Deactivate auc2
+    auc2.put("reserved.disabled", "true");
+    mgr.updateAuInDatabase(auid2, auc2);
+
+    assertNull(mgr.getAuFromIdIfExists(auid1));
+    ArchivalUnit au1 = mgr.getAuFromId(auid1);
+    assertNotNull(au1);
+    assertSame(cod_mpi, au1.getPlugin());
+    assertEquals(cod_tc1.getConfig(), au1.getConfiguration());
+
+    // au2 should NOT be created
+    assertNull(mgr.getAuFromIdIfExists(auid2));
+    ArchivalUnit au2 = mgr.getAuFromId(auid2);
+    assertNull(au2);
+  }
+
+  @Test
   public void testCreateOnDemandAuFromAuId() throws Exception {
     onDemandSetup();
     String auid1 = cod_tc1.getAuId(mgr);
@@ -1001,6 +1025,77 @@ public class TestPluginManager extends LockssTestCase4 {
 				  "true");
     au1 = mgr.getAuFromId(auid1);
     assertNotNull(au1);
+  }
+
+  // On-demand AU creation (e.g., the md service indexing path) must apply
+  // missing non-definitional params from the tdb, just as the normal
+  // startup/reconfigure path does.  An AU whose config was stored before a
+  // non-def param was added to its plugin lacks that param; creating it on
+  // demand from the stored config must fill the value in from the tdb.
+  @Test
+  public void testCreateOnDemandAuAddsNonDefParamsFromTdb() throws Exception {
+    onDemandSetup();
+    // The plugin now declares a non-definitional param ("nondefp1") that
+    // wasn't present when the AU was first configured.
+    cod_mpi.setAuConfigDescrs(
+        ListUtil.list(ConfigParamDescr.BASE_URL,
+                      ConfigParamDescr.VOLUME_NUMBER,
+                      new ConfigParamDescr("nondefp1").setDefinitional(false)));
+    // tdb knows nondefp1 == "barbar" for cod_tc2
+    installTitleConfigs();
+
+    String auid2 = cod_tc2.getAuId(mgr);
+    // Simulate an AU stored before nondefp1 existed: stored config omits it.
+    Configuration storedConf = cod_tc2.getConfig().copy();
+    storedConf.remove("nondefp1");
+    assertEquals(SetUtil.set(MockPlugin.CONFIG_PROP_1, MockPlugin.CONFIG_PROP_2),
+                 storedConf.keySet());
+    mgr.updateAuInDatabase(auid2, storedConf);
+
+    assertNull(mgr.getAuFromIdIfExists(auid2));
+    ArchivalUnit au2 = mgr.getAuFromId(auid2);
+    assertNotNull(au2);
+    assertSame(cod_mpi, au2.getPlugin());
+    // The non-def param missing from the stored config must be supplied from
+    // the tdb at on-demand instantiation time.
+    assertEquals("barbar", au2.getConfiguration().get("nondefp1"));
+    assertEquals(cod_tc2.getConfig(), au2.getConfiguration());
+  }
+
+  // When a plugin is reloaded with a newer version that adds a non-def
+  // param, restarting its running AUs (restartAus()) must fill in the new
+  // param from the tdb.  The restart path uses createAu() (not configureAu(),
+  // because of its RestartCreate batch events), so it applies the params
+  // explicitly.
+  @Test
+  public void testRestartAusAddsNonDefParamsFromTdb() throws Exception {
+    onDemandSetup();
+    // Start an AU whose plugin doesn't yet know about nondefp1, so the
+    // running AU's config lacks it.
+    String auid2 = cod_tc2.getAuId(mgr);
+    Configuration storedConf = cod_tc2.getConfig().copy();
+    storedConf.remove("nondefp1");
+    mgr.updateAuInDatabase(auid2, storedConf);
+    ArchivalUnit au = mgr.getAuFromId(auid2);
+    assertNotNull(au);
+    assertEquals(null, au.getConfiguration().get("nondefp1"));
+
+    // Simulate reloading the plugin with a newer version that adds a non-def
+    // param, plus a tdb that supplies its value.
+    cod_mpi.setAuConfigDescrs(
+        ListUtil.list(ConfigParamDescr.BASE_URL,
+                      ConfigParamDescr.VOLUME_NUMBER,
+                      new ConfigParamDescr("nondefp1").setDefinitional(false)));
+    installTitleConfigs();
+
+    // Restart the AU as the plugin-reload path does.
+    mgr.restartAus(ListUtil.list(au), null);
+
+    ArchivalUnit au2 = mgr.getAuFromIdIfExists(auid2);
+    assertNotNull(au2);
+    assertNotSame(au, au2);
+    // The non-def param added by the reloaded plugin is filled in from the tdb.
+    assertEquals("barbar", au2.getConfiguration().get("nondefp1"));
   }
 
   @Test
@@ -1056,7 +1151,7 @@ public class TestPluginManager extends LockssTestCase4 {
     mgr.ensurePluginLoaded(mockPlugKey);
     ConfigParamDescr d1 = new ConfigParamDescr(MockPlugin.CONFIG_PROP_1);
     ConfigParamDescr d2 = new ConfigParamDescr(MockPlugin.CONFIG_PROP_2);
-    ConfigParamDescr d3 = new ConfigParamDescr("nondefp1");
+    ConfigParamDescr d3 = new ConfigParamDescr("nondefp1").setDefinitional(false);
     cod_tc1 = new TitleConfig("title1", mockPlugKey);
     cod_tc2 = new TitleConfig("title2", mockPlugKey);
     cod_tc1.setParams(ListUtil.list(new ConfigParamAssignment(d1, "a"),
@@ -1586,6 +1681,44 @@ public class TestPluginManager extends LockssTestCase4 {
   void assertEqualCu(CachedUrl cu1, CachedUrl cu2) {
     assertEquals(cu1.getUrl(), cu2.getUrl());
     assertEquals(cu1.getArchivalUnit(), cu2.getArchivalUnit());
+  }
+
+  @Test
+  public void testNormalizeUtil() throws Exception {
+    ConfigurationUtil.addFromArgs(PluginManager.PARAM_AU_SEARCH_USE_V2_REPO,
+        "true");
+
+    ConfigurationUtil.addFromArgs(
+        "org.lockss.log.PluginManager.level", "debug3",
+        "org.lockss.log.AuSearchSet.level", "debug3",
+        "org.lockss.log.BaseCachedUrl.level", "debug3");
+
+    mgr.startService();
+    repo = repoMgr.getV2Repository().getRepository();
+
+    mgr.ensurePluginLoaded(simplePlugKey);
+    Plugin sp = mgr.getPlugin(simplePlugKey);
+
+    ArchivalUnit au1 =
+        mgr.createAu(sp,
+            ConfigurationUtil.fromArgs("base_url", "http://foo.bar/",
+                "volume_name", "42"),
+            AuEvent.model(AuEvent.Type.Create));
+
+    ArchivalUnit au2 =
+        mgr.createAu(sp,
+            ConfigurationUtil.fromArgs("base_url", "http://foo.bar/",
+                "volume_name", "43"),
+            AuEvent.model(AuEvent.Type.Create));
+
+    // Test default URL normalization
+    assertSameElements(List.of("http://www.lockss.org/"),
+        mgr.normalizeUrl("http://www.LOCKSS.org"));
+
+    // Test URL normalization by plugin
+    String url1 = "http://foo.bar/42/baz";
+    String url1un = url1 + Integer.toHexString(au1.hashCode());
+    assertSameElements(List.of(url1, url1un), mgr.normalizeUrl(url1un));
   }
 
   @Test
@@ -2152,6 +2285,21 @@ public class TestPluginManager extends LockssTestCase4 {
   }
 
   @Test
+  // Real-world(ish) example
+  public void testGenerateAuId2() {
+    mgr.startService();
+    String pluginId = "org.lockss.plugin.clockss.aps.ClockssAPSSourcePlugin";
+    Properties props = new Properties();
+    props.setProperty("base_url", "http://clockss-ingest.clockss.org/sourcefiles/aps-released/");
+    props.setProperty("utf8param", "éöf oo"); // non-ascii & a space
+    props.setProperty("year", "2020");
+
+    String actual = PluginManager.generateAuId(pluginId, props);
+    log.critical("auid: " + actual);
+    assertEquals("org|lockss|plugin|clockss|aps|ClockssAPSSourcePlugin&base_url~http%3A%2F%2Fclockss-ingest%2Eclockss%2Eorg%2Fsourcefiles%2Faps-released%2F&utf8param~%C3%A9%C3%B6f+oo&year~2020", actual);
+  }
+
+  @Test
   public void testGenerateAuIdUniqueInstance() throws Exception {
     mgr.startService();
 
@@ -2507,7 +2655,7 @@ public class TestPluginManager extends LockssTestCase4 {
   }
 
   /** Runtime errors loading plugins should be caught. */
-// XXX  @Test
+  @Test
   public void testErrorProcessingRegistryAu() throws Exception {
     mgr.startService();
     Properties p = new Properties();
@@ -2795,7 +2943,7 @@ public class TestPluginManager extends LockssTestCase4 {
     MyMockRegistryArchivalUnit mmau1 =
       new MyMockRegistryArchivalUnit(ListUtil.list(pluginJar));
     assertNull(mgr.getPlugin(pluginKey));
-    mgr.processRegistryAus(ListUtil.list(mmau1), true);
+    mgr.processRegistryAus(ListUtil.list(mmau1), true, null);
     Plugin plugin1 = mgr.getPlugin(pluginKey);
     assertNotNull(plugin1);
     assertTrue(mgr.isLoadablePlugin(plugin1));

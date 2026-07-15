@@ -1822,6 +1822,15 @@ public class StringUtil {
     return numberOfUnits(number, unit, unit + "s");
   }
 
+  /** Return a string like "0 units", "1 unit", "n units", with
+   * large-number formatting (e.g., commas)
+   * @param number the number of whatever units
+   * @param unit Single form of unit, plural formed by adding "s"
+   */
+  public static String bigNumberOfUnits(long number, String unit) {
+    return bigNumberOfUnits(number, unit, unit + "s");
+  }
+
   /** Return a string like "0 units", "1 unit", "n units"
    * @param number the number of whatever units
    * @param unit Single form of unit
@@ -1833,6 +1842,23 @@ public class StringUtil {
       return number + " " + unit;
     } else {
       return number + " " + pluralUnit;
+    }
+  }
+
+  static NumberFormat bigIntFmt = NumberFormat.getInstance();
+
+  /** Return a string like "0 units", "1 unit", "n units", with
+   * large-number formatting (e.g., commas)
+   * @param number the number of whatever units
+   * @param unit Single form of unit
+   * @param pluralUnit plural form of unit
+   */
+  public static String bigNumberOfUnits(long number, String unit,
+				     String pluralUnit) {
+    if (number == 1) {
+      return number + " " + unit;
+    } else {
+      return bigIntFmt.format(number) + " " + pluralUnit;
     }
   }
 
@@ -2069,5 +2095,19 @@ public class StringUtil {
     }
 
     return name + ".size() = " + theList.size();
+  }
+
+  public static final java.util.regex.Pattern AUID_PAT =
+      java.util.regex.Pattern.compile("[\\w|]+&\\w+~.+");
+
+  /**
+   * Return true if the string is plausibly an AUID
+   */
+  public static boolean maybeAuid(String auid) {
+    if (StringUtil.isNullString(auid)) return false;
+    if (!Character.isJavaIdentifierStart(auid.charAt(0))) return false;
+    java.util.regex.Matcher matcher = AUID_PAT.matcher(auid);
+    if (!matcher.matches()) return false;
+    return true;
   }
 }

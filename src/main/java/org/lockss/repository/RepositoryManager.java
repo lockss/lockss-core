@@ -49,11 +49,10 @@ import org.lockss.util.ListUtil;
 import org.lockss.util.StringUtil;
 import org.lockss.util.os.PlatformUtil;
 import org.lockss.util.rest.RestUtil;
-import org.lockss.util.rest.repo.LockssRepository;
-import org.lockss.util.rest.repo.RestLockssRepository;
-import org.lockss.util.rest.repo.model.Artifact;
-import org.lockss.util.rest.repo.model.ArtifactVersions;
-import org.lockss.util.rest.repo.model.RepositoryInfo;
+import org.lockss.util.rest.RestUtil.LockssRestTemplateSettings;
+import org.lockss.util.rest.RestUtil.LockssRestTemplateSettingsBuilder;
+import org.lockss.util.rest.repo.*;
+import org.lockss.util.rest.repo.model.*;
 import org.lockss.util.rest.repo.util.ArtifactCache;
 import org.lockss.util.storage.StorageInfo;
 import org.lockss.util.time.TimeBase;
@@ -109,7 +108,26 @@ public class RepositoryManager
     PREFIX + "artifactCache.maxSize";
   public static final int DEFAULT_ARTIFACT_CACHE_MAX = 500;
 
+  /** Initial progression of Artifact iterator page sizes to request */
+  public static final String PARAM_ARTIFACT_ITER_PAGE_SIZES =
+    PREFIX + "artifactIterator.pageSizes";
+  public static final List<Integer> DEFAULT_ARTIFACT_ITER_PAGE_SIZES =
+    ListUtil.list(10,30,100,500,1000);
+
+  /** Length of Artifact iterator queue */
+  public static final String PARAM_ARTIFACT_ITER_QUEUE_LEN =
+    PREFIX + "artifactIterator.queueLen";
+  public static final int DEFAULT_ARTIFACT_ITER_QUEUE_LEN =
+    RestLockssRepositoryArtifactIterator.DEFAULT_QUEUE_LENGTH;
+
+  /** Artifact iterator queue GET timeout */
+  public static final String PARAM_ARTIFACT_ITER_QUEUE_GET_TIMEOUT =
+    PREFIX + "artifactIterator.queueGetTimeout";
+  public static final long DEFAULT_ARTIFACT_ITER_QUEUE_GET_TIMEOUT =
+    RestLockssRepositoryArtifactIterator.DEFAULT_QUEUE_GET_TIMEOUT;
+
   public static final String REPOSITORY_CLIENT_PREFIX = PREFIX + "client.";
+  public static final String REPOSITORY_CLIENT_POOL_PREFIX = REPOSITORY_CLIENT_PREFIX + "connectionPool.";
 
   /** Toggles whether to use the multipart endpoint for artifact data */
   public static final String PARAM_USE_MULTIPART_ENDPOINT =
@@ -123,7 +141,15 @@ public class RepositoryManager
 
   public static final String PARAM_READ_TIMEOUT =
       REPOSITORY_CLIENT_PREFIX + "readTimeout";
-  public static final long DEFAULT_READ_TIMEOUT = 30 * Constants.SECOND;
+  public static final long DEFAULT_READ_TIMEOUT = 1 * Constants.HOUR;
+
+  public static final String PARAM_POOL_MAX_CONNECTIONS =
+      REPOSITORY_CLIENT_POOL_PREFIX + "maxConnections";
+  public static final int DEFAULT_POOL_MAX_CONNECTIONS = 250;
+
+  public static final String PARAM_POOL_MAX_CONNECTIONS_PER_ROUTE =
+      REPOSITORY_CLIENT_POOL_PREFIX + "maxConnectionsPerRoute";
+  public static final int DEFAULT_POOL_MAX_CONNECTIONS_PER_ROUTE = 50;
 
   public static final String PARAM_RESPONSE_SIZE_THRESHOLD =
       REPOSITORY_CLIENT_PREFIX + "sizeThreshold";
@@ -175,6 +201,8 @@ public class RepositoryManager
   private boolean useMultipartEndpoint = DEFAULT_USE_MULTIPART_ENDPOINT;
   private long connectTimeout = DEFAULT_CONNECT_TIMEOUT;
   private long readTimeout = DEFAULT_READ_TIMEOUT;
+  private int maxConnections = DEFAULT_POOL_MAX_CONNECTIONS;
+  private int maxConnectionsPerRoute = DEFAULT_POOL_MAX_CONNECTIONS_PER_ROUTE;
   private long sizeThreshold = DEFAULT_RESPONSE_SIZE_THRESHOLD;
   private File tmpDir = DEFAULT_RESPONSE_TMP_DIR;
 
@@ -239,40 +267,56 @@ public class RepositoryManager
       useMultipartEndpoint = config.getBoolean(PARAM_USE_MULTIPART_ENDPOINT,
           DEFAULT_USE_MULTIPART_ENDPOINT);
 
-      connectTimeout = config.getLong(PARAM_CONNECT_TIMEOUT, DEFAULT_CONNECT_TIMEOUT);
-      readTimeout = config.getLong(PARAM_READ_TIMEOUT, DEFAULT_READ_TIMEOUT);
+      connectTimeout = config.getTimeInterval(PARAM_CONNECT_TIMEOUT, DEFAULT_CONNECT_TIMEOUT);
+      readTimeout = config.getTimeInterval(PARAM_READ_TIMEOUT, DEFAULT_READ_TIMEOUT);
+      maxConnections = config.getInt(PARAM_POOL_MAX_CONNECTIONS, DEFAULT_POOL_MAX_CONNECTIONS);
+      maxConnectionsPerRoute = config.getInt(PARAM_POOL_MAX_CONNECTIONS_PER_ROUTE, DEFAULT_POOL_MAX_CONNECTIONS_PER_ROUTE);
       sizeThreshold = config.getSize(PARAM_RESPONSE_SIZE_THRESHOLD, DEFAULT_RESPONSE_SIZE_THRESHOLD);
 
       tmpDir = (config.containsKey(PARAM_RESPONSE_TMP_DIR)) ?
           new File(config.get(PARAM_RESPONSE_TMP_DIR)) : DEFAULT_RESPONSE_TMP_DIR;
 
-      processV2RepoSpec(config.get(PARAM_V2_REPOSITORY, DEFAULT_V2_REPOSITORY));
-      reconfigureRepos(config);
+      RepoSpec rs =
+        ensureRepo(config.get(PARAM_V2_REPOSITORY, DEFAULT_V2_REPOSITORY));
+      // Interim: the repo configured by this param is the "default"
+      // one to use for all AUs for now.
+      v2Repo = rs;
+
+      // This may unnecessarily reconfigure a repo that's just been
+      // created, but that's harmless
+      reconfigureRepos(config, changedKeys);
     }
   }
 
-  static Pattern REPO_SPEC_PATTERN =
-    Pattern.compile("([^:]+):([^:]+)(?::(.*$))?");
-
-  private void processV2RepoSpec(String spec) {
-    if (!StringUtil.isNullString(System.getProperty("oldrepo"))) {
-      return;
+  /** Parse the repo spec and create the repo iff necessary. */
+  private RepoSpec ensureRepo(String spec) {
+    if (StringUtil.isNullString(spec)) {
+      throw new IllegalArgumentException("Repo spec must not be null");
     }
-    if (!StringUtil.isNullString(spec)) {
-      // currently set this only once
-      if (!repoSpecMap.containsKey(spec)) {
-	try {
-	  RepoSpec rs = RepoSpec.fromSpec(spec);
-	  rs.setRepository(createLockssRepository(rs));
-	  setV2Repo(rs);
-	} catch (Exception e) {
-	  log.fatal("Can't create V2 repo", e);
-	}
+    RepoSpec rs = repoSpecMap.get(spec);
+    if (rs == null) {
+      // No cached RepoSpec, must create one
+      try {
+        rs = RepoSpec.fromSpec(spec);
+        // See if a LockssRepository for this type/path
+        String rkey = rs.getRepositoryKey();
+        LockssRepository repo = repoMap.get(rkey);
+        if (repo == null) {
+          // No, create it and associate with the namespace-less key
+          repo = createLockssRepository(rs);
+          repoMap.put(rkey, repo);
+        }
+        // Store the LockssRepository in the RepoSpec
+        rs.setRepository(repo);
+        // and put the new RepoSpec in the map
+        repoSpecMap.put(spec, rs);
+        return rs;
+      } catch (RuntimeException e) {
+        log.fatal("Can't create V2 repo", e);
+        throw e;
       }
-    } else {
-      repoSpecMap.remove(spec);
-      v2Repo = null;
     }
+    return rs;
   }
 
   private void setV2Repo(RepoSpec rs) {
@@ -286,7 +330,13 @@ public class RepositoryManager
     return rs != null && rs.getRepository() != null;
   }
 
+  /** Maps RepoSpec string to RepoSpec */
   Map<String,RepoSpec> repoSpecMap = new HashMap<>();
+
+  /** Maps repository key to LockssRepository (because
+   * LockssRepository instances handle multiple namespaces, but
+   * RepoSpec insludes namespace */
+  Map<String,LockssRepository> repoMap = new HashMap<>();
 
   /** Temporary until multiple repos */
   public RepoSpec getV2Repository() {
@@ -294,14 +344,41 @@ public class RepositoryManager
   }
 
   public RepoSpec getV2Repository(String spec) {
-    return repoSpecMap.get(spec);
+    RepoSpec res = ensureRepo(spec);
+    return res;
   }
 
-  /** Return list of known repository names.  Needs a registration
+  /** Return list of known repositories.  Needs a registration
    * mechanism if ever another repository implementation. */
-  public Collection<RepoSpec> getV2RepositoryList() {
+  public Collection<LockssRepository> getV2RepositoryList() {
+    return repoMap.values();
+  }
+
+  /** Return list of known RepoSpecs.  Ensures that a RepoSpec for
+   * each existing namespace is included, even if not already known */
+  public synchronized Collection<RepoSpec> getAllRepoSpecs() {
+    for (RepoSpec rs : repoSpecMap.values()) {
+      findAllNamespaces(rs);
+    }
     return repoSpecMap.values();
   }
+
+  private void findAllNamespaces(RepoSpec rs) {
+    try {
+      for (String ns : rs.getRepository().getNamespaces()) {
+        if (!ns.equals(rs.getNamespace())) {
+          RepoSpec rsn = rs.withNamespace(ns);
+          String rsnSpec = rsn.getSpec();
+          if (!repoSpecMap.containsKey(rsnSpec)) {
+            repoSpecMap.put(rsnSpec, rsn);
+          }
+        }
+      }
+    } catch (IOException e) {
+      log.error("Can't fetch namespaces from {}", rs, e);
+    }
+  }
+
 
   /** Return the repository containing the specified AU. */
   public RepoSpec findAuRepository(ArchivalUnit au) {
@@ -394,12 +471,34 @@ public class RepositoryManager
 	  }
 	}
 
-        RestLockssRepository repo = new RestLockssRepository(url,
-            RestUtil.getRestTemplate(connectTimeout, readTimeout, (int) sizeThreshold, tmpDir),
-            serviceUser,
-            servicePassword);
+        log.debug("Making RestLockssRepository, connectTimeout: {}, readTimeout: {}, maxConnections: {}, " +
+                "maxConnectionsPerRoute: {} ,sizeThreshold: {}",
+                  StringUtil.timeIntervalToString(connectTimeout), StringUtil.timeIntervalToString(readTimeout),
+                  maxConnections, maxConnectionsPerRoute, StringUtil.sizeToString(sizeThreshold));
+
+        LockssRestTemplateSettings settings =
+            new LockssRestTemplateSettingsBuilder()
+                .setConnectTimeout(connectTimeout)
+                .setReadTimeout(readTimeout)
+                .setMaxConnections(maxConnections)
+                .setMaxConnectionsPerRoute(maxConnectionsPerRoute)
+                .setDfosSizeThreshold(sizeThreshold)
+                .setDfosTmpDir(tmpDir)
+                .build();
+
+        RestLockssRepository repo =
+            new RestLockssRepository(url, RestUtil.getRestTemplate(settings), serviceUser, servicePassword);
 
         repo.setUseMultipartEndpoint(useMultipartEndpoint);
+        RestLockssRepositoryArtifactIterator.Params iterParams =
+          new RestLockssRepositoryArtifactIterator.Params()
+          .setPageSizes(config.getList(PARAM_ARTIFACT_ITER_PAGE_SIZES,
+                                       DEFAULT_ARTIFACT_ITER_PAGE_SIZES))
+          .setQueueLen(config.getInt(PARAM_ARTIFACT_ITER_QUEUE_LEN,
+                                     DEFAULT_ARTIFACT_ITER_QUEUE_LEN))
+          .setQueueGetTimeout(config.getTimeInterval(PARAM_ARTIFACT_ITER_QUEUE_GET_TIMEOUT,
+                                                     DEFAULT_ARTIFACT_ITER_QUEUE_GET_TIMEOUT));
+        repo.setArtifactIteratorParams(iterParams);
 	configureArtifactCache(repo, config);
 	return repo;
       } catch (MalformedURLException e) {
@@ -414,12 +513,34 @@ public class RepositoryManager
     }
   }
 
-  private void reconfigureRepos(Configuration config) {
-    for (RepoSpec rs : getV2RepositoryList()) {
-      if (rs.getRepository() instanceof RestLockssRepository) {
-        RestLockssRepository repoClient = (RestLockssRepository) rs.getRepository();
+  private void reconfigureRepos(Configuration config,
+                                Configuration.Differences changedKeys) {
+    for (LockssRepository repo : getV2RepositoryList()) {
+      if (repo instanceof RestLockssRepository repoClient) {
 	configureArtifactCache(repoClient, config);
         repoClient.setUseMultipartEndpoint(useMultipartEndpoint);
+        if (changedKeys.contains(PARAM_READ_TIMEOUT) ||
+            changedKeys.contains(PARAM_CONNECT_TIMEOUT) ||
+            changedKeys.contains(PARAM_POOL_MAX_CONNECTIONS) ||
+            changedKeys.contains(PARAM_POOL_MAX_CONNECTIONS_PER_ROUTE) ||
+            changedKeys.contains(PARAM_RESPONSE_SIZE_THRESHOLD)) {
+          log.debug("Resetting RestTemplate params. connectTimeout: {}, readTimeout: {}, sizeThreshold: {}"
+              + "maxConnections: {}, maxConnectionsPerRoute: {}",
+                    StringUtil.timeIntervalToString(connectTimeout), StringUtil.timeIntervalToString(readTimeout),
+                    StringUtil.sizeToString(sizeThreshold), maxConnections, maxConnectionsPerRoute);
+
+          LockssRestTemplateSettings settings =
+              new LockssRestTemplateSettingsBuilder()
+                  .setConnectTimeout(connectTimeout)
+                  .setReadTimeout(readTimeout)
+                  .setMaxConnections(maxConnections)
+                  .setMaxConnectionsPerRoute(maxConnectionsPerRoute)
+                  .setDfosSizeThreshold(sizeThreshold)
+                  .setDfosTmpDir(tmpDir)
+                  .build();
+
+          repoClient.setRestTemplate(RestUtil.getRestTemplate(settings));
+        }
       }
     }
   }
@@ -612,7 +733,7 @@ public class RepositoryManager
    * version of each matching Artifact in each AU.
    */
   public List<Artifact> findArtifactsByUrl(String normUrl) {
-    return findArtifactsByUrl(normUrl, ArtifactVersions.LATEST);
+    return findArtifactsByUrl(normUrl, VersionsEnum.LATEST);
   }
 
   /** Search all repositories and AUs for Artifacts with the given URL
@@ -622,7 +743,7 @@ public class RepositoryManager
    * @return List of Artifacts with that URL
    */
   public List<Artifact> findArtifactsByUrl(String normUrl,
-                                           ArtifactVersions versions) {
+                                           VersionsEnum versions) {
     List<Artifact> res = new ArrayList<>();
     for (RepoSpec spec : getRepositorySpecList()) {
       LockssRepository repo = spec.getRepository();

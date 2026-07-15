@@ -37,10 +37,10 @@ import org.lockss.rs.io.StorageInfoSource;
 import org.lockss.log.L4JLogger;
 import org.lockss.util.rest.repo.model.Artifact;
 import org.lockss.util.rest.repo.model.ArtifactIdentifier;
-import org.lockss.util.rest.repo.model.ArtifactVersions;
 import org.lockss.util.rest.repo.model.AuSize;
 import org.lockss.util.PreOrderComparator;
 import org.lockss.util.lang.Ready;
+import org.lockss.util.rest.repo.model.VersionsEnum;
 import org.lockss.util.time.Deadline;
 
 import java.io.IOException;
@@ -51,6 +51,9 @@ import java.util.concurrent.TimeoutException;
  * Interface of the artifact index.
  */
 public interface ArtifactIndex extends LockssRepositorySubsystem, StorageInfoSource, Ready {
+    default ArtifactIndexVersion getArtifactIndexTargetVersion() {
+        return ArtifactIndexVersion.UNKNOWN;
+    }
 
     /**
      * Acquires the artifact version lock for an artifact stem. See
@@ -71,7 +74,7 @@ public interface ArtifactIndex extends LockssRepositorySubsystem, StorageInfoSou
 
     /**
      * Adds an artifact to the index.
-     * 
+     *
      * @param artifact The {@link Artifact} to add to this index.
      * @throws IOException
      */
@@ -86,9 +89,32 @@ public interface ArtifactIndex extends LockssRepositorySubsystem, StorageInfoSou
     void indexArtifacts(Iterable<Artifact> artifacts) throws IOException;
 
     /**
+     * Adds an artifact to the index or updates storageUrl & committed
+     *
+     * @param artifact The {@link Artifact} to add to this index.
+     * @throws IOException
+     */
+    void reindexArtifact(Artifact artifact) throws IOException;
+
+    /**
+     * Bulk addition or update of artifacts into this index.
+     *
+     * @param artifacts An {@link Iterable<Artifact>} containing artifacts to add to this index.
+     * @throws IOException
+     */
+    void reindexArtifacts(Iterable<Artifact> artifacts) throws IOException;
+
+    /**
+     * Removes all artifacts (and any associated data) from the index
+     *
+     * @throws IOException
+     */
+    void clearIndex() throws IOException;
+
+    /**
      * Provides the index data of an artifact with a given text index
      * identifier.
-     * 
+     *
      * @param artifactUuid
      *          A {@code String} with the artifact index identifier.
      * @return an Artifact with the artifact indexing data.
@@ -102,7 +128,7 @@ public interface ArtifactIndex extends LockssRepositorySubsystem, StorageInfoSou
     /**
      * Provides the index data of an artifact with a given index identifier
      * UUID.
-     * 
+     *
      * @param artifactUuid
      *          An {@code UUID} with the artifact index identifier.
      * @return an Artifact with the artifact indexing data.
@@ -111,7 +137,7 @@ public interface ArtifactIndex extends LockssRepositorySubsystem, StorageInfoSou
 
     /**
      * Commits to the index an artifact with a given text index identifier.
-     * 
+     *
      * @param artifactUuid
      *          A {@code String} with the artifact index identifier.
      * @return an Artifact with the committed artifact indexing data.
@@ -120,7 +146,7 @@ public interface ArtifactIndex extends LockssRepositorySubsystem, StorageInfoSou
 
     /**
      * Commits to the index an artifact with a given index identifier UUID.
-     * 
+     *
      * @param artifactUuid
      *          An {@code UUID} with the artifact index identifier.
      * @return an Artifact with the committed artifact indexing data.
@@ -129,7 +155,7 @@ public interface ArtifactIndex extends LockssRepositorySubsystem, StorageInfoSou
 
     /**
      * Removes from the index an artifact with a given text index identifier.
-     * 
+     *
      * @param artifactUuid
      *          A {@code String} with the artifact index identifier.
      * @return <code>true</code> if the artifact was removed from in the index,
@@ -139,7 +165,7 @@ public interface ArtifactIndex extends LockssRepositorySubsystem, StorageInfoSou
 
     /**
      * Removes from the index an artifact with a given index identifier UUID.
-     * 
+     *
      * @param artifactUuid
      *          A String with the artifact index identifier.
      * @return <code>true</code> if the artifact was removed from in the index,
@@ -150,7 +176,7 @@ public interface ArtifactIndex extends LockssRepositorySubsystem, StorageInfoSou
     /**
      * Provides an indication of whether an artifact with a given text index
      * identifier exists in the index.
-     * 
+     *
      * @param artifactUuid
      *          A String with the artifact identifier.
      * @return <code>true</code> if the artifact exists in the index,
@@ -290,14 +316,14 @@ public interface ArtifactIndex extends LockssRepositorySubsystem, StorageInfoSou
      *          A String with the namespace.
      * @param prefix
      *          A String with the URL prefix.
-     * @param versions   A {@link ArtifactVersions} indicating whether to include all versions or only the latest
+     * @param versions   A {@link VersionsEnum} indicating whether to include all versions or only the latest
      *                   versions of an artifact.
      * @return An {@code Iterable<Artifact>} containing the committed artifacts of all versions of all URLs matching a
      *         prefix.
      */
     Iterable<Artifact> getArtifactsWithUrlPrefixFromAllAus(String namespace,
                                                            String prefix,
-                                                           ArtifactVersions versions)
+                                                           VersionsEnum versions)
         throws IOException;
 
     /**
@@ -326,13 +352,13 @@ public interface ArtifactIndex extends LockssRepositorySubsystem, StorageInfoSou
      *          A {@code String} with the namespace.
      * @param url
      *          A {@code String} with the URL to be matched.
-     * @param versions   A {@link ArtifactVersions} indicating whether to include all versions or only the latest
+     * @param versions   A {@link VersionsEnum} indicating whether to include all versions or only the latest
      *                   versions of an artifact.
      * @return An {@code Iterable<Artifact>} containing the committed artifacts of all versions of a given URL.
      */
     Iterable<Artifact> getArtifactsWithUrlFromAllAus(String namespace,
                                                      String url,
-                                                     ArtifactVersions versions)
+                                                     VersionsEnum versions)
         throws IOException;
 
     /**
@@ -431,9 +457,15 @@ public interface ArtifactIndex extends LockssRepositorySubsystem, StorageInfoSou
 
     long DEFAULT_WAITREADY = 5000;
 
-    @Override
     default void waitReady(Deadline deadline) throws TimeoutException {
         final L4JLogger log = L4JLogger.getLogger();
+
+        // Throw immediately if the deadline is expired:
+        // (Proceeding and possibly signaling that the index is ready now,
+        // after the deadline, would be incorrect.)
+        if (deadline.expired()) {
+            throw new TimeoutException("Deadline for artifact index to become ready expired");
+        }
 
         while (!isReady()) {
             if (deadline.expired()) {
@@ -445,9 +477,7 @@ public interface ArtifactIndex extends LockssRepositorySubsystem, StorageInfoSou
 
             log.debug(
                 "Waiting for artifact index to become ready (retrying in {} ms; deadline in {} ms)",
-                sleepTime,
-                remainingTime
-            );
+                sleepTime, remainingTime);
 
             try {
                 Thread.sleep(sleepTime);

@@ -316,7 +316,6 @@ public class SubscriptionManagement extends LockssServlet {
     // Start the page.
     Page page = newPage();
     addJavaScript(page);
-    addCssLocations(page);
     addJQueryLocations(page);
     addMigrationWarning(page);
 
@@ -2018,7 +2017,6 @@ public class SubscriptionManagement extends LockssServlet {
     // Start the page.
     Page page = newPage();
     addJavaScript(page);
-    addCssLocations(page);
     addJQueryLocations(page);
     addMigrationWarning(page);
 

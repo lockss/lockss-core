@@ -800,6 +800,11 @@ public class DefinableArchivalUnit extends BaseArchivalUnit
     return ret;
   }
 
+  public boolean isAllowStartUrlError() {
+    return getDefinablePlugin().isAllowStartUrlError();
+  }
+
+
   @Override
   public Collection<String> getAccessUrls() {
     FeatureUrlHelper helper = getDefinablePlugin().getFeatureUrlHelper(this);

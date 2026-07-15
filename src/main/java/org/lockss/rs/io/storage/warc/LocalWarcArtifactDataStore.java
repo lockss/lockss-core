@@ -33,17 +33,17 @@ package org.lockss.rs.io.storage.warc;
 import org.apache.commons.io.FileUtils;
 import org.archive.format.warc.WARCConstants;
 import org.lockss.log.L4JLogger;
-import org.lockss.rs.io.storage.ArtifactDataStore;
 import org.lockss.util.io.FileUtil;
 import org.lockss.util.os.PlatformUtil;
-import org.lockss.util.rest.repo.model.NamespacedAuid;
 import org.lockss.util.storage.StorageInfo;
 import org.springframework.util.MultiValueMap;
 import org.springframework.web.util.UriComponentsBuilder;
 
 import java.io.*;
 import java.net.URI;
+import java.nio.channels.FileChannel;
 import java.nio.file.Path;
+import java.nio.file.StandardOpenOption;
 import java.util.*;
 import java.util.stream.Collectors;
 
@@ -78,10 +78,12 @@ public class LocalWarcArtifactDataStore extends WarcArtifactDataStore {
    * Constructor. Rebuilds the index on start-up from a given repository base path, if using a volatile index.
    */
   public LocalWarcArtifactDataStore(Path[] basePaths) throws IOException {
-    log.debug2("Starting local WARC artifact data store [basePaths: {}]", basePaths);
+    log.debug2("Starting local WARC artifact data store [basePaths: {}]", (Object[])basePaths);
 
     // Set local base paths
-    this.basePaths = basePaths;
+    this.basePaths = Arrays.stream(basePaths)
+        .map(p -> p.toAbsolutePath().normalize())
+        .toArray(Path[]::new);
 
     // Start temporary WARC file pool
     this.tmpWarcPool = new WarcFilePool(this);
@@ -126,8 +128,7 @@ public class LocalWarcArtifactDataStore extends WarcArtifactDataStore {
     log.debug("Cleared internal AU maps");
 
     // Reset maps
-    auPathsMap = new HashMap<>();
-    auActiveWarcsMap = new HashMap<>();
+    appendablePermanentWarcsMap = new HashMap<>();
   }
 
   // *******************************************************************************************************************
@@ -150,47 +151,41 @@ public class LocalWarcArtifactDataStore extends WarcArtifactDataStore {
   }
 
   /**
-   * Local filesystems implementation of {@link ArtifactDataStore#initAu(String, String)}.
-   * <p>
-   * Initializes an AU by reloading any existing directories of this AU or creates a new one if initializing this AU
-   * for the first time.
+   * Initializes an Archival Unit (AU) in the specified namespace and returns a list of paths
+   * associated with it. The method ensures that the namespace is properly set up across
+   * storage locations and any required AU-related directories are initialized.
    *
-   * @param namespace A {@code String} containing the namespace.
-   * @param auid
-   * @return
-   * @throws IOException
+   * @param namespace The namespace to which the AU belongs.
+   * @param auid The Archival Unit identifier (AUID) for which initialization is performed.
+   * @return A {@code List<Path>} containing paths associated with the initialized AU.
+   * @throws IOException if an I/O error occurs during the initialization process.
    */
   @Override
   public List<Path> initAu(String namespace, String auid) throws IOException {
-    //// Initialize namespace on each filesystem
     initNamespace(namespace);
+    return findExistingAUPaths(namespace, auid);
+  }
 
-    //// Reload any existing AU base paths
-
-    // Get base paths of the repository
+  /**
+   * Finds and returns a list of paths to existing AU (Archival Unit) directories
+   * under the configured base paths for a given namespace and AU identifier (AUID).
+   *
+   * @param namespace A {@code String} containing the namespace of the AU.
+   * @param auid A {@code String} containing the AUID of the AU.
+   * @return A {@code List<Path>} containing the paths to the existing AU directories.
+   */
+  public List<Path> findExistingAUPaths(String namespace, String auid) {
     Path[] baseDirs = getBasePaths();
 
     if (baseDirs == null || baseDirs.length < 1) {
-      log.error("No data store base directories configured");
-      throw new IllegalStateException("Data store is misconfigured");
+      log.error("No content base paths configured");
+      throw new IllegalStateException("No content base paths configured");
     }
 
-    // Find existing base directories of this AU
-    List<Path> auPathsFound = Arrays.stream(baseDirs)
-        .map(basePath -> getAuPath(basePath, namespace, auid))
-        .filter(auPath -> auPath.toFile().isDirectory())
-        .collect(Collectors.toList());
-
-    if (auPathsFound.isEmpty()) {
-      // No existing directories for this AU: Initialize a new AU directory
-      auPathsFound.add(initAuDir(namespace, auid));
-    }
-
-    // Track AU directories in internal AU paths map
-    NamespacedAuid key = new NamespacedAuid(namespace, auid);
-    auPathsMap.put(key, auPathsFound);
-
-    return auPathsFound;
+    return Arrays.stream(baseDirs)
+        .map(basePath -> generateAUPath(basePath, namespace, auid))
+        .filter(auBasePath -> auBasePath.toFile().isDirectory())
+        .toList();
   }
 
   /**
@@ -203,25 +198,12 @@ public class LocalWarcArtifactDataStore extends WarcArtifactDataStore {
    * @throws IOException
    */
   @Override
-  protected Path initAuDir(String namespace, String auid) throws IOException {
-    Path[] basePaths = getBasePaths();
-
-    if (basePaths == null || basePaths.length < 1) {
-      log.error("No data store base directories configured");
-      throw new IllegalStateException("Data store is misconfigured");
-    }
-
-    // Determine which base path to use based on current available space
-    Path basePath = Arrays.stream(basePaths)
-        .sorted((a, b) -> (int) (getFreeSpace(b.getParent()) - getFreeSpace(a.getParent())))
-        .findFirst()
-        .get();
-
-    // Generate an AU path under this base path and create it on disk
-    Path auPath = getAuPath(basePath, namespace, auid);
+  protected Path initAuDir(Path basePath, String namespace, String auid) throws IOException {
+    Path auPath = generateAUPath(basePath, namespace, auid);
+    File auPathFile = auPath.toFile();
 
     // Create the AU directory if necessary
-    if (!auPath.toFile().isDirectory()) {
+    if (!auPathFile.exists() && !auPathFile.isDirectory()) {
       mkdirs(auPath);
     }
 
@@ -330,10 +312,6 @@ public class LocalWarcArtifactDataStore extends WarcArtifactDataStore {
       mkdirs(warcPath.getParent());
 
       initFile(warcFile);
-
-      try (OutputStream output = getAppendableOutputStream(warcPath)) {
-        writeWarcInfoRecord(output);
-      }
     }
   }
 
@@ -343,7 +321,27 @@ public class LocalWarcArtifactDataStore extends WarcArtifactDataStore {
 
   @Override
   public boolean removeWarc(Path filePath) {
-    return filePath.toFile().delete();
+    if (filePath == null) return true;
+
+    boolean result = FileUtil.safeDeleteFile(filePath.toFile());
+    if (!result) {
+      log.warn("Unable to delete WARC file [filePath: {}]", filePath);
+    }
+
+    return result;
+  }
+
+  @Override
+  protected void truncateWarc(Path warcPath, long length) throws IOException {
+    try (FileChannel channel = FileChannel.open(warcPath, StandardOpenOption.WRITE)) {
+      long fileSize = channel.size();
+      if (length > fileSize) {
+        throw new IOException(
+            String.format("Cannot truncate WARC past its length [path: %s, fileSize: %d, requested: %d]",
+                warcPath, fileSize, length));
+      }
+      channel.truncate(length);
+    }
   }
 
   /**
@@ -354,7 +352,6 @@ public class LocalWarcArtifactDataStore extends WarcArtifactDataStore {
   @Override
   public StorageInfo getStorageInfo() {
     // Build a StorageInfo
-    StorageInfo sum = new StorageInfo(ARTIFACT_DATASTORE_TYPE);
     Map<String,PlatformUtil.DF> mnts = new LinkedHashMap<>();
     List<StorageInfo> basePathSis = new ArrayList<>();
     PlatformUtil putil = PlatformUtil.getInstance();
@@ -371,28 +368,30 @@ public class LocalWarcArtifactDataStore extends WarcArtifactDataStore {
         basePathSis.add(si);
       }
     }
-    PlatformUtil.DF oneDF = null;
-    // Compute sum of DFs
-    for (PlatformUtil.DF df : mnts.values()) {
-      oneDF = df;
-      // Sizes in DF are KB, StorageInfo is bytes
-      sum.setSizeKB(sum.getSizeKB() + df.getSize());
-      sum.setUsedKB(sum.getUsedKB() + df.getUsed());
-      sum.setAvailKB(sum.getAvailKB() + df.getAvail());
-    }
-
-    // Set one-time StorageInfo fields
-    sum.setName(String.join(",", mnts.keySet()));
+    StorageInfo sum;
     if (mnts.size() == 1) {
-      // If only one, use percentages returns by DF
-      sum.setPercentUsed(oneDF.getPercent());
-      sum.setPercentUsedString(oneDF.getPercentString());
+      // If there's only one mount point, use that StorageInfo directly.
+      // (The summing loop below rounds/truncates and can cause the values
+      // to differ by one, which confuses clients that infer that index &
+      // datastore are the same fs by comparing them.)
+      sum = basePathSis.get(0);
+      sum.setType(ARTIFACT_DATASTORE_TYPE);
     } else {
+      sum = new StorageInfo(ARTIFACT_DATASTORE_TYPE);
+      // Compute sum of DFs
+      for (PlatformUtil.DF df : mnts.values()) {
+        // Sizes in DF are KB, StorageInfo is bytes
+        sum.setSizeKB(sum.getSizeKB() + df.getSize());
+        sum.setUsedKB(sum.getUsedKB() + df.getUsed());
+        sum.setAvailKB(sum.getAvailKB() + df.getAvail());
+      }
+
+      // Set one-time StorageInfo fields
+      sum.setName(String.join(",", mnts.keySet()));
       // Compute percent used as 1.0 - avail / size, as some FSs have a
       // "full" threshold that's lower than the total size
       sum.setPercentUsed(1.0d - (double)sum.getAvailKB() / (double)sum.getSizeKB());
-      sum.setPercentUsedString(String.valueOf(Math.round(100.0 *
-                                                         sum.getPercentUsed())) + "%");
+      sum.setPercentUsedString(Math.round(100.0 * sum.getPercentUsed()) + "%");
     }
     if (basePathSis.size() > 1) {
       sum.setComponents(basePathSis);
@@ -401,6 +400,5 @@ public class LocalWarcArtifactDataStore extends WarcArtifactDataStore {
     }
     // Return the sum
     return sum;
-
   }
 }

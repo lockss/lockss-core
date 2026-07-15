@@ -31,18 +31,18 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 package org.lockss.state;
 
-import java.io.*;
 import java.util.*;
-import org.mockito.Mockito;
+
+import io.zonky.test.db.postgres.embedded.EmbeddedPostgres;
+import org.junit.AfterClass;
+import org.junit.BeforeClass;
+import org.lockss.config.Configuration;
 import org.junit.Before;
 import org.junit.Test;
-import org.lockss.app.StoreException;
-import org.lockss.config.ConfigManager;
 import org.lockss.config.db.ConfigDbManager;
 import org.lockss.log.*;
 import org.lockss.plugin.*;
-import org.lockss.protocol.*;
-import static org.lockss.protocol.AgreementType.*;
+import org.lockss.rs.io.index.db.SQLArtifactIndexDbManager;
 import org.lockss.test.*;
 import org.lockss.util.*;
 import org.lockss.util.time.TimeBase;
@@ -56,20 +56,44 @@ public class TestPersistentStateManagerPG extends StateTestCase {
   MyPersistentStateManager myStateMgr;
   ConfigDbManager dbManager;
 
+  /** Shared embedded PostgreSQL instance for all tests in this class */
+  private static EmbeddedPostgres embeddedPg;
+
+  @BeforeClass
+  public static void setUpClass() throws Exception {
+    embeddedPg = startEmbeddedPostgres();
+  }
+
+  @AfterClass
+  public static void tearDownClass() throws Exception {
+    stopEmbeddedPostgre();
+  }
+
   @Before
   public void setUp() throws Exception {
     super.setUp();
+
+    // Create a unique database for this test
+    String dbName = "test_" + UUID.randomUUID().toString().replace("-", "");
+
+    // Configure DbManager settings
     ConfigurationUtil.addFromArgs(
-                                  ConfigDbManager.PARAM_DATASOURCE_CLASSNAME,
-                                  "io.zonky.test.db.postgres.embedded.EmbeddedPostgres",
-                                  ConfigDbManager.PARAM_DATASOURCE_USER, "postgres",
-                                  ConfigDbManager.PARAM_DATASOURCE_PASSWORD, "postgres"
-                                  );
+        ConfigDbManager.PARAM_DATASOURCE_CLASSNAME, "org.postgresql.ds.PGSimpleDataSource",
+        SQLArtifactIndexDbManager.PARAM_DATASOURCE_DATABASENAME, dbName,
+        ConfigDbManager.PARAM_DATASOURCE_SERVERNAME, "localhost",
+        ConfigDbManager.PARAM_DATASOURCE_PORTNUMBER, String.valueOf(embeddedPg.getPort()));
+
+    ConfigurationUtil.addFromArgs(
+        ConfigDbManager.PARAM_DATASOURCE_USER, "postgres",
+        ConfigDbManager.PARAM_DATASOURCE_PASSWORD, "postgres");
+
+    ConfigurationUtil.addFromArgs(
+        ConfigDbManager.PARAM_MAX_RETRY_COUNT, "0",
+        ConfigDbManager.PARAM_RETRY_DELAY, "0");
 
     // Create and start the database manager.
     dbManager = new ConfigDbManager();
     daemon.setManagerByType(ConfigDbManager.class, dbManager);
-    startEmbeddedPgDbManager(dbManager);
     dbManager.initService(daemon);
     dbManager.startService();
   }

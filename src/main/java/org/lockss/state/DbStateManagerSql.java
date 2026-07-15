@@ -353,7 +353,7 @@ public class DbStateManagerSql extends ConfigManagerSql implements StateStore {
 
     try {
       // Convert to JSON
-      String json = ausb.toJsonExcept(auId_auCreationTime);
+      String json = ausb.toJsonExcept(StateStore.AUSTATE_BEAN_DONT_PERSIST_FIELDS);
       
       String storedString = compressJson(json, "AuState");
       // Prepare the query.
@@ -543,9 +543,6 @@ public class DbStateManagerSql extends ConfigManagerSql implements StateStore {
     return updateArchivalUnitAgreements(PluginManager.pluginKeyFromAuId(auid),
 	PluginManager.auKeyFromAuId(auid), aua);
   }
-
-  protected static final Set<String> auId_auCreationTime =
-      Collections.unmodifiableSet(new HashSet<String>(Arrays.asList("auId", "auCreationTime")));
 
   /**
    * Provides the poll agreements of an Archival Unit stored in the database.

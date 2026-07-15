@@ -47,6 +47,7 @@ import org.lockss.servlet.*;
  * rewrite links in CSS using string filters.
  * @deprecated RegexpCssLinkRewriterFactory is more complete.
  */
+@Deprecated
 public class StringFilterCssLinkRewriterFactory implements LinkRewriterFactory {
   static final Logger logger = Logger.getLogger();
 

@@ -38,7 +38,6 @@ import java.security.SecureRandom;
 import java.util.*;
 import java.util.function.*;
 
-import javax.sql.DataSource;
 import io.zonky.test.db.postgres.embedded.*;
 
 import org.apache.commons.io.IOUtils;
@@ -62,6 +61,7 @@ import org.lockss.util.lang.LockssRandom;
 import org.lockss.util.os.PlatformUtil;
 import org.lockss.util.test.FileTestUtil;
 import org.lockss.util.test.matcher.*;
+import org.lockss.util.time.TimeBase;
 import org.lockss.util.time.TimerUtil;
 
 import junit.framework.TestCase;
@@ -1550,7 +1550,7 @@ public class LockssTestCase4 extends Assert {
 
   public static void assertNotEquals(String message,
                                      short expected, short actual) {
-    assertNotEquals(message, new Short(expected), new Short(actual));
+    assertNotEquals(message, Short.valueOf(expected), Short.valueOf(actual));
   }
 
   public static void assertNotEquals(byte expected, byte actual) {
@@ -1559,7 +1559,7 @@ public class LockssTestCase4 extends Assert {
 
   public static void assertNotEquals(String message,
                                      byte expected, byte actual) {
-    assertNotEquals(message, new Byte(expected), new Byte(actual));
+    assertNotEquals(message, Byte.valueOf(expected), Byte.valueOf(actual));
   }
 
   public static void assertNotEquals(char expected, char actual) {
@@ -1568,7 +1568,7 @@ public class LockssTestCase4 extends Assert {
 
   public static void assertNotEquals(String message,
                                      char expected, char actual) {
-    assertNotEquals(message, new Character(expected), new Character(actual));
+    assertNotEquals(message, Character.valueOf(expected), Character.valueOf(actual));
   }
 
   public static void assertNotEquals(boolean expected, boolean actual) {
@@ -2714,28 +2714,41 @@ public class LockssTestCase4 extends Assert {
     return dbManager;
   }
 
-  EmbeddedPostgres embeddedPg;
+  private static EmbeddedPostgres embeddedPg;
 
-  // If this cuases "Permission denied" trying to start PostgreSQL,
-  // ensure tha the tmp directory in use isn't mounted noexec, or set
-  // the maven property dir.executableTemp, or the System property
-  // org.lockss.executableTempDir to one from which programs can be
-  // execed.
-  protected void startEmbeddedPgDbManager(DbManager mgr) throws DbException {
-    try {
-      if (embeddedPg == null) {
+  /**
+   * Returns the shared embedded PostgreSQL instance, starting it if necessary.
+   * The instance is shared across all test classes for efficiency.
+   *
+   * @return the shared EmbeddedPostgres instance
+   * @throws DbException if PostgreSQL cannot be started
+   */
+  protected static synchronized EmbeddedPostgres startEmbeddedPostgres() throws DbException {
+    if (embeddedPg == null) {
+      try {
         EmbeddedPostgres.Builder builder = EmbeddedPostgres.builder();
         String extemp = System.getProperty("org.lockss.executableTempDir");
         if (!StringUtil.isNullString(extemp)) {
           builder.setOverrideWorkingDirectory(new File(extemp));
         }
         embeddedPg = builder.start();
+      } catch (IOException e) {
+        throw new DbException("Can't start embedded PostgreSQL", e);
       }
-      String dbName = mgr.getDatabaseNamePrefix()
-        + mgr.getClass().getSimpleName();
-      mgr.setTestingDataSource(embeddedPg.getDatabase("postgres", dbName));
-    } catch (IOException e) {
-      throw new DbException("Can't start embedded PostgreSQL", e);
+    }
+    return embeddedPg;
+  }
+
+  /**
+   * Stops and closes the shared embedded PostgreSQL instance if it is running.
+   * After stopping, the instance reference is cleared to null.
+   *
+   * @throws Exception if there is an error while closing the PostgreSQL instance
+   */
+  protected static synchronized void stopEmbeddedPostgre() throws Exception {
+    if (embeddedPg != null) {
+      embeddedPg.close();
+      embeddedPg = null;
     }
   }
 

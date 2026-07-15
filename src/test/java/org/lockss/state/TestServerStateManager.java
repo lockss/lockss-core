@@ -158,13 +158,16 @@ public class TestServerStateManager extends StateTestCase {
     assertEquals("Outcome", aus2.getLastCrawlResultMsg());
     assertEquals(333444, aus2.getLastCrawlTime());
     
-    assertEquals(auStateUpdateMap(aus1, MapUtil.map("lastMetadataIndex", 123)),
-		 cons.receiveMap(TIMEOUT_SHOULDNT));
-    assertEquals(auStateUpdateMap(aus2, MapUtil.map("lastCrawlTime", 333444,
-						    "lastCrawlAttempt", -1,
-						    "lastCrawlResultMsg", "Outcome",
-						    "lastCrawlResult", 3)),
-		 cons.receiveMap(TIMEOUT_SHOULDNT));
+    assertEqualUpdates(auStateUpdateMap(aus1,
+                                        MapUtil.map("lastMetadataIndex", 123)),
+                       cons.receiveMap(TIMEOUT_SHOULDNT));
+    assertEqualUpdates(auStateUpdateMap(aus2,
+                                        MapUtil.map("lastCrawlTime", 333444,
+                                                    "lastCrawlAttempt", -1,
+                                                    "lastCrawlResultMsg", "Outcome",
+                                                    "lastCrawlResult", 3,
+                                                    "previousCrawlState", null)),
+                       cons.receiveMap(TIMEOUT_SHOULDNT));
 
     Map in1Map = MapUtil.map("lastCrawlTime", 666,
 			     "lastCrawlAttempt", 555,
@@ -193,7 +196,7 @@ public class TestServerStateManager extends StateTestCase {
 
     Map outmap = auStateUpdateMap(key, in1Map);
     outmap.put("cookie", "Bath Oliver");
-    assertEquals(outmap, cons.receiveMap(TIMEOUT_SHOULDNT));
+    assertEqualUpdates(outmap, cons.receiveMap(TIMEOUT_SHOULDNT));
 
     assertTrue(myStateMgr.isInAuStateBeanMap(key));
 
@@ -267,8 +270,8 @@ public class TestServerStateManager extends StateTestCase {
     String json = aua1.toJson(SetUtil.set(pid0, pid1));
     storeAuAgreements(aua1, pid0, pid1);
 
-    assertEquals(auAgreementsUpdateMap(aua1.getAuid(), json),
-		 cons.receiveMap(TIMEOUT_SHOULDNT));
+    assertEqualUpdates(auAgreementsUpdateMap(aua1.getAuid(), json),
+                       cons.receiveMap(TIMEOUT_SHOULDNT));
 
     aua2.signalPartialAgreement(pid0, POR, .50f, 1910);
     aua2.signalPartialAgreement(pid0, POP, .60f, 1910);
@@ -303,8 +306,8 @@ public class TestServerStateManager extends StateTestCase {
 
     String json = asuv1.toJson();
     asuv1.storeAuSuspectUrlVersions();
-    assertEquals(auSuspectUrlVersionsUpdateMap(mau1.getAuId(), json),
-		 cons.receiveMap(TIMEOUT_SHOULDNT));
+    assertEqualUpdates(auSuspectUrlVersionsUpdateMap(mau1.getAuId(), json),
+                       cons.receiveMap(TIMEOUT_SHOULDNT));
 
     asuv1.markAsSuspect(URL1, 33, HASH2, HASH1);
     asuv1.markAsSuspect(URL2, 222, HASH1, HASH2);
@@ -312,8 +315,8 @@ public class TestServerStateManager extends StateTestCase {
     assertNotEquals(json, json2);
     stateMgr.updateAuSuspectUrlVersionsFromJson(mau1.getAuId(), json2, "toll");
 
-    assertEquals(auSuspectUrlVersionsUpdateMap(mau1.getAuId(), json2),
-		 cons.receiveMap(TIMEOUT_SHOULDNT));
+    assertEqualUpdates(auSuspectUrlVersionsUpdateMap(mau1.getAuId(), json2),
+                       cons.receiveMap(TIMEOUT_SHOULDNT));
   }
 
   UserAccount makeUser(String name) {
@@ -333,7 +336,7 @@ public class TestServerStateManager extends StateTestCase {
     stateMgr.storeUserAccount(acct1);
     assertNotNull(stateMgr.getUserAccount(acct1.getName()));
 
-    assertEquals(
+    assertEqualUpdates(
         userAccountUpdateMap(acct1.getName(), acct1.toJson(), "ADD", null),
         cons.receiveMap(TIMEOUT_SHOULDNT));
 
@@ -345,7 +348,7 @@ public class TestServerStateManager extends StateTestCase {
     stateMgr.updateUserAccountFromJson(acct1.getName(), json1, null);
     assertEquals(123, acct1.getLastLogin());
 
-    assertEquals(
+    assertEqualUpdates(
         userAccountUpdateMap(acct1.getName(), UserAccount.jsonFromUserAccount(acct1, fields), "UPDATE", null),
         cons.receiveMap(TIMEOUT_SHOULDNT));
 
@@ -353,20 +356,20 @@ public class TestServerStateManager extends StateTestCase {
     stateMgr.updateUserAccountFromJson(acct1.getName(), json2, "xyzzy");
     assertEquals(456, acct1.getLastLogin());
 
-    assertEquals(
+    assertEqualUpdates(
         userAccountUpdateMap(acct1.getName(), UserAccount.jsonFromUserAccount(acct1, fields), "UPDATE", "xyzzy"),
         cons.receiveMap(TIMEOUT_SHOULDNT));
 
     // Test update call with fields set null or empty (results in a store)
     stateMgr.updateUserAccount(acct2, null);
-    assertEquals(
+    assertEqualUpdates(
         userAccountUpdateMap(acct2.getName(), acct2.toJson(), "ADD", null),
         cons.receiveMap(TIMEOUT_SHOULDNT));
 
     // Test JMS message on delete user account
     stateMgr.removeUserAccount(acct1);
     assertNull(stateMgr.getUserAccount(acct1.getName()));
-    assertEquals(
+    assertEqualUpdates(
         userAccountUpdateMap(acct1.getName(), null, "DELETE", null),
         cons.receiveMap(TIMEOUT_SHOULDNT));
   }

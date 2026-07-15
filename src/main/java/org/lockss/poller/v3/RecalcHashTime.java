@@ -111,7 +111,9 @@ public class RecalcHashTime {
       return;
     }
     hasher = makeHasher();
-    schedRecalcHash();
+    if (!schedRecalcHash()) {
+      ((RecalcHashTimeHasher)hasher).abortRecalc();
+    }
   }
 
   protected CachedUrlSetHasher makeHasher() {
@@ -224,7 +226,9 @@ public class RecalcHashTime {
 		  ", rescheduling " + au);
 	// run again with the same hasher, which will pick up from where it
 	// left off
-	schedRecalcHash();
+	if (!schedRecalcHash()) {
+          ((RecalcHashTimeHasher)hasher).abortRecalc();
+        }
       } else {
 	log.warning("Recalc hash failed for " + au, e);
 	((RecalcHashTimeHasher)hasher).abortRecalc();

@@ -1,6 +1,6 @@
 /*
 
-Copyright (c) 2000-2021 Board of Trustees of Leland Stanford Jr. University,
+Copyright (c) 2000-2025 Board of Trustees of Leland Stanford Jr. University,
 all rights reserved.
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
@@ -130,8 +130,7 @@ public abstract class LockssServlet extends HttpServlet
   public static final String JAVASCRIPT_RESOURCE =
     Constants.RESOURCE_PATH + "admin.js";
 
-  private static final String DOCTYPE =
-    "<!DOCTYPE html PUBLIC \"-//W3C//DTD HTML 4.0 Transitional//EN\" \"http://www.w3.org/TR/REC-html40/loose.dtd\">";
+  private static final String DOCTYPE = "<!DOCTYPE html>";
 
   public static final String ATTR_INCLUDE_SCRIPT = "IncludeScript";
   public static final String ATTR_ALLOW_ROLES = "AllowRoles";
@@ -245,6 +244,14 @@ public abstract class LockssServlet extends HttpServlet
         resp.setStatus(HttpResponse.__503_Service_Unavailable);
 	return;
       }
+
+      if (isDisallowInMigration()) {
+        String dis = "This function is disabled in migration mode.  Please use the equivalent function in your LOCKSS 1.x instance instead.";
+        displayWarningInLieuOfPage(dis);
+        resp.setStatus(HttpResponse.__503_Service_Unavailable, "Disabled");
+        return;
+      }
+
       if (session != null) {
 	session.setAttribute(SESSION_KEY_RUNNING_SERVLET,
 			     getHeading());
@@ -867,12 +874,13 @@ public abstract class LockssServlet extends HttpServlet
 
     // Create page and layout header
     Page page = ServletUtil.doNewPage(getPageTitle(), isFramed());
+    addCssLocations(page);
     Iterator inNavIterator;
     if (myServletDescr().hasNoNavTable()) {
       inNavIterator = CollectionUtil.EMPTY_ITERATOR;
     } else {
       inNavIterator = new FilterIterator(
-        new ObjectArrayIterator(getServletDescrs()),
+        new ObjectArrayIterator((Object[])getServletDescrs()),
         new Predicate() {
           public boolean evaluate(Object obj) {
             return isServletInNav((ServletDescr)obj);
@@ -903,7 +911,7 @@ public abstract class LockssServlet extends HttpServlet
 // FIXME: Move the following fragment elsewhere
 // It causes the doctype statement to appear in the middle,
 // after the <body> tag.
-    page.add("<!doctype html public \"-//w3c//dtd html 4.0 transitional//en\">");
+    page.add(DOCTYPE);
 //     page.addHeader("<meta http-equiv=\"Content-Type\" content=\"text/html; charset=iso-8859-1\">");
 //     page.addHeader("<meta http-equiv=\"content-type\" content=\"text/html;charset=ISO-8859-1\">");
     page.addHeader("<link rel=\"shortcut icon\" href=\"/favicon.ico\" type=\"image/x-icon\" />");
@@ -1088,7 +1096,6 @@ public abstract class LockssServlet extends HttpServlet
       footnotes.addElement(s);
     }
     StringBuilder sb = new StringBuilder();
-    sb.append("<sup><font size=-1>");
     CitationStyle citationStyle =
       (CitationStyle)
       ConfigManager.getCurrentConfig().getEnum(CitationStyle.class,
@@ -1111,12 +1118,16 @@ public abstract class LockssServlet extends HttpServlet
       if (withLeadingSpace) {
         sb.append("&nbsp;");
       }
-      sb.append("<a href=#foottag");
+      sb.append("<a href=\"#foottag");
       sb.append((n+1));
+      sb.append("\"");
+      sb.append(" class=\"foot\"");
       sb.append(">");
+      sb.append("<sup>");
       sb.append((n+1));
+      sb.append("</sup>");
     }
-    sb.append("</a></font></sup>");
+    sb.append("</a>");
     return sb.toString();
 //     return "<sup><font size=-1><a href=#foottag" + (n+1) + ">" +
 //       (n+1) + "</a></font></sup>";
@@ -1164,9 +1175,7 @@ public abstract class LockssServlet extends HttpServlet
   }
 
   protected void addMigrationWarning(Composite comp, String msg) {
-    addMigrationWarning(comp,
-                        getLockssDaemon().getConfigManager().inMigrationMode(),
-                        msg);
+    addMigrationWarning(comp, isInMigrationMode(), msg);
   }
 
   protected void addMigrationWarning(Composite comp, boolean include,
@@ -1179,6 +1188,19 @@ public abstract class LockssServlet extends HttpServlet
       blk.add("<br><br>");
       comp.add(blk);
     }
+  }
+
+  protected boolean isInMigrationMode() {
+    return getLockssDaemon().getConfigManager().inMigrationMode();
+  }
+
+  protected boolean isDisallowInMigration() {
+    return isDisallowInMigration(myServletDescr());
+  }
+
+  protected boolean isDisallowInMigration(ServletDescr d) {
+    return isInMigrationMode() && d.isDisallowInMigration()
+      && getParameter(ACTION_TAG) != null;
   }
 
   /** Display a message in lieu of the normal page
@@ -1349,11 +1371,15 @@ public abstract class LockssServlet extends HttpServlet
   /** Create message and error message block
    * @param composite TODO*/
   protected void layoutErrorBlock(Composite composite) {
-    if (errMsg != null || statusMsg != null) {
-      ServletUtil.layoutErrorBlock(composite, errMsg, statusMsg);
+    String txt = errMsg;
+    if (isInMigrationMode()) {
+      String migstr = "This LOCKSS 2.x instance is in migration mode";
+      txt = errMsg == null ? migstr : migstr + "\n" + errMsg;
+    }
+    if (txt != null || statusMsg != null) {
+      ServletUtil.layoutErrorBlock(composite, txt, statusMsg);
     }
   }
-
 
   /**
    * Sends the browser a response with the given status code and a brief page

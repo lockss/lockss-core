@@ -218,6 +218,7 @@ public interface ArchivalUnit {
    * @return the RateLimiter
    * @deprecated in favor of RateLimiterInfo
    */
+  @Deprecated
   public RateLimiter findFetchRateLimiter();
 
   /**
@@ -495,6 +496,12 @@ public interface ArchivalUnit {
   
   public UrlFetcher makeUrlFetcher(CrawlerFacade facade, String url);
   
+  /** Return true if the crawl should proceed even if some start URLs
+   * can't be fetched. */
+  default boolean isAllowStartUrlError() {
+    return false;
+  }
+
   /**
    * Return URLs suitable for browsing the AU.  Defaults to start URLs
    * unless plugin sets (@value

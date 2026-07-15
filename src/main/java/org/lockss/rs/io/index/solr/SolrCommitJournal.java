@@ -97,8 +97,8 @@ public class SolrCommitJournal {
    */
   public static class SolrJournalWriter implements Closeable {
     private Path journalPath;
-    private BufferedWriter journalFileWriter;
-    private CSVPrinter journalPrinter;
+    private final BufferedWriter journalFileWriter;
+    private final CSVPrinter journalPrinter;
 
     public SolrJournalWriter(Path journalPath) throws IOException {
       this.journalPath = journalPath;
@@ -108,9 +108,14 @@ public class SolrCommitJournal {
           StandardOpenOption.APPEND,
           StandardOpenOption.CREATE);
 
-      journalPrinter = new CSVPrinter(journalFileWriter, CSVFormat.DEFAULT
-          .withHeader(SOLR_JOURNAL_HEADERS)
-          .withSkipHeaderRecord(false));
+      boolean skipHeaderRecord = journalPath.toFile().length() > 0;
+
+      CSVFormat csvFormat = CSVFormat.DEFAULT.builder()
+          .setHeader(SOLR_JOURNAL_HEADERS)
+          .setSkipHeaderRecord(skipHeaderRecord)
+          .get();
+
+      journalPrinter = new CSVPrinter(journalFileWriter, csvFormat);
     }
 
     @Override
@@ -230,6 +235,8 @@ public class SolrCommitJournal {
                 log.error("Unknown Solr operation [op: {}, record: {}]", op, record);
                 break;
             }
+          } catch (IllegalArgumentException e) {
+            log.error("Malformed or corrupted CSV record", e);
           } catch (IOException e) {
             log.error("Could not replay journal entry", e);
           }
@@ -237,7 +244,7 @@ public class SolrCommitJournal {
 
         // Perform a Solr hard commit of all changes
         try {
-          index.handleSolrResponse(
+          SolrArtifactIndex.handleSolrResponse(
               index.handleSolrCommit(SolrArtifactIndex.SolrCommitStrategy.HARD), "Error with Commit request");
         } catch (IOException | SolrServerException | SolrResponseErrorException e) {
           log.error("Could not perform a Solr hard commit after replaying journal", e);
@@ -248,10 +255,10 @@ public class SolrCommitJournal {
     static private void processUpdateRequest(SolrArtifactIndex index, UpdateRequest req) throws SolrServerException, IOException, SolrResponseErrorException {
       index.addSolrCredentials(req);
 
-      index.handleSolrResponse(
+      SolrArtifactIndex.handleSolrResponse(
           req.process(index.getSolrClient(), index.getSolrCollection()), "Error with UpdateRequest");
 
-      index.handleSolrResponse(
+      SolrArtifactIndex.handleSolrResponse(
           index.handleSolrCommit(SolrArtifactIndex.SolrCommitStrategy.SOFT), "Error with Commit request");
     }
   }
@@ -281,8 +288,7 @@ public class SolrCommitJournal {
     @Override
     @SuppressWarnings({"rawtypes"})
     public void handleUnknownClass(Object o) {
-      if (o instanceof SolrInputField) {
-        SolrInputField field = (SolrInputField)o;
+      if (o instanceof SolrInputField field) {
         if (field.getValueCount() > 1) {
           // Yes: Multivalued field; write array of values
           startArray();

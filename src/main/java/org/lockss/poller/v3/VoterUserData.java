@@ -94,6 +94,7 @@ public class VoterUserData
   private SubstanceChecker.State subCheckerState;
   /** @deprecated 
    * Left here only for deserialization compatibility */
+  @Deprecated
   private String statusString;
 
   /** Transient non-serialized fields */
@@ -450,6 +451,7 @@ public class VoterUserData
   /**
    * @deprecated  Use {@link #setStatus(int)} instead.
    */
+  @Deprecated
   public void setStatusString(String s) {
     // do nothing
   }

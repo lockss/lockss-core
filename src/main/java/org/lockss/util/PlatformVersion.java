@@ -1,9 +1,5 @@
 /*
- * $Id$
- */
-
-/*
-Copyright (c) 2000-2003 Board of Trustees of Leland Stanford Jr. University,
+Copyright (c) 2000-2025 Board of Trustees of Leland Stanford Jr. University,
 all rights reserved.
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
@@ -41,7 +37,7 @@ import org.apache.oro.text.regex.*;
 public class PlatformVersion implements Version {
 
   // This platform doesn't put its name in the version string
-  public static final String DEFAULT_PLATFORM_NAME = "OpenBSD CD";
+  public static final String DEFAULT_PLATFORM_NAME = "OpenBSD_CD";
 
   private static final int BASE = 10;
 
@@ -59,7 +55,7 @@ public class PlatformVersion implements Version {
 				Perl5Compiler.READ_ONLY_MASK);
 
   private static Pattern newPat =
-    RegexpUtil.uncheckedCompile("^([^-]+)-([0-9]+)(?:-(.+))?$",
+    RegexpUtil.uncheckedCompile("^([^- ]+)[ -](?:[vV])?([0-9.]+)(?:[-+](.+))?$",
 				Perl5Compiler.READ_ONLY_MASK);
 
 
@@ -99,8 +95,17 @@ public class PlatformVersion implements Version {
     try {
       m_versionInt = Long.parseLong(m_ver, BASE);
     } catch (NumberFormatException ex) {
-      throw new IllegalArgumentException("Unparseable platform version: " +
+      // platform version historically allowed only a simple version
+      // number.  K8s versions are 3-part, so (kludgily) defer to the
+      // 3-part version parsing in DaemonVersion, and set the integral
+      // version unmber to 1000000 * major + 1000 * minor + patch
+      try {
+        DaemonVersion dv = new DaemonVersion(m_ver);
+        m_versionInt = dv.toLong();
+      } catch (IllegalArgumentException e) {
+        throw new IllegalArgumentException("Unparseable platform version: " +
 					 ver);
+      }
     }
   }
 
@@ -121,6 +126,14 @@ public class PlatformVersion implements Version {
   /** Return the optional suffix */
   public String getSuffix() {
     return m_suffix;
+  }
+
+  public boolean isKubernetes() {
+    return getName().matches("(?i)K[38]s");
+  }
+
+  public boolean isRuncluster() {
+    return getName().matches("(?i)runcluster");
   }
 
   /** Return a parseable string */

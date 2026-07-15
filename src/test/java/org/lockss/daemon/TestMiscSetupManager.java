@@ -64,8 +64,8 @@ public class TestMiscSetupManager extends LockssTestCase5 {
   public void testInitializeJsonPath() throws Exception {
     com.jayway.jsonpath.Configuration jsonPathConfig = null;
     try {
+      // Tests for when json-smart and its dependencies are on the classpath (like in v2) 
       jsonPathConfig = com.jayway.jsonpath.Configuration.defaultConfiguration();
-      // Option 1: the default is json-smart
       assertEquals("com.jayway.jsonpath.spi.json.JsonSmartJsonProvider",
                    jsonPathConfig.jsonProvider().getClass().getName());
       assertEquals("com.jayway.jsonpath.spi.mapper.JsonSmartMappingProvider",
@@ -73,7 +73,7 @@ public class TestMiscSetupManager extends LockssTestCase5 {
       assertEquals(0, jsonPathConfig.getOptions().size());
     }
     catch (NoClassDefFoundError ncdfe) {
-      // Option 2: NoClassDefFoundError (json-smart is not on the classpath)
+      // Tests for when json-smart is on the classpath but not its dependencies (like in v1) 
       assertTrue(ncdfe.getMessage().endsWith("net/minidev/json/writer/JsonReaderI"),
                  "Expected NoClassDefFoundError on net.minidev.json.writer.JsonReaderI but got: " + ncdfe.getMessage());
     }

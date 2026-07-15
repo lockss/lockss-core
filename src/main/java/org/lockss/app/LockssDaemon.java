@@ -58,16 +58,14 @@ import org.lockss.proxy.icp.IcpManager;
 import org.lockss.remote.RemoteApi;
 import org.lockss.repository.RepositoryDbManager;
 import org.lockss.repository.RepositoryManager;
+import org.lockss.rs.io.index.db.SQLArtifactIndexDbManager;
 import org.lockss.safenet.CachingEntitlementRegistryClient;
 import org.lockss.safenet.EntitlementRegistryClient;
 import org.lockss.scheduler.SchedService;
 import org.lockss.state.ArchivalUnitStatus;
 import org.lockss.state.StateManager;
 import org.lockss.subscription.SubscriptionManager;
-import org.lockss.util.CollectionUtil;
-import org.lockss.util.ListUtil;
-import org.lockss.util.Logger;
-import org.lockss.util.OneShotSemaphore;
+import org.lockss.util.*;
 import org.lockss.util.time.Deadline;
 import org.lockss.util.rest.status.*;
 
@@ -153,6 +151,8 @@ public class LockssDaemon extends LockssApp {
     managerKey(RepositoryManager.class);
   public static final String REPOSITORY_DB_MANAGER =
       managerKey(RepositoryDbManager.class);
+  public static final String SQLARTIFACTINDEX_DB_MANAGER =
+      managerKey(SQLArtifactIndexDbManager.class);
   public static final String SERVLET_MANAGER =
     managerKey(org.lockss.servlet.AdminServletManager.class);
   public static final String CONTENT_SERVLET_MANAGER =
@@ -772,10 +772,17 @@ public class LockssDaemon extends LockssApp {
 
   protected void startApp() throws Exception {
     super.startApp();
-    log.info("Started");
+    log.info("Starting");
     if (CurrentConfig.getBooleanParam(PARAM_START_PLUGINS,
 				      DEFAULT_START_PLUGINS)) {
       getPluginManager().startLoadablePlugins();
+    }
+    String uptime =
+      StringUtil.timeIntervalToString(TimeBase.msSince(getStartDate().getTime()));
+    // Log "Started" before threads waiting for ausStarted semaphore can run
+    log.info("Started in " + uptime);
+    if (CurrentConfig.getBooleanParam(PARAM_START_PLUGINS,
+				      DEFAULT_START_PLUGINS)) {
       ausStarted.fill();
     }
 
@@ -783,7 +790,7 @@ public class LockssDaemon extends LockssApp {
     alertMgr.raiseAlert(Alert.cacheAlert(Alert.DAEMON_STARTED),
 			"LOCKSS daemon " +
 			ConfigManager.getDaemonVersion().displayString() +
-			" started");
+			" started in " + uptime);
   }
 
 
@@ -827,7 +834,7 @@ public class LockssDaemon extends LockssApp {
   public ApiStatus.StartupStatus getStartupStatus() {
     try {
       return getPluginManager().getStartupStatus();
-    } catch (IllegalArgumentException e) {
+    } catch (IllegalArgumentException | LockssAppException e) {
       // No PluginManager means no StartupStatus
       return ApiStatus.StartupStatus.NONE;
     }

@@ -63,8 +63,39 @@ import static org.mockito.Mockito.*;
 class TestWarcFilePool extends LockssTestCase5 {
   private final static L4JLogger log = L4JLogger.getLogger();
 
+  @Test
+  public void testCreateWarcFileLargeFreeSpace() throws Exception {
+    Path baseDir1 = Paths.get("/tmp1");
+    Path baseDir2 = Paths.get("/tmp2");
+    Path[] baseDirs = new Path[]{baseDir1, baseDir2};
+
+    boolean useCompression = true;
+
+    WarcArtifactDataStore store = Mockito.spy(WarcArtifactDataStore.class);
+    when(store.getBasePaths()).thenReturn(baseDirs);
+    doCallRealMethod().when(store).setDefaultUseWarcCompression(ArgumentMatchers.anyBoolean());
+    doCallRealMethod().when(store).isCompressionEnabled();
+
+    store.setDefaultUseWarcCompression(useCompression);
+
+    // Simulate realistic disk sizes: 500 GB vs 200 GB (difference > Integer.MAX_VALUE)
+    long freeSpace500GB = 500L * 1024 * 1024 * 1024;
+    long freeSpace200GB = 200L * 1024 * 1024 * 1024;
+    when(store.getFreeSpace(baseDir1)).thenReturn(freeSpace200GB);
+    when(store.getFreeSpace(baseDir2)).thenReturn(freeSpace500GB);
+
+    WarcFilePool pool = new WarcFilePool(store);
+
+    WarcFile result = pool.createWarcFile(useCompression);
+
+    assertNotNull(result);
+    Path filePath = result.getPath();
+    assertTrue(filePath.startsWith(baseDir2),
+        "Should select baseDir2 (500 GB free) over baseDir1 (200 GB free)");
+  }
+
   /**
-   * Tests for {@link WarcFilePool#createWarcFile()}.
+   * Tests for {@link WarcFilePool#createWarcFile(boolean)}.
    */
   @Test
   public void testCreateWarcFile() throws Exception {
@@ -76,18 +107,17 @@ class TestWarcFilePool extends LockssTestCase5 {
 
     WarcArtifactDataStore store = Mockito.spy(WarcArtifactDataStore.class);
     when(store.getBasePaths()).thenReturn(baseDirs);
-    doCallRealMethod().when(store).setUseWarcCompression(ArgumentMatchers.anyBoolean());
-    doCallRealMethod().when(store).getWarcFileExtension();
-    doCallRealMethod().when(store).getUseWarcCompression();
+    doCallRealMethod().when(store).setDefaultUseWarcCompression(ArgumentMatchers.anyBoolean());
+    doCallRealMethod().when(store).isCompressionEnabled();
 
-    store.setUseWarcCompression(useCompression);
+    store.setDefaultUseWarcCompression(useCompression);
 
     when(store.getFreeSpace(baseDir1)).thenReturn(1L);
     when(store.getFreeSpace(baseDir2)).thenReturn(2L);
 
     WarcFilePool pool = new WarcFilePool(store);
 
-    WarcFile result = pool.createWarcFile();
+    WarcFile result = pool.createWarcFile(useCompression);
 
     assertNotNull(result);
     assertFalse(result.isCheckedOut());
@@ -103,29 +133,25 @@ class TestWarcFilePool extends LockssTestCase5 {
   }
 
   /**
-   * Test for {@link WarcFilePool#generateTmpWarcFileName()}.
+   * Test for {@link WarcFilePool#generateTmpWarcFileName(boolean)}.
    */
   @Test
   public void testGenerateTmpWarcFileName() throws Exception {
     WarcArtifactDataStore store = mock(WarcArtifactDataStore.class);
-    doCallRealMethod().when(store).getWarcFileExtension();
-    doCallRealMethod().when(store).setUseWarcCompression(ArgumentMatchers.anyBoolean());
-
     WarcFilePool pool = new WarcFilePool(store);
 
-    // WARC compression disabled
+    // Assert the filename generated for an uncompressed WARC file
+    // uses the .warc file extension
     {
-      store.setUseWarcCompression(false);
-      String fileName = pool.generateTmpWarcFileName();
-
+      String fileName = pool.generateTmpWarcFileName(false);
       assertNotNull(fileName);
       assertTrue(StringUtils.endsWithIgnoreCase(fileName, ".warc"));
     }
 
-    // WARC compression enabled
+    // Assert the filename generated for a compressed WARC file
+    // uses the .warc.gz file extension
     {
-      store.setUseWarcCompression(true);
-      String fileName = pool.generateTmpWarcFileName();
+      String fileName = pool.generateTmpWarcFileName(true);
 
       assertNotNull(fileName);
       assertTrue(StringUtils.endsWithIgnoreCase(fileName, ".warc.gz"));
@@ -133,7 +159,7 @@ class TestWarcFilePool extends LockssTestCase5 {
   }
 
   /**
-   * Test for {@link WarcFilePool#checkoutWarcFileForWrite()}.
+   * Test for {@link WarcFilePool#checkoutWarcFileForWrite(boolean)}.
    */
   @Test
   public void testCheckoutWarcFileForWrite() throws Exception {
@@ -144,7 +170,7 @@ class TestWarcFilePool extends LockssTestCase5 {
     when(store.getBasePaths()).thenReturn(new Path[]{baseDir});
     when(store.getMaxArtifactsThreshold()).thenReturn(1);
     when(store.getThresholdWarcSize()).thenReturn(1L);
-    when(store.getUseWarcCompression()).thenReturn(useCompression);
+    when(store.isCompressionEnabled()).thenReturn(useCompression);
 
     // Assert an empty pool creates a new WARC
     {
@@ -152,8 +178,8 @@ class TestWarcFilePool extends LockssTestCase5 {
 
       assertEmpty(pool.allWarcs);
 
-      WarcFile warcFile = pool.checkoutWarcFileForWrite();
-      verify(pool, Mockito.atMost(1)).createWarcFile();
+      WarcFile warcFile = pool.checkoutWarcFileForWrite(useCompression);
+      verify(pool, Mockito.atMost(1)).createWarcFile(useCompression);
 
       assertNotNull(warcFile);
       assertTrue(warcFile.isCheckedOut());
@@ -176,8 +202,8 @@ class TestWarcFilePool extends LockssTestCase5 {
     List<WarcFile> warcFiles = ListUtil.list(warc1, warc2, warc3, warc4);
     pool.allWarcs.addAll(warcFiles);
 
-    WarcFile result1 = pool.checkoutWarcFileForWrite();
-    verify(pool, Mockito.atMost(1)).createWarcFile();
+    WarcFile result1 = pool.checkoutWarcFileForWrite(useCompression);
+    verify(pool, Mockito.atMost(1)).createWarcFile(useCompression);
     clearInvocations(pool);
 
     assertNotNull(result1);
@@ -189,8 +215,8 @@ class TestWarcFilePool extends LockssTestCase5 {
     pool.returnWarcFile(result1);
     assertFalse(result1.isCheckedOut());
 
-    WarcFile result2 = pool.checkoutWarcFileForWrite();
-    verify(pool, never()).createWarcFile();
+    WarcFile result2 = pool.checkoutWarcFileForWrite(useCompression);
+    verify(pool, never()).createWarcFile(useCompression);
     clearInvocations(pool);
 
     assertNotNull(result2);
@@ -346,7 +372,7 @@ class TestWarcFilePool extends LockssTestCase5 {
 
       // Assert artifact's status is (stuck at) PENDING_COPY
       Artifact indexed = index.getArtifact(spec.getArtifactIdentifier());
-      assertEquals(PENDING_COPY, ds.getArtifactState(indexed, false));
+      assertEquals(PENDING_COPY, ds.getWarcArtifactState(indexed, false));
 
       // Assert temporary WARC remains after running GC
       pool.runGC();

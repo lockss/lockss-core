@@ -43,6 +43,7 @@ import org.apache.commons.lang3.builder.HashCodeBuilder;
  */
 public class ServiceDescr implements Comparable<ServiceDescr> {
 
+  private static final String DEFAULT_SERVICE_PROTOCOL = "http";
   // Static mapping of abbreviation -> ServiceDescr
   static Map<String,ServiceDescr> abbrevMap = new HashMap<>();
 
@@ -51,10 +52,8 @@ public class ServiceDescr implements Comparable<ServiceDescr> {
 
   public static final ServiceDescr SVC_CONFIG =
     register(new ServiceDescr("Config Service", "cfg"));
-  public static final ServiceDescr SVC_MDX =
-    register(new ServiceDescr("Metadata Extraction Service", "mdx"));
-  public static final ServiceDescr SVC_MDQ =
-    register(new ServiceDescr("Metadata Query Service", "mdq"));
+  public static final ServiceDescr SVC_MD =
+    register(new ServiceDescr("Metadata Service", "md"));
   public static final ServiceDescr SVC_POLLER =
     register(new ServiceDescr("Poller Service", "poller"));
   public static final ServiceDescr SVC_CRAWLER =
@@ -63,6 +62,27 @@ public class ServiceDescr implements Comparable<ServiceDescr> {
     register(new ServiceDescr("Repository Service", "repo"));
   public static final ServiceDescr SVC_SOAP =
     register(new ServiceDescr("SOAP Service", "soap"));
+
+  public static final ServiceDescr SVC_OPENWAYBACK =
+      register(new ServiceDescr("OpenWayback Service", "owb") {
+        @Override
+        public String getServiceUrl(ServiceBinding svcBinding, Properties params) {
+          return String.format("%s/wayback/*/%s",
+              svcBinding.getUiStem(getServiceProtocol()),
+              params.getProperty("url"));
+        }
+      });
+
+  public static final ServiceDescr SVC_PYWB =
+      register(new ServiceDescr("PyWb Service", "pywb") {
+        @Override
+        public String getServiceUrl(ServiceBinding svcBinding, Properties params) {
+          return String.format("%s/%s/*/%s",
+              svcBinding.getUiStem(getServiceProtocol()),
+              params.getProperty("namespace"),
+              params.getProperty("url"));
+        }
+      });
 
   public ServiceDescr(String name, String abbrev) {
     if (name == null) {
@@ -81,6 +101,14 @@ public class ServiceDescr implements Comparable<ServiceDescr> {
 
   public String getAbbrev() {
     return abbrev;
+  }
+
+  public String getServiceUrl(ServiceBinding svcBinding, Properties props) {
+    return svcBinding.getUiStem(getServiceProtocol());
+  }
+
+  public String getServiceProtocol() {
+    return DEFAULT_SERVICE_PROTOCOL;
   }
 
   @Override

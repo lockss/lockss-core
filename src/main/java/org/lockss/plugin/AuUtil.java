@@ -948,6 +948,47 @@ public class AuUtil {
     return matchUrlMimeMap(au.makeUrlMimeTypeMap(), url);
   }
 
+  /** Return true if the CachedUrl content is encoded (e.g., gzipped) */
+  public static boolean hasContentEncoding(CachedUrl cu) {
+    String enc = AuUtil.getContentEncoding(cu.getProperties());
+    return !StringUtil.isNullString(enc) &&
+      !enc.equalsIgnoreCase("identity");
+  }
+
+  /** Return the Content-Encoding of a CachedUrl.  See {@link
+   * AuUtil#getContentEncoding(String)} */
+  public static String getContentEncoding(CachedUrl cu) {
+    return AuUtil.getContentEncoding(cu.getProperties());
+  }
+
+  /** Return the Content-Encoding from a CachedUrl's properties.  See
+   * {@link AuUtil#getContentEncoding(String)} */
+  public static String getContentEncoding(CIProperties props) {
+    return AuUtil.getContentEncoding(props.getProperty(CachedUrl.PROPERTY_CONTENT_ENCODING));
+  }
+
+  /** Process a Content-Encoding string, removing delimiting quotes
+   * and ensuring that null is returned for both null and empty
+   * string.  Some origin servers have returned an empty
+   * Content-Encoding: header, which when served via a jetty proxy
+   * turned into Content-Encoding: "", which got stored that way and
+   * caused <tt>UnsupportedEncodingException: ""</tt>.  All users of
+   * Content-Encoding should call one of these methods rather than
+   * accessing it directly. */
+  public static String getContentEncoding(String enc) {
+    if (enc == null) {
+      return null;
+    }
+    if (enc.length() >= 2 &&
+        enc.charAt(0) == '"' && enc.charAt(enc.length() - 1) == '"') {
+      enc = enc.substring(1, enc.length() - 1);
+    }
+    if (enc.length() == 0) {
+      return null;
+    }
+    return enc;
+  }
+
   public static String matchUrlMimeMap(PatternStringMap map, String url) {
     String mime = map.getMatch(url);
     if (mime != null) {

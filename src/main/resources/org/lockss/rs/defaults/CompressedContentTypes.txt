@@ -1,0 +1,35 @@
+# Archive formats
+application/java-archive
+application/zip
+application/x-zip-compressed
+application/zlib
+application/zstd
+application/gzip
+application/x-gzip
+application/x-bzip
+application/x-bzip2
+application/x-gtar
+application/x-lzma
+application/x-lzo
+application/x-lzop
+application/x-lzip
+application/x-7z-compressed
+application/x-compress
+application/x-rar-compressed
+application/x-brotli
+
+# Audio
+audio/mpeg
+audio/mp3
+audio/mp4
+
+# Image
+image/gif
+image/jpeg
+image/png
+image/tiff
+
+# Video
+video/mpeg
+video/mpeg4
+video/mp4

@@ -1,28 +1,32 @@
 /*
 
-Copyright (c) 2000-2022 Board of Trustees of Leland Stanford Jr. University,
-all rights reserved.
+Copyright (c) 2000-2025, Board of Trustees of Leland Stanford Jr. University
 
-Permission is hereby granted, free of charge, to any person obtaining a copy
-of this software and associated documentation files (the "Software"), to deal
-in the Software without restriction, including without limitation the rights
-to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-copies of the Software, and to permit persons to whom the Software is
-furnished to do so, subject to the following conditions:
+Redistribution and use in source and binary forms, with or without
+modification, are permitted provided that the following conditions are met:
 
-The above copyright notice and this permission notice shall be included in
-all copies or substantial portions of the Software.
+1. Redistributions of source code must retain the above copyright notice,
+this list of conditions and the following disclaimer.
 
-THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-DERIVED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.  IN NO EVENT SHALL
-STANFORD UNIVERSITY BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY,
-WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR
-IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+2. Redistributions in binary form must reproduce the above copyright notice,
+this list of conditions and the following disclaimer in the documentation
+and/or other materials provided with the distribution.
 
-Except as contained in this notice, the name of Stanford University shall not
-be used in advertising or otherwise to promote the sale, use or other dealings
-in this Software without prior written authorization from Stanford University.
+3. Neither the name of the copyright holder nor the names of its contributors
+may be used to endorse or promote products derived from this software without
+specific prior written permission.
+
+THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
+AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
+ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE
+LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
+CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
+SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
+INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN
+CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
+ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
+POSSIBILITY OF SUCH DAMAGE.
 
 */
 
@@ -32,6 +36,7 @@ import java.util.*;
 import org.apache.commons.lang3.builder.*;
 
 import org.lockss.app.LockssApp;
+import org.lockss.daemon.AuParamType.InvalidFormatException;
 import org.lockss.util.*;
 import org.lockss.util.io.LockssSerializable;
 
@@ -42,7 +47,7 @@ import org.lockss.util.io.LockssSerializable;
  */
 public class ConfigParamDescr implements Comparable, LockssSerializable {
 
-  private static final Logger log = Logger.getLogger();
+  private static final Logger log = Logger.getLogger(ConfigParamDescr.class);
 
   /** Value is any string */
   public static final int TYPE_STRING = 1;
@@ -98,14 +103,6 @@ public class ConfigParamDescr implements Comparable, LockssSerializable {
    * expanded into multiple set elements.  */
   public static final String SET_RANGE_OPEN = "{";
   public static final String SET_RANGE_CLOSE = "}";
-
-  public static final ConfigParamDescr HANDLE =
-    new ConfigParamDescr()
-    .setKey("handle")
-    .setDisplayName("Unique handle")
-    .setType(TYPE_STRING)
-    .setSize(30)
-    .setDescription("Unique handle for a NamedArchivalUnit");
 
   public static final ConfigParamDescr VOLUME_NUMBER =
     new ConfigParamDescr()
@@ -289,8 +286,8 @@ public class ConfigParamDescr implements Comparable, LockssSerializable {
     .setType(TYPE_STRING)
     .setSize(40)
     .setDescription("If set to host:port, crawls of this AU will be proxied." +
-		    " If set to DIRECT, crawls will not be proxied," +
-		    " even if a global crawl proxy has been set.");
+                    " If set to DIRECT, crawls will not be proxied," +
+                    " even if a global crawl proxy has been set.");
 
   public static final ConfigParamDescr CRAWL_INTERVAL =
     new ConfigParamDescr()
@@ -301,7 +298,7 @@ public class ConfigParamDescr implements Comparable, LockssSerializable {
     .setType(TYPE_TIME_INTERVAL)
     .setSize(10)
     .setDescription("The interval at which the AU should crawl "
-		    + "the publisher site.");
+                    + "the publisher site.");
 
   public static final ConfigParamDescr CRAWL_TEST_SUBSTANCE_THRESHOLD =
     new ConfigParamDescr()
@@ -312,21 +309,20 @@ public class ConfigParamDescr implements Comparable, LockssSerializable {
     .setType(TYPE_STRING)
     .setSize(20)
     .setDescription("Minimum number of substance URL necessary for "
-		    + "successful abbreviated crawl test.");
+                    + "successful abbreviated crawl test.");
 
   public static final ConfigParamDescr[] DEFAULT_DESCR_ARRAY = {
-      HANDLE,
       BASE_URL, VOLUME_NUMBER, VOLUME_NAME, YEAR, JOURNAL_ID, JOURNAL_ISSN,
       PUBLISHER_NAME, ISSUE_RANGE, NUM_ISSUE_RANGE, ISSUE_SET, OAI_REQUEST_URL,
       OAI_SPEC, BASE_URL2, USER_CREDENTIALS, COLLECTION, CRAWL_INTERVAL,
       CRAWL_TEST_SUBSTANCE_THRESHOLD,
   };
 
-  private String key;			// param (prop) key
-  private String displayName;		// human readable name
-  private String description;		// explanatory test
+  private String key;                   // param (prop) key
+  private String displayName;           // human readable name
+  private String description;           // explanatory test
   private int type = TYPE_STRING;
-  private int size = -1;		// size of input field
+  private int size = -1;                // size of input field
 
   // A parameter is definitional if its value is integral to the identity
   // of the AU.  (I.e., if changing it results in a different AU.)
@@ -678,26 +674,26 @@ public class ConfigParamDescr implements Comparable, LockssSerializable {
     }
   }
 
-  /**
-   * @deprecated After 1.67 is released, plugins should be converted to use
-   * AuParamType.InvalidFormatException instead
-   */
-  public static class InvalidFormatException extends Exception {
-    private Throwable nestedException;
-
-    public InvalidFormatException(String msg) {
-      super(msg);
-    }
-
-    public InvalidFormatException(String msg, Throwable e) {
-      super(msg + (e.getMessage() == null ? "" : (": " + e.getMessage())));
-      this.nestedException = e;
-    }
-
-    public Throwable getNestedException() {
-      return nestedException;
-    }
-  }
+//  /**
+//   * @deprecated After 1.67 is released, plugins should be converted to use
+//   * AuParamType.InvalidFormatException instead
+//   */
+//  public static class InvalidFormatException extends Exception {
+//    private Throwable nestedException;
+//
+//    public InvalidFormatException(String msg) {
+//      super(msg);
+//    }
+//
+//    public InvalidFormatException(String msg, Throwable e) {
+//      super(msg + (e.getMessage() == null ? "" : (": " + e.getMessage())));
+//      this.nestedException = e;
+//    }
+//
+//    public Throwable getNestedException() {
+//      return nestedException;
+//    }
+//  }
 
   public String toDetailedString() {
     StringBuilder buffer = new StringBuilder(100);

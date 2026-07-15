@@ -1,30 +1,35 @@
 /*
 
-Copyright (c) 2000-2021 Board of Trustees of Leland Stanford Jr. University,
-all rights reserved.
+Copyright (c) 2000-2025, Board of Trustees of Leland Stanford Jr. University
 
-Permission is hereby granted, free of charge, to any person obtaining a copy
-of this software and associated documentation files (the "Software"), to deal
-in the Software without restriction, including without limitation the rights
-to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-copies of the Software, and to permit persons to whom the Software is
-furnished to do so, subject to the following conditions:
+Redistribution and use in source and binary forms, with or without
+modification, are permitted provided that the following conditions are met:
 
-The above copyright notice and this permission notice shall be included in
-all copies or substantial portions of the Software.
+1. Redistributions of source code must retain the above copyright notice,
+this list of conditions and the following disclaimer.
 
-THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.  IN NO EVENT SHALL
-STANFORD UNIVERSITY BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY,
-WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR
-IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+2. Redistributions in binary form must reproduce the above copyright notice,
+this list of conditions and the following disclaimer in the documentation
+and/or other materials provided with the distribution.
 
-Except as contained in this notice, the name of Stanford University shall not
-be used in advertising or otherwise to promote the sale, use or other dealings
-in this Software without prior written authorization from Stanford University.
+3. Neither the name of the copyright holder nor the names of its contributors
+may be used to endorse or promote products derived from this software without
+specific prior written permission.
+
+THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
+AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
+ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE
+LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
+CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
+SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
+INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN
+CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
+ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
+POSSIBILITY OF SUCH DAMAGE.
 
 */
+
 package org.lockss.plugin;
 
 import java.io.*;
@@ -609,8 +614,10 @@ public class PluginManager
   }
 
   public void setStartupStatus(StartupStatus startStatus) {
-    log.info("Startup status: " + this.startStatus + " => " + startStatus);
-    this.startStatus = startStatus;
+    if (startStatus != this.startStatus) {
+      log.info("Startup status: " + this.startStatus + " => " + startStatus);
+      this.startStatus = startStatus;
+    }
   }
 
   /** Temporary compatibility for {@link #areAusStarted()} */
@@ -875,12 +882,27 @@ public class PluginManager
 	return;
       }
 
-      String auKey = PluginManager.auKeyFromAuId(auId);
-      ArchivalUnit curAu = auMap.get(auId);
-
       // Convert the Archival Unit configuration to a Configuration object.
       Configuration auConf =
 	AuConfigurationUtils.toUnprefixedConfiguration(auConfiguration);
+
+      startOrReconfigureAu(getPlugin(pluginKey), auConf, auId, scc);
+    }
+  }
+
+  /** Start or reconfigure an AU from an already-resolved Configuration.  Used
+   * both by the startup/reconfigure path (via the AuConfiguration overload)
+   * and by on-demand creation (PluginManager.getAuFromId()), so that AUs
+   * instantiated on demand go through the same configureAu() path - which
+   * applies missing non-def params from the tdb - as those started at
+   * startup. */
+  private void startOrReconfigureAu(Plugin plugin, Configuration auConf,
+				    String auId, SkipConfigCondition scc) {
+    String pluginKey = pluginKeyFromAuId(auId);
+
+    synchronized (auAddDelLock) {
+      String auKey = PluginManager.auKeyFromAuId(auId);
+      ArchivalUnit curAu = auMap.get(auId);
 
       if (auConf.getBoolean(AU_PARAM_DISABLED, false)) {
 	if (curAu != null) {
@@ -912,9 +934,6 @@ public class PluginManager
 
       try {
 	if (log.isDebug2()) log.debug2("Configuring AU id: " + auKey);
-
-	// Get the plugin of this Archival Unit.
-	Plugin plugin = getPlugin(pluginKey);
 
 	// Check the consistency of the Archival Unit configuration.
 	try {
@@ -1508,7 +1527,7 @@ public class PluginManager
     @Override public void auContentChanged(AuEvent event, ArchivalUnit au,
 					   AuEvent.ContentChangeInfo info) {
       if (areAusStarted() && isRegistryAu(au)) {
-	processRegistryAus(ListUtil.list(au), paramStartAllAus);
+	processRegistryAus(ListUtil.list(au), paramStartAllAus, event.getWatchDog());
       }
       if (shouldFlush404Cache(au, info)) {
 	flush404Cache(au);
@@ -1657,6 +1676,9 @@ public class PluginManager
   public ArchivalUnit getAuFromIdIfExists(String auId) {
     final String DEBUG_HEADER = "getAuFromIdIfExists(): ";
     if (log.isDebug3()) log.debug3(DEBUG_HEADER + "auId = " + auId);
+    if (auId == null) {
+      return null;
+    }
     return auMap.get(auId);
   }
 
@@ -1673,6 +1695,9 @@ public class PluginManager
   public ArchivalUnit getAuFromId(String auId) {
     final String DEBUG_HEADER = "getAuFromId(): ";
     if (log.isDebug2()) log.debug2(DEBUG_HEADER + "auId = " + auId);
+    if (auId == null) {
+      return null;
+    }
 
     ArchivalUnit au = auMap.get(auId);
     if (log.isDebug3()) log.debug3(DEBUG_HEADER + "au = " + au);
@@ -1699,6 +1724,11 @@ public class PluginManager
       log.warning("Error fetching AU config: " + auId, lre);
     }
     if (auConfig != null) {
+      if (auConfig.getBoolean(AU_PARAM_DISABLED, false)) {
+        log.debug("Found disabled stored config for on demand AU: " +
+		auId + " : " + auConfig);
+        return null;
+      }
       log.debug("Found stored config for on demand AU: " +
 		auId + " : " + auConfig);
     } else {
@@ -1719,16 +1749,13 @@ public class PluginManager
       return null;
     }
 
-    ArchivalUnit au = null;
-    // Get the AU.
-    try {
-      au = createAu(plugin, auConfig,
-		    AuEvent.forAuId(auId, AuEvent.Type.Create));
-      if (log.isDebug3()) log.debug3(DEBUG_HEADER + "au = " + au);
-    } catch (Exception e) {
-      log.error("Failed to create Archival Unit - auId = " + auId
-		+ ", auConfig = " + auConfig, e);
-    }
+    // Instantiate the AU via the same configureAu() path used at startup, so
+    // that any non-def params added to the plugin since the AU was first
+    // configured are filled in from the tdb.  (Going through createAu()
+    // directly would bypass that.)
+    startOrReconfigureAu(plugin, auConfig, auId, SkipConfigCondition.AuRunning);
+    ArchivalUnit au = getAuFromIdIfExists(auId);
+    if (log.isDebug3()) log.debug3(DEBUG_HEADER + "au = " + au);
     return au;
   }
 
@@ -1740,6 +1767,18 @@ public class PluginManager
     }
     log.warning("Attempt to get TitleConfig for non-BasePlugin: " + auid);
     return null;
+  }
+
+  /** Fill in any of the plugin's non-def params that are missing from the AU
+   * config with values from the tdb.  Allows existing AUs to pick up non-def
+   * params added to a plugin after the AU was first configured.  Does nothing
+   * for non-BasePlugin plugins. */
+  Configuration addTdbNonDefParams(Plugin plugin, Configuration auConf,
+				   String auid) {
+    if (plugin instanceof BasePlugin) {
+      return ((BasePlugin)plugin).addNonDefParams(auConf, auid);
+    }
+    return auConf;
   }
 
   /** Infer a (possibly incomplete) AU configuration from an AUID.  This
@@ -2089,7 +2128,7 @@ public class PluginManager
   // version of their plugin.  Waits a little while between stopping and
   // starting to allow existing processes to exit.  It's expected that this
   // will cause lots of errors to be logged
-  void restartAus(Collection<ArchivalUnit> aus) {
+  void restartAus(Collection<ArchivalUnit> aus, LockssWatchdog wdog) {
     if (paramRestartAus) {
       log.info("Restarting " + aus.size() + " AUs to use updated plugins.  Exiting processes may log errors; they should be harmless");
       synchronized (auAddDelLock) {
@@ -2101,6 +2140,9 @@ public class PluginManager
 	  configMap.put(auid, auConf);
 	  numAusRestarting++;
 	  stopAu(au, AuEvent.forAu(au, AuEvent.Type.RestartDelete));
+          if (wdog != null) {
+            wdog.pokeWDog();
+          }
 	}
 	try {
 	  Deadline.in(auRestartSleep(aus.size())).sleep();
@@ -2129,6 +2171,13 @@ public class PluginManager
 	  String pkey = pluginKeyFromAuId(auid);
 	  Plugin plug = getPlugin(pkey);
 
+	  // The plugin may have been reloaded with a newer definition that
+	  // added non-def params; fill in any that are missing from the tdb.
+	  // (This restart path uses createAu() with a RestartCreate batch
+	  // event, so it can't go through configureAu() as the startup path
+	  // does.)
+	  auConf = addTdbNonDefParams(plug, auConf, auid);
+
 	  // To find the last AU.
 	  remainingAus--;
 
@@ -2145,6 +2194,9 @@ public class PluginManager
 	  try {
 	    newAu = createAu(plug, auConf, auEvent);
 	    numAusRestarting--;
+            if (wdog != null) {
+              wdog.pokeWDog();
+            }
 	  } catch (ArchivalUnit.ConfigurationException e) {
 	    log.error("Failed to restart: " + auid);
 
@@ -2974,6 +3026,7 @@ public class PluginManager
 	  log.debug3("cache hit " + rcu.cu.toString() + ", " + rcu.contentReq);
 	}
 	recentCuHits++;
+        // Unlike V1, it's ok to return the same CU instance multiple times
  	return rcu.cu;
       } else {
 	log.debug3("cache miss for " + url);
@@ -3106,6 +3159,51 @@ public class PluginManager
     return res;
   }
 
+  public Set<String> normalizeUrl(String url) throws MalformedURLException {
+    if (!UrlUtil.isUrl(url)) {
+      return SetUtil.set(url);
+    }
+
+    String normUrl = UrlUtil.normalizeUrl(url);
+    String normStem = UrlUtil.getUrlPrefix(normUrl);
+
+    AuSearchSet searchSet;
+    synchronized (hostAus) {
+      searchSet = hostAus.get(normStem);
+    }
+
+    // No applicable site URL normalizers
+    if (searchSet == null || searchSet.isEmpty()) {
+      return SetUtil.set(normUrl);
+    }
+
+    Set<String> siteNormalizedUrls = new HashSet<>();
+    for (ArchivalUnit au : searchSet) {
+      if (!isActiveAu(au)) {
+        continue;
+      }
+
+      try {
+        siteNormalizedUrls.add(UrlUtil.normalizeUrl(url, au));
+      } catch (PluginBehaviorException pbe) {
+        // Log the exception and allow method to return the set of site
+        // normalized URLs that were successful
+        String msg = "URL site normalization error: "
+            + "Plugin ID: " + au.getPluginId() + ", "
+            + "AUID: " + au.getAuId() + ", "
+            + "URL: " + url;
+        log.debug(msg, pbe);
+      }
+    }
+
+    if (siteNormalizedUrls.isEmpty()) {
+      log.debug("No site normalized URLs for " + url);
+      return SetUtil.set(normUrl);
+    }
+
+    return siteNormalizedUrls;
+  }
+
   private List<CachedUrl> findCachedUrls1(String url, CuContentReq contentReq,
 					  boolean bestOnly) {
     String normUrl;
@@ -3114,9 +3212,10 @@ public class PluginManager
     boolean isUrl = UrlUtil.isUrl(url);
 
     // If not a URL, lookup directly in repo.
-    if (!UrlUtil.isUrl(url)) {
+    if (!isUrl) {
       return fastFind(url, bestOnly);
     }
+
     // Else try to normalize it
     try {
       normUrl = UrlUtil.normalizeUrl(url);
@@ -3885,7 +3984,7 @@ public class PluginManager
       getDaemon().getCrawlManager().unregisterCrawlEventHandler(regCallback);
     }
     setStartupStatus(StartupStatus.PLUGINS_LOADING);
-    processRegistryAus(loadAus, paramStartAllAus);
+    processRegistryAus(loadAus, paramStartAllAus, null);
     setStartupStatus(StartupStatus.AUS_STARTED);
   }
 
@@ -4338,7 +4437,7 @@ public class PluginManager
   }
 
   public synchronized void processRegistryAus(List registryAus) {
-    processRegistryAus(registryAus, false);
+    processRegistryAus(registryAus, false, null);
   }
 
   /**
@@ -4346,7 +4445,8 @@ public class PluginManager
    * that need to be loaded.
    */
   public synchronized void processRegistryAus(List registryAus,
-					      boolean startAus) {
+                                              boolean startAus,
+                                              LockssWatchdog wdog) {
 
     if (jarValidator == null) {
       jarValidator = new JarValidator(keystore, pluginDir);
@@ -4409,7 +4509,7 @@ public class PluginManager
     tmpMap = null;
 
     if (!needRestartAus.isEmpty()) {
-      restartAus(needRestartAus);
+      restartAus(needRestartAus, wdog);
     }
 
     if (startAus && !changedPluginKeys.isEmpty()) {

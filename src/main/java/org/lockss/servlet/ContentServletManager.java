@@ -64,7 +64,7 @@ public class ContentServletManager
   // PARAM_XXX symbols for those params are here for the ParamDoc tools;
   // some are also used by other packages to set the params referenced here
   public static final String PARAM_PORT = PREFIX + SUFFIX_PORT;
-  public static final int DEFAULT_PORT = 24680;
+  public static final int DEFAULT_PORT = 24640;
 
   /** List of IP addresses to which to bind listen socket.  If not set,
    * server listens on all interfaces.  All listeners are on the same
@@ -245,8 +245,8 @@ public class ContentServletManager
 					  ? null : redTo);
   }
 
-  protected void installUsers() {
-  }
+//   protected void installUsers() {
+//   }
 
   protected void configureContexts(HttpServer server) {
     try {

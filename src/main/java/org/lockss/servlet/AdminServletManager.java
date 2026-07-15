@@ -94,6 +94,9 @@ public class AdminServletManager extends BaseServletManager {
   /** List of IPs or subnets to allow */
   public static final String PARAM_IP_INCLUDE =
           IP_ACCESS_PREFIX + SUFFIX_IP_INCLUDE;
+  /** List of IPs or subnets to exclude */
+  public static final String PARAM_IP_EXCLUDE =
+      IP_ACCESS_PREFIX + SUFFIX_IP_EXCLUDE;
   /** List of IPs or subnets to reject */
   public static final String PARAM_IP_PLATFORM_SUBNET =
           IP_ACCESS_PREFIX + SUFFIX_IP_PLATFORM_SUBNET;
@@ -317,7 +320,8 @@ public class AdminServletManager extends BaseServletManager {
 		     BatchAuConfig.class,
 		     "AU Configuration",
 		     (ServletDescr.IN_NAV | ServletDescr.IN_UIHOME
-		      | ServletDescr.NEED_ROLE_AU_ADMIN),
+		      | ServletDescr.NEED_ROLE_AU_ADMIN
+                      | ServletDescr.MIGRATION_DISALLOW),
 		     "Manage archival units in this LOCKSS box")
     .setService(SVC_CONFIG);
 
@@ -334,7 +338,9 @@ public class AdminServletManager extends BaseServletManager {
     new ServletDescr("AuConfig",
 		     AuConfig.class,
 		     "Manual AU Configuration",
-		     (ServletDescr.IN_UIHOME | ServletDescr.NEED_ROLE_AU_ADMIN),
+		     (ServletDescr.IN_UIHOME
+                      | ServletDescr.NEED_ROLE_AU_ADMIN
+                      | ServletDescr.MIGRATION_DISALLOW),
 		     "Manually edit single AU configuration")
     .setService(SVC_CONFIG);
   protected static final ServletDescr SERVLET_ADMIN_ACCESS_CONTROL =
@@ -438,13 +444,15 @@ public class AdminServletManager extends BaseServletManager {
           new ServletDescr("AddContent",
           AddContent.class,
           "Add Content",
-          ServletDescr.NEED_ROLE_CONTENT_ACCESS)
+          (ServletDescr.NEED_ROLE_CONTENT_ACCESS
+           | ServletDescr.MIGRATION_DISALLOW))
     .setService(SVC_CONFIG);
   public static final ServletDescr SERVLET_ADD_CONTENT_TAB =
           new ServletDescr("AddContentTab",
           AddContentTab.class,
           "Add Content Tab",
-          ServletDescr.NEED_ROLE_CONTENT_ACCESS)
+          (ServletDescr.NEED_ROLE_CONTENT_ACCESS
+           | ServletDescr.MIGRATION_DISALLOW))
     .setService(SVC_CONFIG);
   // XXXUI New servlet
   public static final ServletDescr SERVLET_SERVE_CONTENT =
@@ -640,7 +648,7 @@ public class AdminServletManager extends BaseServletManager {
 	  	       "Metadata Monitor",
 	  	       ServletDescr.NEED_ROLE_DEBUG,
 	  	       "Metadata Monitor")
-    .setService(SVC_MDX);
+    .setService(SVC_MD);
 
   protected static final ServletDescr SERVLET_MD_CONTROL =
       new ServletDescr("MetadataControl",
@@ -648,7 +656,7 @@ public class AdminServletManager extends BaseServletManager {
 	  	       "Metadata Control",
 	  	       ServletDescr.NEED_ROLE_AU_ADMIN,
 	  	       "Metadata Control")
-    .setService(SVC_MDX);
+    .setService(SVC_MD);
 
   protected static final ServletDescr SERVLET_OIOSAML =
       new ServletDescr("SAMLDispatcherServlet",
@@ -948,10 +956,10 @@ public class AdminServletManager extends BaseServletManager {
   }
 
   protected void installUsers() {
-    installDebugUser();
-    installPlatformUser();
-    installGlobalUsers();
-    installLocalUsers();
+//     installDebugUser();
+//     installPlatformUser();
+//     installGlobalUsers();
+//     installLocalUsers();
   }
 
   protected void configureContexts(HttpServer server) {

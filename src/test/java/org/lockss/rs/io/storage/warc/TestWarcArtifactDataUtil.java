@@ -56,7 +56,7 @@ public class TestWarcArtifactDataUtil extends LockssTestCase5 {
         WARCRecord record = new WARCRecord(warcStream, "TestArtifactDataFactory", 0, false, false);
         assertNotNull(record);
 
-        ArtifactData artifact = WarcArtifactData.fromArchiveRecord(record);
+        ArtifactData artifact = WarcArtifactDataUtil.fromArchiveRecord(record);
         assertNotNull(artifact);
 
         ArtifactIdentifier identifier = artifact.getIdentifier();

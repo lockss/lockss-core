@@ -1041,12 +1041,12 @@ public class TestConfigManager extends LockssTestCase4 {
     String release = BuildInfo.getBuildProperty(BuildInfo.BUILD_RELEASENAME);
     if (release != null) {
       assertEquals(SetUtil.set("groups=nogroup",
-			       "platform=OpenBSD CD 321",
+			       "platform=OpenBSD_CD 321",
 			       "daemon=" + release),
 		   SetUtil.theSet(pairs));
     } else {
       assertEquals(SetUtil.set("groups=nogroup",
-			       "platform=OpenBSD CD 321",
+			       "platform=OpenBSD_CD 321",
 			       "daemon=1.44.2"),
 		   SetUtil.theSet(pairs));
     }
@@ -1057,13 +1057,13 @@ public class TestConfigManager extends LockssTestCase4 {
     if (release != null) {
       assertEquals(SetUtil.set("groups=grouper",
 			       "peerid=tcp:[111.32.14.5]:9876",
-			       "platform=OpenBSD CD 321",
+			       "platform=OpenBSD_CD 321",
 			       "daemon=" + release),
 		   SetUtil.theSet(pairs));
     } else {
       assertEquals(SetUtil.set("groups=grouper",
 			       "peerid=tcp:[111.32.14.5]:9876",
-			       "platform=OpenBSD CD 321",
+			       "platform=OpenBSD_CD 321",
 			       "daemon=1.44.2"),
 		   SetUtil.theSet(pairs));
     }

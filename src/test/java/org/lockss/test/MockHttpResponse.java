@@ -77,6 +77,7 @@ public class MockHttpResponse extends HttpResponse {
   /**
    * @deprecated
    */
+  @Deprecated
   public HttpRequest getRequest() {
     throw new UnsupportedOperationException("not implemented");
   }

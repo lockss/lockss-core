@@ -82,10 +82,10 @@ public class TestProxyInfo extends LockssTestCase {
   String ifsRE =
       " // .*\\n"
     + " if \\(shExpMatch\\(url, \\\"http://foo\\.bar/\\*\\\"\\)\\)\\n"
-    + " { return \\\"PROXY " + HOST + ":24670; DIRECT\\\"; }\\n\\n"
+    + " { return \\\"PROXY " + HOST + ":24630; DIRECT\\\"; }\\n\\n"
     + " // .*\\n"
     + " if \\(shExpMatch\\(url, \\\"http://x\\.com/\\*\\\"\\)\\)\\n"
-    + " { return \\\"PROXY " + HOST + ":24670; DIRECT\\\"; }\\n\\n";
+    + " { return \\\"PROXY " + HOST + ":24630; DIRECT\\\"; }\\n\\n";
 
   List urlStems = ListUtil.list("http://foo.bar", "http://x.com");
 
@@ -171,7 +171,7 @@ public class TestProxyInfo extends LockssTestCase {
 
   public void testGenerateEZProxyFragment() throws Exception {
     final String frag =
-        "Proxy host.org:24670\n"
+        "Proxy host.org:24630\n"
       + "\n"
       + "Title MockAU 1\n"
       + "URL http://foo.bar\n"
@@ -401,7 +401,7 @@ public class TestProxyInfo extends LockssTestCase {
     assertMatchesRE(
           " // Foo\\n"
         + " if \\(shExpMatch\\(url, \\\"http://foo\\.com/\\*\\\"\\)\\)\\n"
-        + " { return \\\"PROXY " + HOST + ":24670; DIRECT\\\"; }",
+        + " { return \\\"PROXY " + HOST + ":24630; DIRECT\\\"; }",
         removeEmptyLines(buffer.toString())
     );
     
@@ -421,7 +421,7 @@ public class TestProxyInfo extends LockssTestCase {
     assertMatchesRE(
           " // Foo\\n"
         + " if \\(shExpMatch\\(url, \\\"http://foo\\.com/\\*\\\"\\)\\)\\n"
-        + " { return \\\"DIRECT; PROXY " + HOST + ":24670\\\"; }",
+        + " { return \\\"DIRECT; PROXY " + HOST + ":24630\\\"; }",
         removeEmptyLines(buffer.toString())
     );
 

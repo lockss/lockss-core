@@ -26,6 +26,7 @@
 
  */
 package org.lockss.plugin;
+import org.lockss.util.LockssWatchdog;
 
 import java.util.*;
 import org.apache.commons.lang3.*;
@@ -224,6 +225,7 @@ public class AuEvent {
 //   private ArchivalUnit au;
   private AuEvent.Type type;
   private boolean inBatch;
+  private LockssWatchdog wdog;
   private ContentChangeInfo changeInfo;
   private Configuration oldConfig;
 
@@ -389,5 +391,14 @@ public class AuEvent {
     }
     sb.append("]");
     return sb.toString();
+  }
+
+  public AuEvent setWatchdog(LockssWatchdog wdog) {
+    this.wdog = wdog;
+    return this;
+  }
+
+  public LockssWatchdog getWatchDog() {
+    return wdog;
   }
 }

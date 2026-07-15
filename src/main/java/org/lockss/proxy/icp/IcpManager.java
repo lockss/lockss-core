@@ -618,7 +618,7 @@ public class IcpManager
   /**
    * <p>The default platform ICP port.</p>
    */
-  public static final int DEFAULT_PARAM_PLATFORM_ICP_PORT = 24674;
+  public static final int DEFAULT_PARAM_PLATFORM_ICP_PORT = 24632;
 
   /**
    * <p>A logger for use by instances of this class.</p>

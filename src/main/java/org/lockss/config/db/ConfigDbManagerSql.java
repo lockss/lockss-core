@@ -331,7 +331,7 @@ public class ConfigDbManagerSql extends DbManagerSql {
     if (dbMgr.isTypeDerby()) {
       return "alter table " + tableName
         + " alter column " + columnName
-        + " SET DATA TYPE VARCHAR(" + MAX_VARCHAR + ")";
+        + " SET DATA TYPE VARCHAR(" + DERBY_MAX_VARCHAR + ")";
     } else if (dbMgr.isTypePostgresql() || dbMgr.isTypeMysql()) {
       return "alter table " + tableName
         + " alter column " + columnName

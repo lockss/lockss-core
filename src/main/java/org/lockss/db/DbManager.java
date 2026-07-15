@@ -68,6 +68,19 @@ public abstract class DbManager extends BaseLockssManager
   // Prefix for the database manager configuration entries.
   private static final String PREFIX = Configuration.PREFIX + "db.";
 
+  // See DBCP documentation here: https://commons.apache.org/proper/commons-dbcp/configuration.html
+  protected static final String PARAM_DBCP_INITIAL_SIZE = PREFIX + "dbcp.initialSize";
+  protected static final String PARAM_DBCP_MAX_TOTAL = PREFIX + "dbcp.maxTotal";
+  protected static final String PARAM_DBCP_MAX_IDLE = PREFIX + "dbcp.maxIdle";
+  protected static final String PARAM_DBCP_MIN_IDLE = PREFIX + "dbcp.minIdle";
+  protected static final String PARAM_DBCP_MAX_WAIT_TIME = PREFIX + "dbcp.maxWaitMillis";
+
+  protected static final String DEFAULT_DBCP_INITIAL_SIZE = "0";
+  protected static final String DEFAULT_DBCP_MAX_TOTAL = "100";
+  protected static final String DEFAULT_DBCP_MAX_IDLE  = "8";
+  protected static final String DEFAULT_DBCP_MIN_IDLE = "0";
+  protected static final long DEFAULT_DBCP_MAX_WAIT_TIME = -1;
+
   /**
    * Derby log append option. Changes require daemon restart.
    */
@@ -994,6 +1007,17 @@ public abstract class DbManager extends BaseLockssManager
       dbcpProps.put("username", dataSourceConfig.get("user"));
       dbcpProps.put("password", dataSourceConfig.get("password"));
 
+      // Configure a set of DBCP settings from global DBCP settings (i.e., org.lockss.db.dbcp.*),
+      // or enforce defaults (as specified in the DBCP documentation), if those DBCP settings for
+      // this implementation of DbManager have not been explicitly configured:
+      Configuration curCfg = ConfigManager.getCurrentConfig();
+      putCfgIfAbsent(dbcpProps, "initialSize", curCfg.get(PARAM_DBCP_INITIAL_SIZE ,DEFAULT_DBCP_INITIAL_SIZE));
+      putCfgIfAbsent(dbcpProps, "maxTotal", curCfg.get(PARAM_DBCP_MAX_TOTAL, DEFAULT_DBCP_MAX_TOTAL));
+      putCfgIfAbsent(dbcpProps, "maxIdle", curCfg.get(PARAM_DBCP_MAX_IDLE, DEFAULT_DBCP_MAX_IDLE));
+      putCfgIfAbsent(dbcpProps, "minIdle", curCfg.get(PARAM_DBCP_MIN_IDLE, DEFAULT_DBCP_MIN_IDLE));
+      putCfgIfAbsent(dbcpProps, "maxWaitMillis",
+          String.valueOf(curCfg.getTimeInterval(PARAM_DBCP_MAX_WAIT_TIME, DEFAULT_DBCP_MAX_WAIT_TIME)));
+
       // Determine JDBC URL from existing DataSource if not explicitly set
       if (StringUtil.isNullString(dbcpProps.get("url"))) {
         try {
@@ -1012,8 +1036,10 @@ public abstract class DbManager extends BaseLockssManager
       String driverClassName = dbcpProps.get("driverClassName");
       log.debug(DEBUG_HEADER + "driverClassName = " + driverClassName);
 
-      // Connection properties sent to the JDBC driver by DBCP
+      // Connection properties sent to the JDBC driver by DBCP. Start with
+      // subclass-provided defaults, then let operator-supplied config override.
       Configuration connProps = ConfigManager.newConfiguration();
+      connProps.copyFrom(getDefaultDbcpConnectionProperties());
       connProps.copyFrom(dbcpProps.getConfigTree("connectionProperties"));
 
       // Format and set connectionProperties if subtree is present
@@ -1044,12 +1070,30 @@ public abstract class DbManager extends BaseLockssManager
     if (log.isDebug2()) log.debug2(DEBUG_HEADER + "Done.");
   }
 
+  private static void putCfgIfAbsent(Configuration cfg, String k, String v) {
+    if (!cfg.containsKey(k)) {
+      cfg.put(k, v);
+    }
+  }
+
   private String formatConnectionProperties(Configuration connProps) {
     List<String> kvs = connProps.keySet().stream()
         .map(k -> k + "=" + connProps.get(k))
         .collect(Collectors.toList());
 
     return StringUtil.separatedString(kvs, ";");
+  }
+
+  /**
+   * Provides subclass-specific default values for DBCP {@code connectionProperties}
+   * entries. The returned Configuration is copied into the connection-properties
+   * map before operator-supplied config is applied, so operator config still wins.
+   * Default implementation returns an empty Configuration.
+   *
+   * @return a Configuration with default connection-property entries; never null.
+   */
+  protected Configuration getDefaultDbcpConnectionProperties() {
+    return ConfigManager.EMPTY_CONFIGURATION;
   }
 
   /**

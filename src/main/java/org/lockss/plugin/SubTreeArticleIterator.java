@@ -1,7 +1,6 @@
 /*
 
-Copyright (c) 2000-2020, Board of Trustees of Leland Stanford Jr. University
-All rights reserved.
+Copyright (c) 2000-2024, Board of Trustees of Leland Stanford Jr. University
 
 Redistribution and use in source and binary forms, with or without
 modification, are permitted provided that the following conditions are met:
@@ -35,11 +34,12 @@ package org.lockss.plugin;
 
 import java.util.*;
 import java.util.regex.*;
+
 import org.lockss.util.*;
 import org.lockss.util.Constants.RegexpContext;
-import org.lockss.app.LockssDaemon;
 import org.lockss.daemon.*;
 import org.lockss.extractor.*;
+
 
 /**
  * Article iterator that finds articles by iterating through all the
@@ -50,7 +50,7 @@ import org.lockss.extractor.*;
  */
 public class SubTreeArticleIterator implements Iterator<ArticleFiles> {
   
-  static Logger log = Logger.getLogger();
+  private static final Logger log = Logger.getLogger(SubTreeArticleIterator.class);
   
   /** Specification of the CachedUrls the iterator should return.  Setters
    * are chained. */
@@ -122,8 +122,8 @@ public class SubTreeArticleIterator implements Iterator<ArticleFiles> {
      */
     public Spec setRoots(List<String> roots) {
       if (rootTemplates != null) {
-	throw new
-	  IllegalArgumentException("Can't set both roots and rootTemplates");
+        throw new
+          IllegalArgumentException("Can't set both roots and rootTemplates");
       }
       this.roots = roots;
       return this;
@@ -136,8 +136,8 @@ public class SubTreeArticleIterator implements Iterator<ArticleFiles> {
      */
     public Spec setRootTemplates(List<String> rootTemplates) {
       if (roots != null) {
-	throw new
-	  IllegalArgumentException("Can't set both roots and rootTemplates");
+        throw new
+          IllegalArgumentException("Can't set both roots and rootTemplates");
       }
       this.rootTemplates = rootTemplates;
       return this;
@@ -155,14 +155,14 @@ public class SubTreeArticleIterator implements Iterator<ArticleFiles> {
 
     PatSpec getMatchPatSpec() {
       if (matchPatSpec == null) {
-	matchPatSpec = new PatSpec();
+        matchPatSpec = new PatSpec();
       }
       return matchPatSpec;
     }
 
     PatSpec getIncludePatSpec() {
       if (includePatSpec == null) {
-	includePatSpec = new PatSpec();
+        includePatSpec = new PatSpec();
       }
       return includePatSpec;
     }
@@ -173,7 +173,7 @@ public class SubTreeArticleIterator implements Iterator<ArticleFiles> {
 
     PatSpec getExcludePatSpec() {
       if (excludePatSpec == null) {
-	excludePatSpec = new PatSpec();
+        excludePatSpec = new PatSpec();
       }
       return excludePatSpec;
     }
@@ -290,7 +290,7 @@ public class SubTreeArticleIterator implements Iterator<ArticleFiles> {
      * @return this
      */
     public Spec setIncludeSubTreePatternTemplate(String patternTemplate,
-						 int flags) {
+                                                 int flags) {
       getIncludePatSpec().setPatternTemplate(patternTemplate, flags);
       return this;
     }
@@ -351,7 +351,7 @@ public class SubTreeArticleIterator implements Iterator<ArticleFiles> {
      * @return this
      */
     public Spec setExcludeSubTreePatternTemplate(String patternTemplate,
-						 int flags) {
+                                                 int flags) {
       getExcludePatSpec().setPatternTemplate(patternTemplate, flags);
       return this;
     }
@@ -397,7 +397,7 @@ public class SubTreeArticleIterator implements Iterator<ArticleFiles> {
   static class PatSpec {
     private Pattern pat;
     private String patTempl;
-    private int patFlags = 0;		// Pattern compilation flags
+    private int patFlags = 0;           // Pattern compilation flags
 
     void setPattern(Pattern regex) {
       pat = regex;
@@ -405,7 +405,7 @@ public class SubTreeArticleIterator implements Iterator<ArticleFiles> {
 
     void setPattern(String regex, int flags) {
       if (patTempl != null) {
-	throw new IllegalArgumentException("Can't set both pattern and patternTemplate");
+        throw new IllegalArgumentException("Can't set both pattern and patternTemplate");
       }
       patFlags = flags;
       pat = Pattern.compile(regex, flags);
@@ -413,7 +413,7 @@ public class SubTreeArticleIterator implements Iterator<ArticleFiles> {
 
     void setPatternTemplate(String patternTemplate, int flags) {
       if (pat != null) {
-	throw new IllegalArgumentException("Can't set both pattern and patternTemplate");
+        throw new IllegalArgumentException("Can't set both pattern and patternTemplate");
       }
       this.patTempl = patternTemplate;
       this.patFlags = flags;
@@ -482,12 +482,12 @@ public class SubTreeArticleIterator implements Iterator<ArticleFiles> {
     if (spec.hasIncludePat()) {
       this.includeSubTreePat = makePattern(spec.getIncludePatSpec());
       if (log.isDebug3())
-	log.debug3(DEBUG_HEADER + "includeSubTreePat = " + includeSubTreePat);
+        log.debug3(DEBUG_HEADER + "includeSubTreePat = " + includeSubTreePat);
     }
     if (spec.hasExcludePat()) {
       this.excludeSubTreePat = makePattern(spec.getExcludePatSpec());
       if (log.isDebug3())
-	log.debug3(DEBUG_HEADER + "excludeSubTreePat = " + excludeSubTreePat);
+        log.debug3(DEBUG_HEADER + "excludeSubTreePat = " + excludeSubTreePat);
     }
     roots = makeRoots();
     if (log.isDebug3()) log.debug3(DEBUG_HEADER + "roots = " + roots);
@@ -495,7 +495,7 @@ public class SubTreeArticleIterator implements Iterator<ArticleFiles> {
     if (log.isDebug3()) log.debug3(DEBUG_HEADER + "pat = " + pat);
     rootIter = roots.iterator();
     log.debug2("Create: AU: " + au.getName() + ", Mime: " + this.mimeType
-	       + ", roots: " + roots + ", pat: " + pat);
+               + ", roots: " + roots + ", pat: " + pat);
   }
 
   // XXX fix when work out how target is used
@@ -517,7 +517,7 @@ public class SubTreeArticleIterator implements Iterator<ArticleFiles> {
     }
     if (pspec.getPatternTemplate() != null) {
       String re =
-	convertVariableUrlRegexpString(pspec.getPatternTemplate()).getRegexp();
+        convertVariableUrlRegexpString(pspec.getPatternTemplate()).getRegexp();
       return Pattern.compile(re, pspec.getPatternFlags());
     }
     return null;
@@ -542,7 +542,7 @@ public class SubTreeArticleIterator implements Iterator<ArticleFiles> {
     if (target != null) {
       long date = target.getIncludeFilesChangedAfter();
       if (date > 0) {
-	cus.setExcludeFilesUnchangedAfter(date);
+        cus.setExcludeFilesUnchangedAfter(date);
       }
     }
     return cus;
@@ -551,11 +551,11 @@ public class SubTreeArticleIterator implements Iterator<ArticleFiles> {
   CachedUrlSetSpec makeCuss(String root) {
     if (includeSubTreePat != null) {
       return PrunedCachedUrlSetSpec.includeMatchingSubTrees(root,
-							    includeSubTreePat);
+                                                            includeSubTreePat);
     }
     if (excludeSubTreePat != null) {
       return PrunedCachedUrlSetSpec.excludeMatchingSubTrees(root,
-							    excludeSubTreePat);
+                                                            excludeSubTreePat);
     }
     return new RangeCachedUrlSetSpec(root);
   }
@@ -571,8 +571,8 @@ public class SubTreeArticleIterator implements Iterator<ArticleFiles> {
     for (String template : spec.getRootTemplates()) {
       List<String> lst = convertUrlList(template);
       if (lst == null) {
-	log.warning("Null converted string from " + template);
-	continue;
+        log.warning("Null converted string from " + template);
+        continue;
       }
       res.addAll(lst);
     }
@@ -598,68 +598,68 @@ public class SubTreeArticleIterator implements Iterator<ArticleFiles> {
     }
     while (true) {
       if (log.isDebug3()) {
-	log.debug3(DEBUG_HEADER + "nextElements = " + nextElements);
-	if (nextElements != null) {
-	  log.debug3(DEBUG_HEADER
-	      + "nextElements.isEmpty() = " + nextElements.isEmpty());
-	}
+        log.debug3(DEBUG_HEADER + "nextElements = " + nextElements);
+        if (nextElements != null) {
+          log.debug3(DEBUG_HEADER
+              + "nextElements.isEmpty() = " + nextElements.isEmpty());
+        }
       }
       if (nextElements != null && !nextElements.isEmpty()) {
-	nextElement = nextElements.remove();
-	if (log.isDebug2())
-	  log.debug2(DEBUG_HEADER + "return 2 " + nextElement);
-	return nextElement;
+        nextElement = nextElements.remove();
+        if (log.isDebug2())
+          log.debug2(DEBUG_HEADER + "return 2 " + nextElement);
+        return nextElement;
       } else {
-	CachedUrl cu = null;
-	try {
-	  if (log.isDebug3()) log.debug3(DEBUG_HEADER + "cuIter 1 = " + cuIter);
-	  if (cuIter == null || !cuIter.hasNext()) {
-	    if (rootIter == null || !rootIter.hasNext()) {
-	      if (log.isDebug2()) log.debug2(DEBUG_HEADER + "return 3 null");
-	      return null;
-	    } else {
-	      CachedUrlSet root = rootIter.next();
-	      if (log.isDebug3()) {
-		log.debug3(DEBUG_HEADER + "root = " + root);
-		log.debug3(DEBUG_HEADER + "spec.isVisitArchiveMembers = "
-		    + spec.isVisitArchiveMembers);
-	      }
-	      cuIter = spec.isVisitArchiveMembers
-		? root.archiveMemberIterator() : root.getCuIterator();
-		if (log.isDebug3())
-		  log.debug3(DEBUG_HEADER + "cuIter 2 = " + cuIter);
-	      continue;
-	    }
-	  } else {
-	    cu = cuIter.next();
-	    if (log.isDebug3()) log.debug3(DEBUG_HEADER + "cu = " + cu);
-	    boolean isCuArticle = isArticleCu(cu);
-	    if (log.isDebug3())
-	      log.debug3(DEBUG_HEADER + "isCuArticle = " + isCuArticle);
-	    if (isCuArticle) {
-	      // isArticleCu() might have caused file to open
-	      cu.release();
-	      visitArticleCu(cu);
-	      if (log.isDebug3())
-		log.debug3(DEBUG_HEADER + "nextElement 4 = " + nextElement);
-	      if (nextElement == null) {
-		continue;
-	      }
-	      if (log.isDebug2())
-		log.debug2(DEBUG_HEADER + "return 4 " + nextElement);
-	      return nextElement;
-	    }
-	  }
-	} catch (Exception ex) {
-	  // No action intended - iterator should ignore this cu.
-	  if (cu == null) {
-	    log.error("Error", ex);
-	  } else {
-	    log.error("Error processing " + cu.getUrl(), ex);
-	  }
-	} finally {
-	  AuUtil.safeRelease(cu);
-	}
+        CachedUrl cu = null;
+        try {
+          if (log.isDebug3()) log.debug3(DEBUG_HEADER + "cuIter 1 = " + cuIter);
+          if (cuIter == null || !cuIter.hasNext()) {
+            if (rootIter == null || !rootIter.hasNext()) {
+              if (log.isDebug2()) log.debug2(DEBUG_HEADER + "return 3 null");
+              return null;
+            } else {
+              CachedUrlSet root = rootIter.next();
+              if (log.isDebug3()) {
+                log.debug3(DEBUG_HEADER + "root = " + root);
+                log.debug3(DEBUG_HEADER + "spec.isVisitArchiveMembers = "
+                    + spec.isVisitArchiveMembers);
+              }
+              cuIter = spec.isVisitArchiveMembers
+                ? root.archiveMemberIterator() : root.getCuIterator();
+                if (log.isDebug3())
+                  log.debug3(DEBUG_HEADER + "cuIter 2 = " + cuIter);
+              continue;
+            }
+          } else {
+            cu = cuIter.next();
+            if (log.isDebug3()) log.debug3(DEBUG_HEADER + "cu = " + cu);
+            boolean isCuArticle = isArticleCu(cu);
+            if (log.isDebug3())
+              log.debug3(DEBUG_HEADER + "isCuArticle = " + isCuArticle);
+            if (isCuArticle) {
+              // isArticleCu() might have caused file to open
+              cu.release();
+              visitArticleCu(cu);
+              if (log.isDebug3())
+                log.debug3(DEBUG_HEADER + "nextElement 4 = " + nextElement);
+              if (nextElement == null) {
+                continue;
+              }
+              if (log.isDebug2())
+                log.debug2(DEBUG_HEADER + "return 4 " + nextElement);
+              return nextElement;
+            }
+          }
+        } catch (Exception ex) {
+          // No action intended - iterator should ignore this cu.
+          if (cu == null) {
+            log.error("Error", ex);
+          } else {
+            log.error("Error processing " + cu.getUrl(), ex);
+          }
+        } finally {
+          AuUtil.safeRelease(cu);
+        }
       }
     }
   }
@@ -673,7 +673,7 @@ public class SubTreeArticleIterator implements Iterator<ArticleFiles> {
       nextElement = af;
     } else {
       if (nextElements == null) {
-	nextElements = new LinkedList();
+        nextElements = new LinkedList();
       }
       nextElements.add(af);
     }
@@ -721,17 +721,17 @@ public class SubTreeArticleIterator implements Iterator<ArticleFiles> {
     if (pat != null) {
       Matcher match = pat.matcher(cu.getUrl());
       if (!match.find()) {
-	log.debug3("No match for " + pat + ": " + cu.getUrl());
-	return false;
+        log.debug3("No match for " + pat + ": " + cu.getUrl());
+        return false;
       }
     }
     if (mimeType != null) {
       String cuMime =
-	HeaderUtil.getMimeTypeFromContentType(cu.getContentType());
+        HeaderUtil.getMimeTypeFromContentType(cu.getContentType());
       if (!mimeType.equalsIgnoreCase(cuMime)) {
-	log.debug3("Mime mismatch (" + mimeType + "): " + cu.getUrl()
-		   + "(" + cu.getContentType() + ")");
-	return false;
+        log.debug3("Mime mismatch (" + mimeType + "): " + cu.getUrl()
+                   + "(" + cu.getContentType() + ")");
+        return false;
       }
     }
     return true;
