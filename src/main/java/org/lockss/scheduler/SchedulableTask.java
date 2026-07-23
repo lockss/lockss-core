@@ -198,7 +198,7 @@ public class SchedulableTask {
     return hasStarted;
   }
 
-  void setStarted() {
+  public void setStarted() {
     hasStarted = true;
   }
 
@@ -303,5 +303,4 @@ public class SchedulableTask {
   }
 
 }
-
 

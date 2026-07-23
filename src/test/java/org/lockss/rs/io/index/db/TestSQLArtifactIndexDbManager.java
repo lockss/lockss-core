@@ -191,6 +191,143 @@ public class TestSQLArtifactIndexDbManager extends LockssTestCase4 {
     assertTrue(art.isCommitted());
   }
 
+  /**
+   * Regression test for the bulk {@code addArtifacts} path: every artifact must
+   * survive across multiple internal batch commits (no batch silently dropped),
+   * and re-presenting the same artifacts (a retried finishBulkStore) must be
+   * idempotent rather than failing on the UUID unique constraint or creating
+   * duplicates.
+   */
+  @Test
+  public void testAddArtifactsAcrossBatchesIsCompleteAndIdempotent() throws Exception {
+    SQLArtifactIndexManagerSql idxdb = new SQLArtifactIndexManagerSql(idxDbManager);
+
+    String ns = "batch_ns";
+    String auid = "batch_auid";
+
+    // More than two ARTIFACT_INSERT_BATCH_SIZE (1000) rows so the per-batch
+    // flush+commit runs several times, followed by a partial trailing batch.
+    int n = 2500;
+    List<ArtifactSpec> specs = new ArrayList<>(n);
+    List<Artifact> artifacts = new ArrayList<>(n);
+    for (int i = 0; i < n; i++) {
+      ArtifactSpec spec = new ArtifactSpec()
+          .setArtifactUuid(UUID.randomUUID().toString())
+          .setNamespace(ns)
+          .setAuid(auid)
+          .setUrl("https://example.com/batch/" + i)
+          .setVersion(1)
+          .setStorageUrl(URI.create("tmp/" + i))
+          .setContentLength(1024)
+          .setContentDigest("digest-" + i)
+          .setCollectionDate(1234L)
+          .setCommitted(false);
+      specs.add(spec);
+      artifacts.add(spec.getArtifact());
+    }
+
+    idxdb.addArtifacts(artifacts);
+
+    // No batch was silently dropped.
+    for (ArtifactSpec spec : specs) {
+      assertNotNull("Artifact missing after bulk add: " + spec.getArtifactUuid(),
+          idxdb.getArtifact(spec.getArtifactUuid()));
+    }
+    assertEquals(n, countAllVersions(idxdb, ns, auid));
+
+    // Retried finishBulkStore: same UUIDs, now committed with permanent URLs.
+    List<Artifact> reflush = new ArrayList<>(n);
+    for (ArtifactSpec spec : specs) {
+      spec.setStorageUrl(URI.create("perm/" + spec.getArtifactUuid()));
+      spec.setCommitted(true);
+      reflush.add(spec.getArtifact());
+    }
+    idxdb.addArtifacts(reflush);
+
+    // No duplicates, and the upsert refreshed the committed flag.
+    assertEquals(n, countAllVersions(idxdb, ns, auid));
+    for (ArtifactSpec spec : specs) {
+      Artifact art = idxdb.getArtifact(spec.getArtifactUuid());
+      assertNotNull(art);
+      assertTrue("Re-flush should have marked committed: " + spec.getArtifactUuid(),
+          art.isCommitted());
+    }
+  }
+
+  /**
+   * The geometric urls-table ANALYZE cadence must handle an index that is
+   * already populated when a fresh manager starts: the row estimate is seeded
+   * from pg_class.reltuples, and subsequent bulk adds still land every artifact.
+   */
+  @Test
+  public void testUrlEstimateSeedsFromNonEmptyIndex() throws Exception {
+    SQLArtifactIndexManagerSql first = new SQLArtifactIndexManagerSql(idxDbManager);
+
+    String ns = "seed_ns";
+    String auid = "seed_auid";
+
+    // Populate enough rows that the geometric cadence runs ANALYZE on urls,
+    // which sets pg_class.reltuples for the table.
+    int n = 2500;
+    List<ArtifactSpec> specs = new ArrayList<>(n);
+    List<Artifact> artifacts = new ArrayList<>(n);
+    for (int i = 0; i < n; i++) {
+      ArtifactSpec spec = new ArtifactSpec()
+          .setArtifactUuid(UUID.randomUUID().toString())
+          .setNamespace(ns)
+          .setAuid(auid)
+          .setUrl("https://example.com/seed/" + i)
+          .setVersion(1)
+          .setStorageUrl(URI.create("tmp/" + i))
+          .setContentLength(1024)
+          .setContentDigest("digest-" + i)
+          .setCollectionDate(1234L);
+      specs.add(spec);
+      artifacts.add(spec.getArtifact());
+    }
+    first.addArtifacts(artifacts);
+
+    // A fresh manager (as after a restart) must see a non-empty urls estimate.
+    SQLArtifactIndexManagerSql restarted = new SQLArtifactIndexManagerSql(idxDbManager);
+    assertTrue("urls reltuples should be seeded > 0 from a populated index",
+        restarted.estimatedRowCount("urls") > 0);
+
+    // And it must still add every new artifact correctly.
+    List<ArtifactSpec> more = new ArrayList<>();
+    List<Artifact> moreArts = new ArrayList<>();
+    for (int i = 0; i < 1500; i++) {
+      ArtifactSpec spec = new ArtifactSpec()
+          .setArtifactUuid(UUID.randomUUID().toString())
+          .setNamespace(ns)
+          .setAuid(auid)
+          .setUrl("https://example.com/seed/more/" + i)
+          .setVersion(1)
+          .setStorageUrl(URI.create("tmp/more/" + i))
+          .setContentLength(1024)
+          .setContentDigest("d-" + i)
+          .setCollectionDate(1234L);
+      more.add(spec);
+      moreArts.add(spec.getArtifact());
+    }
+    restarted.addArtifacts(moreArts);
+
+    for (ArtifactSpec spec : more) {
+      assertNotNull("Artifact missing after add on restarted manager: " + spec.getArtifactUuid(),
+          restarted.getArtifact(spec.getArtifactUuid()));
+    }
+    assertEquals(n + more.size(), countAllVersions(restarted, ns, auid));
+  }
+
+  private static int countAllVersions(SQLArtifactIndexManagerSql idxdb,
+                                      String ns, String auid) throws Exception {
+    int found = 0;
+    for (Artifact ignored :
+        idxdb.findArtifactsAllVersionsOfAllUrlsWithNamespaceAndAuid(ns, auid, true)) {
+      found++;
+    }
+    return found;
+  }
+
   @Test
   public void testGetArtifact() throws Exception {
     SQLArtifactIndexManagerSql idxdb = new SQLArtifactIndexManagerSql(idxDbManager);

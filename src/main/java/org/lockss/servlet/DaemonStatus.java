@@ -164,6 +164,7 @@ public class DaemonStatus extends BaseDaemonStatus {
   private Page newTablePage() throws IOException {
     Page page = newPage();
     addJavaScript(page);
+    layoutErrorBlock(page);
 
     if (!pluginMgr.areAusStartedOrStartOnDemand()) {
       page.add(ServletUtil.notStartedWarning());
@@ -302,14 +303,12 @@ public class DaemonStatus extends BaseDaemonStatus {
     try {
       statTable = makeTable();
     } catch (StatusService.NoSuchTableException e) {
-      page = newTablePage();
       errMsg = "No such table: " + e.getMessage();
-      layoutErrorBlock(page);
+      page = newTablePage();
       return page;
     } catch (Exception e) {
-      page = newTablePage();
       errMsg = "Error getting table: " + e.toString();
-      layoutErrorBlock(page);
+      page = newTablePage();
       if (isDebugUser()) {
 	page.add("<br><pre>    ");
 	page.add(StringUtil.trimStackTrace(e.toString(),

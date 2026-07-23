@@ -384,8 +384,8 @@ public class MetadataDbManagerSql extends DbManagerSql {
       + OBSOLETE_MAX_PUBLICATION_ID_COLUMN + ")" + ")";
 
   // Query to create the table for recording pending AUs to index.
-  static final String CREATE_PENDING_AU_TABLE_QUERY = "create table "
-      + PENDING_AU_TABLE + " ("
+  static final String CREATE_PENDING_AU_V1_TABLE_QUERY = "create table "
+      + PENDING_AU_V1_TABLE + " ("
       + PLUGIN_ID_COLUMN + " varchar(" + MAX_PLUGIN_ID_COLUMN + ") not null,"
       + AU_KEY_COLUMN + " varchar(" + MAX_AU_KEY_COLUMN + ") not null,"
       + PRIORITY_COLUMN + " bigint not null)";
@@ -606,6 +606,16 @@ public class MetadataDbManagerSql extends DbManagerSql {
       + ") on delete cascade,"
       + SUBSCRIBED_COLUMN + " boolean not null"
       + ")";
+
+  // Query to create the metadata write lock table.
+  static final String CREATE_METADATA_WRITE_LOCK_TABLE_QUERY =
+      "create table " + METADATA_WRITE_LOCK_TABLE
+      + " (" + LOCK_ID_COLUMN + " integer not null)";
+
+  // Query to insert the initial lock row.
+  private static final String INSERT_METADATA_WRITE_LOCK_QUERY =
+      "insert into " + METADATA_WRITE_LOCK_TABLE
+      + " (" + LOCK_ID_COLUMN + ") values (?)";
 
   // Query to insert a type of metadata item.
   private static final String INSERT_MD_ITEM_TYPE_QUERY = "insert into "
@@ -907,7 +917,7 @@ public class MetadataDbManagerSql extends DbManagerSql {
     	  put(ISBN_TABLE, CREATE_ISBN_TABLE_QUERY);
     	  put(PUBLISHER_TABLE, CREATE_PUBLISHER_TABLE_QUERY);
     	  put(PUBLICATION_TABLE, CREATE_PUBLICATION_TABLE_QUERY);
-    	  put(PENDING_AU_TABLE, CREATE_PENDING_AU_TABLE_QUERY);
+    	  put(PENDING_AU_V1_TABLE, CREATE_PENDING_AU_V1_TABLE_QUERY);
     	  put(COUNTER_REQUEST_TABLE, REQUEST_TABLE_CREATE_QUERY);
     	  put(COUNTER_JOURNAL_PUBYEAR_AGGREGATE_TABLE,
     	      JOURNAL_PUBYEAR_AGGREGATE_TABLE_CREATE_QUERY);
@@ -940,7 +950,7 @@ public class MetadataDbManagerSql extends DbManagerSql {
           put(ISBN_TABLE, CREATE_ISBN_TABLE_QUERY);
           put(PUBLISHER_TABLE, CREATE_PUBLISHER_TABLE_QUERY);
           put(PUBLICATION_TABLE, CREATE_PUBLICATION_TABLE_QUERY);
-          put(PENDING_AU_TABLE, CREATE_PENDING_AU_TABLE_QUERY);
+          put(PENDING_AU_V1_TABLE, CREATE_PENDING_AU_V1_TABLE_QUERY);
           put(COUNTER_REQUEST_TABLE, REQUEST_TABLE_CREATE_QUERY);
           put(COUNTER_JOURNAL_PUBYEAR_AGGREGATE_TABLE,
               JOURNAL_PUBYEAR_AGGREGATE_TABLE_CREATE_MYSQL_QUERY);
@@ -1244,7 +1254,7 @@ public class MetadataDbManagerSql extends DbManagerSql {
     "create index idx1_" + AUTHOR_TABLE + " on " + AUTHOR_TABLE
     + "(" + AUTHOR_NAME_COLUMN + ")",
 
-    "create unique index idx1_" + PENDING_AU_TABLE + " on " + PENDING_AU_TABLE
+    "create unique index idx1_" + PENDING_AU_V1_TABLE + " on " + PENDING_AU_V1_TABLE
     + "(" + PLUGIN_ID_COLUMN + "," + AU_KEY_COLUMN + ")"
     };
 
@@ -1293,7 +1303,7 @@ public class MetadataDbManagerSql extends DbManagerSql {
     + "(" + AUTHOR_NAME_COLUMN + ")",
 
     // TODO: Make the index unique when MySQL is fixed.
-    "create index idx1_" + PENDING_AU_TABLE + " on " + PENDING_AU_TABLE
+    "create index idx1_" + PENDING_AU_V1_TABLE + " on " + PENDING_AU_V1_TABLE
     + "(" + PLUGIN_ID_COLUMN + "(255)," + AU_KEY_COLUMN + "(255))"
     };
 
@@ -1514,7 +1524,7 @@ public class MetadataDbManagerSql extends DbManagerSql {
     + "(" + MD_ITEM_SEQ_COLUMN + ")",
     "create index idx3_" + MD_ITEM_NAME_TABLE + " on " + MD_ITEM_NAME_TABLE
     + "(" + NAME_TYPE_COLUMN + ")",
-    "create index idx2_" + PENDING_AU_TABLE + " on " + PENDING_AU_TABLE
+    "create index idx2_" + PENDING_AU_V1_TABLE + " on " + PENDING_AU_V1_TABLE
     + "(" + PRIORITY_COLUMN + ")",
     "create index idx2_" + AUTHOR_TABLE + " on " + AUTHOR_TABLE
     + "(" + MD_ITEM_SEQ_COLUMN + ")",
@@ -1606,7 +1616,7 @@ public class MetadataDbManagerSql extends DbManagerSql {
     + "(" + MD_ITEM_SEQ_COLUMN + ")",
     "create index idx3_" + MD_ITEM_NAME_TABLE + " on " + MD_ITEM_NAME_TABLE
     + "(" + NAME_TYPE_COLUMN + ")",
-    "create index idx2_" + PENDING_AU_TABLE + " on " + PENDING_AU_TABLE
+    "create index idx2_" + PENDING_AU_V1_TABLE + " on " + PENDING_AU_V1_TABLE
     + "(" + PRIORITY_COLUMN + ")",
     "create index idx2_" + AUTHOR_TABLE + " on " + AUTHOR_TABLE
     + "(" + MD_ITEM_SEQ_COLUMN + ")",
@@ -1679,7 +1689,7 @@ public class MetadataDbManagerSql extends DbManagerSql {
 
   // The SQL code used to add the necessary version 11 database table columns.
   private static final String[] VERSION_11_COLUMN_ADD_QUERIES = new String[] {
-    "alter table " + PENDING_AU_TABLE
+    "alter table " + PENDING_AU_V1_TABLE
     + " add column " + FULLY_REINDEX_COLUMN
     +   " boolean not null default false"
   };
@@ -6636,6 +6646,140 @@ public class MetadataDbManagerSql extends DbManagerSql {
 
     // Add new metadata item type for files.
     addMetadataItemType(conn, MD_ITEM_TYPE_FILE);
+
+    if (log.isDebug2()) log.debug2(DEBUG_HEADER + "Done.");
+  }
+
+  /**
+   * Updates the database from version 28 to version 29.
+   *
+   * Renames pending_au to pending_au_v2 (and its indices) so that v2 pending
+   * AU state does not overlap with v1 during concurrent operation against the
+   * same database instance.
+   *
+   * @param conn
+   *          A Connection with the database connection to be used.
+   * @throws SQLException
+   *           if any problem occurred updating the database.
+   */
+  void updateDatabaseFrom28To29(Connection conn) throws SQLException {
+    final String DEBUG_HEADER = "updateDatabaseFrom28To29(): ";
+    if (log.isDebug2()) log.debug2(DEBUG_HEADER + "Starting...");
+
+    if (conn == null) {
+      throw new IllegalArgumentException("Null connection");
+    }
+
+    if (isTypeDerby()) {
+      // Rename table.
+      executeDdlQuery(conn,
+          "rename table " + PENDING_AU_V1_TABLE + " to " + PENDING_AU_TABLE);
+      // Derby does not support RENAME INDEX; drop old indices and recreate.
+      executeDdlQuery(conn, "drop index idx1_" + PENDING_AU_V1_TABLE);
+      executeDdlQuery(conn,
+          "create unique index idx1_" + PENDING_AU_TABLE
+              + " on " + PENDING_AU_TABLE
+              + "(" + PLUGIN_ID_COLUMN + "," + AU_KEY_COLUMN + ")");
+      executeDdlQuery(conn, "drop index idx2_" + PENDING_AU_V1_TABLE);
+      executeDdlQuery(conn,
+          "create index idx2_" + PENDING_AU_TABLE
+              + " on " + PENDING_AU_TABLE
+              + "(" + PRIORITY_COLUMN + ")");
+    } else if (isTypePostgresql()) {
+      // Rename table.
+      executeDdlQuery(conn,
+          "alter table " + PENDING_AU_V1_TABLE
+              + " rename to " + PENDING_AU_TABLE);
+      // Rename indices.
+      executeDdlQuery(conn,
+          "alter index idx1_" + PENDING_AU_V1_TABLE
+              + " rename to idx1_" + PENDING_AU_TABLE);
+      executeDdlQuery(conn,
+          "alter index idx2_" + PENDING_AU_V1_TABLE
+              + " rename to idx2_" + PENDING_AU_TABLE);
+    } else if (isTypeMysql()) {
+      // Rename table.
+      executeDdlQuery(conn,
+          "alter table " + PENDING_AU_V1_TABLE
+              + " rename to " + PENDING_AU_TABLE);
+      // Rename indices (requires MySQL 5.7+).
+      executeDdlQuery(conn,
+          "alter table " + PENDING_AU_TABLE
+              + " rename index idx1_" + PENDING_AU_V1_TABLE
+              + " to idx1_" + PENDING_AU_TABLE);
+      executeDdlQuery(conn,
+          "alter table " + PENDING_AU_TABLE
+              + " rename index idx2_" + PENDING_AU_V1_TABLE
+              + " to idx2_" + PENDING_AU_TABLE);
+    }
+
+    createPendingAuV1Table(conn);
+
+    if (log.isDebug2()) log.debug2(DEBUG_HEADER + "Done.");
+  }
+
+  private void createPendingAuV1Table(Connection conn) throws SQLException {
+    executeDdlQuery(conn, CREATE_PENDING_AU_V1_TABLE_QUERY);
+    executeDdlQueries(conn, VERSION_11_COLUMN_ADD_QUERIES);
+
+    if (isTypeMysql()) {
+      // TODO: Make the index unique when MySQL is fixed.
+      executeDdlQuery(conn,
+          "create index idx1_" + PENDING_AU_V1_TABLE
+              + " on " + PENDING_AU_V1_TABLE
+              + "(" + PLUGIN_ID_COLUMN + "(255),"
+              + AU_KEY_COLUMN + "(255))");
+    } else {
+      executeDdlQuery(conn,
+          "create unique index idx1_" + PENDING_AU_V1_TABLE
+              + " on " + PENDING_AU_V1_TABLE
+              + "(" + PLUGIN_ID_COLUMN + "," + AU_KEY_COLUMN + ")");
+    }
+
+    executeDdlQuery(conn,
+        "create index idx2_" + PENDING_AU_V1_TABLE
+            + " on " + PENDING_AU_V1_TABLE
+            + "(" + PRIORITY_COLUMN + ")");
+  }
+
+  /**
+   * Updates the database from version 29 to version 30.
+   *
+   * Creates the metadata_write_lock table used to serialize concurrent
+   * metadata database writes.
+   *
+   * @param conn
+   *          A Connection with the database connection to be used.
+   * @throws SQLException
+   *           if any problem occurred updating the database.
+   */
+  void updateDatabaseFrom29To30(Connection conn) throws SQLException {
+    final String DEBUG_HEADER = "updateDatabaseFrom29To30(): ";
+    if (log.isDebug2()) log.debug2(DEBUG_HEADER + "Starting...");
+
+    if (conn == null) {
+      throw new IllegalArgumentException("Null connection");
+    }
+
+    executeDdlQuery(conn, CREATE_METADATA_WRITE_LOCK_TABLE_QUERY);
+
+    PreparedStatement insertLock = null;
+
+    try {
+      insertLock = prepareStatement(conn, INSERT_METADATA_WRITE_LOCK_QUERY);
+      insertLock.setInt(1, 1);
+      executeUpdate(insertLock);
+    } catch (SQLException sqle) {
+      log.error("Cannot insert metadata write lock row", sqle);
+      log.error("SQL = '" + INSERT_METADATA_WRITE_LOCK_QUERY + "'.");
+      throw sqle;
+    } catch (RuntimeException re) {
+      log.error("Cannot insert metadata write lock row", re);
+      log.error("SQL = '" + INSERT_METADATA_WRITE_LOCK_QUERY + "'.");
+      throw re;
+    } finally {
+      safeCloseStatement(insertLock);
+    }
 
     if (log.isDebug2()) log.debug2(DEBUG_HEADER + "Done.");
   }

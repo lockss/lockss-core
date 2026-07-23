@@ -33,14 +33,12 @@ package org.lockss.rs.io.storage.warc;
 import org.apache.commons.io.FileUtils;
 import org.apache.commons.io.output.ByteArrayOutputStream;
 import org.lockss.log.L4JLogger;
+import org.lockss.util.io.FileUtil;
 import org.lockss.util.storage.StorageInfo;
 import org.springframework.util.MultiValueMap;
 import org.springframework.web.util.UriComponentsBuilder;
 
-import java.io.FileNotFoundException;
-import java.io.IOException;
-import java.io.InputStream;
-import java.io.OutputStream;
+import java.io.*;
 import java.net.URI;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Path;
@@ -67,9 +65,12 @@ public class VolatileWarcArtifactDataStore extends WarcArtifactDataStore {
   /**
    * Constructor.
    */
-  public VolatileWarcArtifactDataStore() {
-    this.basePaths =
-        new Path[]{DEFAULT_BASEPATH.toAbsolutePath().normalize()};
+  public VolatileWarcArtifactDataStore() throws IOException {
+    this(FileUtil.createTempDir("volatile-ds", null).toPath());
+  }
+
+  public VolatileWarcArtifactDataStore(Path basePath) {
+    this.basePaths = new Path[]{basePath};
     this.tmpWarcPool = new WarcFilePool(this);
     this.warcs = new HashMap<>();
   }

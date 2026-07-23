@@ -571,6 +571,14 @@ public class ProxyAndContent extends LockssServlet {
     // Start page
     Page page = newPage();
     addJavaScript(page);
+    if (isInMigrationMode() &&
+        CurrentConfig.getBooleanParam(ConfigManager.PARAM_PROXY_IN_MIGRATION_MODE,
+                                      ConfigManager.DEFAULT_PROXY_IN_MIGRATION_MODE)) {
+      ServletUtil.layoutExplanationBlock(page,
+          "<b>WARNING:</b> LOCKSS is currently in migration mode."
+          + "  Crawl proxy settings are managed automatically"
+          + " &mdash; changing them may break content migration.");
+    }
     ServletUtil.layoutExplanationBlock(page, PROXY_CLIENT_EXPLANATION);
     layoutErrorBlock(page);
 

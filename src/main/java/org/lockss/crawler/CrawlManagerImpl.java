@@ -249,6 +249,10 @@ public class CrawlManagerImpl extends BaseLockssDaemonManager
       ODC_PREFIX + "favorUnsharedRateThreads";
   static final int DEFAULT_FAVOR_UNSHARED_RATE_THREADS = 1;
 
+  public static final String PARAM_CRAWL_RATE_MULTIPLIER =
+    PREFIX + "crawlRateMultiplier";
+  public static final double DEFAULT_CRAWL_RATE_MULTIPLIER =
+    RateLimiter.NO_MULTIPLIER;
 
   enum CrawlOrder {CrawlDate, CreationDate}
 
@@ -617,6 +621,9 @@ public class CrawlManagerImpl extends BaseLockssDaemonManager
       paramFavorUnsharedRateThreads =
           config.getInt(PARAM_FAVOR_UNSHARED_RATE_THREADS,
               DEFAULT_FAVOR_UNSHARED_RATE_THREADS);
+
+      paramCrawlRateMultiplier = config.getDouble(PARAM_CRAWL_RATE_MULTIPLIER,
+                                                  DEFAULT_CRAWL_RATE_MULTIPLIER);
 
       paramCrawlOrder = (CrawlOrder) config.getEnum(CrawlOrder.class,
           PARAM_CRAWL_ORDER,
@@ -996,12 +1003,16 @@ public class CrawlManagerImpl extends BaseLockssDaemonManager
         throw new IllegalStateException("No crl available for: " + crawler
             + " in pool: " + poolKey);
       }
+      // CrawlRateLimiters can live for a long time in pools.  Ensure
+      // the multiplier value is up to date each time hand one out
+      res.setMultiplier(paramCrawlRateMultiplier);
       return res;
     }
   }
 
   protected CrawlRateLimiter newCrawlRateLimiter(ArchivalUnit au) {
-    return CrawlRateLimiter.Util.forAu(au);
+    return CrawlRateLimiter.Util.forAu(au)
+      .setMultiplier(paramCrawlRateMultiplier);
   }
 
   protected String getPoolKey(ArchivalUnit au) {
@@ -1799,7 +1810,7 @@ public class CrawlManagerImpl extends BaseLockssDaemonManager
         cmStatus.incrFinished(crawlSuccessful);
         CrawlerStatus cs = crawler.getCrawlerStatus();
         cmStatus.touchCrawlStatus(cs);
-        signalAuEvent(crawler, cs);
+        signalAuEvent(crawler, cs, this);
         // must call callback before sealing counters.  V3Poller relies
         // on fetched URL list
         signalCrawlComplete(cookie, crawlSuccessful, cs, crawler.getType());
@@ -1811,7 +1822,8 @@ public class CrawlManagerImpl extends BaseLockssDaemonManager
     }
   }
 
-  private void signalAuEvent(Crawler crawler, CrawlerStatus cs) {
+  private void signalAuEvent(Crawler crawler, CrawlerStatus cs,
+                             LockssWatchdog wdog) {
     final ArchivalUnit au = crawler.getAu();
     final AuEvent.ContentChangeInfo chInfo = new AuEvent.ContentChangeInfo();
     Collection<String> mimeTypes = cs.getMimeTypes();
@@ -1833,6 +1845,7 @@ public class CrawlManagerImpl extends BaseLockssDaemonManager
     chInfo.setComplete(!cs.isCrawlError());
     AuEvent event =
         AuEvent.forAu(au, AuEvent.Type.ContentChanged).setChangeInfo(chInfo);
+    event.setWatchdog(wdog);
     pluginMgr.signalAuEvent(au, event);
   }
 
@@ -1993,6 +2006,7 @@ public class CrawlManagerImpl extends BaseLockssDaemonManager
   int paramUnsharedQueueMax = DEFAULT_UNSHARED_QUEUE_MAX;
   int paramSharedQueueMax = DEFAULT_SHARED_QUEUE_MAX;
   int paramFavorUnsharedRateThreads = DEFAULT_FAVOR_UNSHARED_RATE_THREADS;
+  double paramCrawlRateMultiplier = DEFAULT_CRAWL_RATE_MULTIPLIER;
   CrawlOrder paramCrawlOrder = DEFAULT_CRAWL_ORDER;
 
   Deadline timeToRebuildCrawlQueue = Deadline.in(0);
@@ -2227,11 +2241,17 @@ public class CrawlManagerImpl extends BaseLockssDaemonManager
       // If already time to run ensure queue gets rebuilt
       forceQueueRebuild();
     } else {
-      // Don't push forward if already expired.
-      if (!timeToRebuildCrawlQueue.expired()) {
+      // Reduce the time to the next queue rebuild and the next crawl starter
+      // wakeup, but never push either further out (with a stream of new AUs
+      // during migration that could delay them indefinitely).  Each deadline
+      // is pulled forward independently so a newly-added AU is still queued
+      // promptly even when the rebuild time is already near.
+      if (timeToRebuildCrawlQueue.getRemainingTime() > paramQueueRecalcAfterNewAu) {
         timeToRebuildCrawlQueue.expireIn(paramQueueRecalcAfterNewAu);
       }
-      startOneWait.expireIn(paramQueueRecalcAfterNewAu);
+      if (startOneWait.getRemainingTime() > paramQueueRecalcAfterNewAu) {
+        startOneWait.expireIn(paramQueueRecalcAfterNewAu);
+      }
     }
   }
 
