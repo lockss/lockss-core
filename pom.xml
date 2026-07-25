@@ -642,7 +642,7 @@ POSSIBILITY OF SUCH DAMAGE.
     <dependency>
       <groupId>org.jvnet.mimepull</groupId>
       <artifactId>mimepull</artifactId>
-      <version>1.10.0</version>
+      <version>${version.dependency.mimepull}</version>
     </dependency>
 
     <dependency>
