@@ -404,6 +404,7 @@ public class LockssRepositoryStatus {
 	  try {
             AuSize aus = repo.auSize(rs.getNamespace(), auid);
 	    row.put("size", aus.getTotalLatestVersions());
+            stats.count++;
             stats.size += aus.getTotalLatestVersions();
 	    row.put("sizeall", aus.getTotalAllVersions());
             stats.allVer += aus.getTotalAllVersions();
@@ -427,6 +428,9 @@ public class LockssRepositoryStatus {
       res.add(new StatusTable.SummaryInfo("Namespace",
 					  ColumnDescriptor.TYPE_STRING,
 					  rs.getNamespace()));
+      res.add(new StatusTable.SummaryInfo("# AUIDs",
+					  ColumnDescriptor.TYPE_INT,
+					  stats.count));
       res.add(new StatusTable.SummaryInfo("Total content size",
 					  ColumnDescriptor.TYPE_STRING,
 					  StringUtil.sizeToString(stats.size)));
@@ -441,6 +445,7 @@ public class LockssRepositoryStatus {
   }
 
   private static class SizeStats {
+    int count;
     long size;
     long allVer;
     long onDisk;
