@@ -125,7 +125,7 @@ public class TestSQLArtifactIndex extends AbstractArtifactIndexTest<SQLArtifactI
     // Initialize the DbManager with the test database
     idxDbManager = new SQLArtifactIndexDbManager();
     idxDbManager.initService(theDaemon);
-    idxDbManager.setTargetDatabaseVersion(4);
+    idxDbManager.setTargetDatabaseVersion(5);
     idxDbManager.startService();
 
     theDaemon.setSQLArtifactIndexDbManager(idxDbManager);

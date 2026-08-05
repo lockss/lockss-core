@@ -137,7 +137,7 @@ public class TestSQLArtifactIndexManagerSqlPaging extends LockssTestCase4 {
     // Initialize the DbManager with a unique database for this test
     idxDbManager = new SQLArtifactIndexDbManager();
     idxDbManager.initService(theDaemon);
-    idxDbManager.setTargetDatabaseVersion(4);
+    idxDbManager.setTargetDatabaseVersion(5);
     idxDbManager.startService();
     theDaemon.setSQLArtifactIndexDbManager(idxDbManager);
   }

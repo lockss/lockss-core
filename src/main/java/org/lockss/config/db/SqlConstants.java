@@ -196,6 +196,22 @@ public class SqlConstants {
   /** Maximum length of the namespace column */
   public static final int MAX_NAMESPACE_COLUMN = 256;
 
+  /**
+   * Number of leading characters of a URL that carry the prefix index.
+   * <p>
+   * {@code urls.url} is unbounded, and a btree index row cannot exceed 2704
+   * bytes, so the prefix index is built over {@code left(url, N)} rather than
+   * over the column. The bound is in <em>characters</em> while the btree limit
+   * is in <em>bytes</em>, so it must hold for the worst case of four bytes per
+   * character: 2704 / 4 = 676. 600 leaves margin and is far longer than any
+   * realistic URL prefix query.
+   * <p>
+   * Must agree between the index DDL and the predicate that drives it - see
+   * {@code SQLArtifactIndexDbManagerSql.URL_PREFIX_INDEX_QUERY} and
+   * {@code SQLArtifactIndexManagerSql.urlPrefixCondition}.
+   */
+  public static final int URL_PREFIX_INDEX_LENGTH = 600;
+
   /** Maximum length of the artifact storage URL column */
   public static final int MAX_ARTIFACT_STORAGE_URL_COLUMN = 1024;
 
