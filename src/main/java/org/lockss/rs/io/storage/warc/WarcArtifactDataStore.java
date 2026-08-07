@@ -3092,14 +3092,21 @@ public abstract class WarcArtifactDataStore implements ArtifactDataStore, WARCCo
 
           if (record == null) {
             // The failure happened while advancing the reader, so the iterator
-            // has not necessarily made progress and skipping this record could
-            // spin forever. Abandon the file; the handler below keeps whatever
-            // has already been parsed, and the file is not recorded as
-            // reindexed, so a later run re-reads it from offset 0.
+            // has not necessarily consumed a record and skipping could spin.
+            // Abandon the file; the handler below keeps whatever has already
+            // been parsed, and the file is not recorded as reindexed, so a
+            // later run re-reads it from offset 0.
+            //
+            // Defensive: JWAT's iterator swallows IOException in hasNext() and
+            // caches the record it read, so next() here returns that cached
+            // record rather than touching the stream, and getStartOffset() is
+            // a field read. Neither is expected to throw.
             throw e;
           }
 
-          // One bad record costs one artifact, not the rest of the file.
+          // One bad record costs one artifact, not the rest of the file. Safe
+          // to continue: next() has already consumed the cached record, so the
+          // next hasNext() reads a new one and the loop always makes progress.
           continue;
         }
 
@@ -3127,7 +3134,10 @@ public abstract class WarcArtifactDataStore implements ArtifactDataStore, WARCCo
         batch.clear();
       }
     } catch (IOException e) {
-      log.error("Could not open WARC file [warcFile: {}]", warcFile, e);
+      // Not necessarily an open failure: a record the loop above could not skip
+      // past lands here too, having already logged the specifics and salvaged
+      // its batch.
+      log.error("Could not reindex WARC file [warcFile: {}]", warcFile, e);
       throw e;
     }
 
