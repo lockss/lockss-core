@@ -169,31 +169,52 @@ public class SQLArtifactIndex extends AbstractArtifactIndex {
 
   @Override
   public void reindexArtifacts(Iterable<Artifact> artifacts) throws IOException {
-    try {
-      // TODO: Implement idxdb.upsertArtifactsForReindex(artifacts)
+    // TODO: Implement idxdb.upsertArtifactsForReindex(artifacts)
 
-      Artifact firstArtifact = null;
+    Artifact firstArtifact = null;
+    int attempted = 0;
+    int failed = 0;
 
-      for (Artifact artifact : artifacts) {
-        if (firstArtifact == null) {
-          firstArtifact = artifact;
-        }
+    for (Artifact artifact : artifacts) {
+      if (firstArtifact == null) {
+        firstArtifact = artifact;
+      }
 
+      attempted++;
+
+      // Per-item isolation: each upsert is its own connection and its own
+      // transaction, so a failure here has already been rolled back and leaves
+      // nothing for the next artifact to trip over. Before this, the first bad
+      // artifact -- a null version NPEs on setInt(), for instance -- abandoned
+      // every artifact after it in the batch.
+      try {
         idxdb.upsertArtifactForReindex(artifact);
+      } catch (DbException | RuntimeException e) {
+        failed++;
+        log.error("Could not reindex artifact, skipping it [uuid: {}, url: {}]",
+                  artifact.getUuid(), artifact.getUri(), e);
       }
+    }
 
-      // FIXME: The assumption that all the artifacts are in the same namespace and AUID
-      //  (as determined by the first artifact) is only true in "bulk-mode":
-      if (firstArtifact != null) {
-        try {
-          invalidateAuSize(firstArtifact.getNamespace(), firstArtifact.getAuid());
-        } catch (DbException e) {
-          log.warn("Could not invalidate AU size", e);
-          throw e;
-        }
+    if (failed > 0) {
+      // Note that this log is the only record of the skipped artifacts: this
+      // method has no channel for reporting partial success to its caller, so
+      // the WARC they came from is still recorded as fully reindexed.
+      log.error("Reindex skipped {} of {} artifacts; see the errors above",
+                failed, attempted);
+    }
+
+    // FIXME: The assumption that all the artifacts are in the same namespace and AUID
+    //  (as determined by the first artifact) is only true in "bulk-mode":
+    if (firstArtifact != null) {
+      try {
+        invalidateAuSize(firstArtifact.getNamespace(), firstArtifact.getAuid());
+      } catch (DbException e) {
+        // Warn and carry on, as indexArtifacts() does. A stale AU-size cache
+        // entry is cosmetic and self-correcting; it must never fail a reindex
+        // whose artifacts are already committed.
+        log.warn("Could not invalidate AU size", e);
       }
-    } catch (DbException e) {
-      throw new IOException("Could not add/update artifact to database", e);
     }
   }
 

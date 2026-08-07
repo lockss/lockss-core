@@ -2901,20 +2901,36 @@ public class SQLArtifactIndexManagerSql {
     }
   }
 
+  /**
+   * Upserts each of the given artifacts in its own transaction, skipping any
+   * that fail.
+   *
+   * <p>Per-artifact transactions rather than one transaction over the whole
+   * iterable: a single bad artifact used to lose the entire AU's reindex,
+   * however large, since there was neither batching nor isolation. They are
+   * also what makes the skip below safe -- a server-side error aborts the
+   * transaction it is in, so a failed artifact must not leave the next one
+   * sharing a poisoned connection.
+   */
   public void upsertArtifactsForReindex(Iterable<Artifact> artifacts) throws DbException {
-    Connection conn = null;
+    int attempted = 0;
+    int failed = 0;
 
-    try {
-      conn = getConnection();
+    for (Artifact artifact : artifacts) {
+      attempted++;
 
-      for (Artifact artifact : artifacts) {
-        upsertArtifactForReindex(conn, artifact);
+      try {
+        upsertArtifactForReindex(artifact);
+      } catch (DbException | RuntimeException e) {
+        failed++;
+        log.error("Could not reindex artifact, skipping it [uuid: {}, url: {}]",
+                  artifact.getUuid(), artifact.getUri(), e);
       }
+    }
 
-      // Commit the transaction.
-      DbManager.commitOrRollback(conn, log);
-    } finally {
-      DbManager.safeRollbackAndClose(conn);
+    if (failed > 0) {
+      log.error("Reindex skipped {} of {} artifacts; see the errors above",
+                failed, attempted);
     }
   }
 
