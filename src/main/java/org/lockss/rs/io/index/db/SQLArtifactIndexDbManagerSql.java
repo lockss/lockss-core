@@ -286,10 +286,15 @@ public class SQLArtifactIndexDbManagerSql extends DbManagerSql {
   // LIMIT 1 picks between them arbitrarily.
   //
   // The fix moves uniqueness onto a digest. urls.url is unbounded TEXT, so it
-  // can simply hold the whole URL and long_urls becomes unnecessary; md5(url) is
-  // 32 characters whatever the input, so it fits a btree index row where the URL
-  // itself does not. (The 2500-character threshold was never index-safe anyway:
-  // the btree limit is 2704 *bytes*, which 2500 multibyte characters exceed.)
+  // can simply hold the whole URL and long_urls becomes unnecessary; a SHA-256
+  // digest is 32 bytes whatever the input, so it fits a btree index row where
+  // the URL itself does not. (The 2500-character threshold was never index-safe
+  // anyway: the btree limit is 2704 *bytes*, which 2500 multibyte characters
+  // exceed.) The digest has to be one nobody can find a collision for, since a
+  // collision is a URL that can never be stored rather than merely a slow
+  // lookup; see SqlConstants.URL_DIGEST_EXPRESSION for why that rules out MD5
+  // and why the spelling is pgcrypto's digest() rather than the built-in
+  // sha256().
   //
   // idx1_urls must go, and this is forced rather than chosen. It is a plain
   // btree over urls.url, and a btree index row cannot exceed 2704 bytes; the
@@ -333,6 +338,14 @@ public class SQLArtifactIndexDbManagerSql extends DbManagerSql {
   // distinct URLs ever shared an md5, they would land in separate partitions and
   // each would keep its own url_seq, dropping out of the repoint below. The
   // digest narrows the candidate set; the text decides.
+  //
+  // That is what makes the md5 above safe to keep, and it is only safe because
+  // the constraint built at the end of the migration is on SHA-256. Two
+  // md5-colliding but distinct URLs survive this step by design - so had the
+  // constraint also been md5, CREATE UNIQUE INDEX would have failed on exactly
+  // the rows this step deliberately preserved, aborting the schema upgrade with
+  // a raw "Key (md5(url))=(...) is duplicated". Under SHA-256 they index
+  // normally, and the two steps no longer contradict each other.
   private static final String CREATE_URL_CANON_QUERY =
       "CREATE TEMP TABLE url_canon AS SELECT u." + URL_SEQ_COLUMN
       + ", min(u." + URL_SEQ_COLUMN + ") OVER (PARTITION BY u." + URL_COLUMN
@@ -448,11 +461,28 @@ public class SQLArtifactIndexDbManagerSql extends DbManagerSql {
       "CREATE INDEX idx1_" + URL_TABLE + " ON " + URL_TABLE
       + " (left(" + URL_COLUMN + ", " + URL_PREFIX_INDEX_LENGTH + ") COLLATE \"C\")";
 
+  // Supplies digest(), which carries the uniqueness constraint below. See
+  // SqlConstants.URL_DIGEST_EXPRESSION for why the constraint needs a function
+  // this extension provides rather than one in core PostgreSQL.
+  //
+  // IF NOT EXISTS because a repository may share a database with something that
+  // already installed it. No WITH SCHEMA clause: the extension lands in the
+  // first schema on the connection's search_path, which is by construction a
+  // schema every later statement resolves through - the same way this class's
+  // unqualified table names resolve. Naming a schema explicitly would demand
+  // CREATE on that schema instead.
+  //
+  // pgcrypto is a trusted extension from PostgreSQL 13 on, so the database
+  // owner can install it without being a superuser. Verified against
+  // PostgreSQL 14 as a NOSUPERUSER NOCREATEDB role owning the database.
+  private static final String CREATE_PGCRYPTO_EXTENSION_QUERY =
+      "CREATE EXTENSION IF NOT EXISTS pgcrypto";
+
   // The uniqueness that v4 removed, on a key that fits. Must be created after
   // the dedup: it fails outright if any duplicate remains.
   private static final String UNIQUE_URL_DIGEST_INDEX_QUERY =
       "CREATE UNIQUE INDEX idx4_" + URL_TABLE + " ON " + URL_TABLE
-      + " (md5(" + URL_COLUMN + "))";
+      + " (" + URL_DIGEST_EXPRESSION + ")";
 
   /**
    * Constructor.
@@ -564,9 +594,9 @@ public class SQLArtifactIndexDbManagerSql extends DbManagerSql {
    *       {@code ArtifactComparators}. See {@link #VERSION_5_ALTER_TABLE_QUERIES}.
    *   <li>Folds {@code long_urls} back into {@code urls.url}, removes the
    *       duplicate URL rows that accumulated while no unique constraint
-   *       existed, and restores uniqueness on {@code md5(url)}. See the version
-   *       5 query constants for why the digest carries the constraint rather
-   *       than the column.
+   *       existed, and restores uniqueness on a SHA-256 digest of the URL. See
+   *       the version 5 query constants for why the digest carries the
+   *       constraint rather than the column, and why it is SHA-256.
    * </ul>
    * <p>
    * Collapsing duplicate URLs can put two artifacts on the same (namespace,
@@ -579,6 +609,11 @@ public class SQLArtifactIndexDbManagerSql extends DbManagerSql {
    * <p>
    * Note for operators:
    * <ul>
+   *   <li>This migration installs the {@code pgcrypto} extension, whose
+   *       {@code digest} function the restored uniqueness constraint is
+   *       declared on. It runs first, so a server without the contrib package
+   *       or a connection without database-owner rights fails immediately
+   *       rather than after the expensive steps below.
    *   <li>Each {@code ALTER TABLE ... ALTER COLUMN ... TYPE} takes an ACCESS
    *       EXCLUSIVE lock on its table and rebuilds every index on that table. A
    *       collation-only change of an otherwise identical type does not rewrite
@@ -593,10 +628,12 @@ public class SQLArtifactIndexDbManagerSql extends DbManagerSql {
    *   <li>Set {@code maintenance_work_mem} (not {@code work_mem}) and
    *       {@code max_parallel_maintenance_workers} on the migrating connection.
    *       At the 64MB / 2 defaults the index build spills and runs far longer.
+   *       TODO: Write code to set these DB parameters - ask Claude
    *   <li>Run {@code ANALYZE urls; ANALYZE auids;} afterwards. {@code ALTER
    *       COLUMN ... TYPE} discards column statistics, and the planner falls
    *       back to default selectivity guesses until they are rebuilt.
    *       Deliberately not done here, so it does not extend the lock.
+   *       TODO: Write code to do this
    * </ul>
    *
    * @param conn A Connection with the database connection to be used.
@@ -608,6 +645,13 @@ public class SQLArtifactIndexDbManagerSql extends DbManagerSql {
     if (conn == null) {
       throw new IllegalArgumentException("Null connection");
     }
+
+    // Before anything else, and deliberately: this is the one step that can
+    // fail for an environmental reason rather than a data one. Failing it here
+    // costs nothing, whereas failing it where digest() is first needed would
+    // abort after the table rewrites and the index build - the expensive part
+    // of the migration - with no more of the schema converted than this.
+    createPgcryptoExtension(conn);
 
     // First, for two independent reasons. It has to precede the merge, because
     // everything after that widens urls.url past what this index can hold: on a
@@ -635,16 +679,21 @@ public class SQLArtifactIndexDbManagerSql extends DbManagerSql {
     long collisions = countVersionCollisions(conn);
 
     if (collisions > 0) {
-      File report = writeCollisionReport(conn);
+      log.warn("Found " + collisions + " URL collisions");
+      try {
+        File report = writeCollisionReport(conn);
 
-      log.error("Collapsing duplicate URLs left {} (namespace, auid, url,"
-          + " version) group(s) holding more than one artifact. The migration"
-          + " completed, but those artifacts are now indistinguishable to reads,"
-          + " which resolve them arbitrarily. Each group needs a decision about"
-          + " which artifact is authoritative; the members are listed in {}"
-          + " (identical digests within a group mean the same bytes were"
-          + " recorded twice and the earliest crawl_time can simply be kept).",
-          collisions, report);
+        log.error("Collapsing duplicate URLs left {} (namespace, auid, url,"
+                + " version) group(s) holding more than one artifact. The migration"
+                + " completed, but those artifacts are now indistinguishable to reads,"
+                + " which resolve them arbitrarily. Each group needs a decision about"
+                + " which artifact is authoritative; the members are listed in {}"
+                + " (identical digests within a group mean the same bytes were"
+                + " recorded twice and the earliest crawl_time can simply be kept).",
+            collisions, report);
+      } catch (Exception e) {
+        log.error("Failed to write collision report", e);
+      }
     }
 
     // Collapse the duplicates.
@@ -664,6 +713,38 @@ public class SQLArtifactIndexDbManagerSql extends DbManagerSql {
     executeDdlQuery(conn, URL_PREFIX_INDEX_QUERY);
 
     log.debug2("Done.");
+  }
+
+  /**
+   * Installs the {@code pgcrypto} extension, which supplies the {@code digest}
+   * function that {@code SqlConstants.URL_DIGEST_EXPRESSION} is built on.
+   * <p>
+   * The two ways this can fail are environmental rather than data-dependent,
+   * and neither is self-explanatory from the PostgreSQL message alone, so the
+   * failure is re-reported with what an operator has to do about it: the
+   * extension's files may not be installed on the server (they ship in the
+   * contrib package, which some distributions package separately), or the
+   * database user may be neither a superuser nor the database owner.
+   *
+   * @param conn A Connection with the database connection to be used.
+   * @throws SQLException if the extension could not be installed.
+   */
+  private void createPgcryptoExtension(Connection conn) throws SQLException {
+    try {
+      executeDdlQuery(conn, CREATE_PGCRYPTO_EXTENSION_QUERY);
+    } catch (SQLException sqle) {
+      String message = "Cannot install the pgcrypto extension, which supplies"
+          + " the digest() function that URL uniqueness is declared on."
+          + " Install the PostgreSQL contrib package on the server if it is"
+          + " missing, and run the migration as the database owner or a"
+          + " superuser. SQL = '" + CREATE_PGCRYPTO_EXTENSION_QUERY + "'.";
+
+      log.error(message, sqle);
+
+      // Carry the original SQLState through: the two-argument (String,
+      // Throwable) constructor would null it out.
+      throw new SQLException(message, sqle.getSQLState(), sqle);
+    }
   }
 
   /**

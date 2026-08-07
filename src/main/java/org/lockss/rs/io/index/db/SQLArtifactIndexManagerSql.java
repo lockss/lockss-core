@@ -72,20 +72,27 @@ public class SQLArtifactIndexManagerSql {
   private static final String EMPTY_STRING = "";
 
   /**
-   * Matches a URL exactly, driving off the unique index on {@code md5(url)}.
+   * Matches a URL exactly, driving off the unique index on the URL digest.
    *
    * <p>Uniqueness is enforced on a digest rather than on the column because a
    * btree index row is capped at 2704 bytes and a URL is not bounded at all.
-   * The {@code md5} term is the part the index can serve; the {@code url}
-   * equality term is what makes the match exact, so a digest collision can
-   * return no row but never the wrong one. Both terms are required.
+   * The digest term is the part the index can serve; the {@code url} equality
+   * term is what makes the match exact, so a digest collision could return no
+   * row but never the wrong one. Both terms are required.
+   *
+   * <p>That second term is a safety net, not a working part: the digest is
+   * SHA-256, for which no collision is known, so it is the digest term that
+   * decides in practice. See {@code SqlConstants.URL_DIGEST_EXPRESSION} - with
+   * MD5 the net would carry real weight, because an attacker-supplied pair of
+   * colliding URLs is cheap to produce and the second of them could then never
+   * be stored.
    *
    * <p>No {@code LIMIT 1}: the unique index guarantees at most one match.
    */
   private static final String FIND_URL_SEQ_QUERY = "SELECT "
       + URL_SEQ_COLUMN
       + " FROM " + URL_TABLE
-      + " WHERE md5(" + URL_COLUMN + ") = md5(?)"
+      + " WHERE " + URL_DIGEST_EXPRESSION + " = " + URL_DIGEST_PARAM_EXPRESSION
       + " AND " + URL_COLUMN + " = ?";
 
   /**
@@ -98,14 +105,17 @@ public class SQLArtifactIndexManagerSql {
    * back to {@link #FIND_URL_SEQ_QUERY} on the empty result, which is the rare
    * path because the LRU absorbs most repeats before they reach the database.
    *
-   * <p>The conflict target must be spelled exactly as the index expression is.
+   * <p>The conflict target must be spelled exactly as the index expression is,
+   * which is why both come from one constant: a mismatch is not caught until
+   * runtime, and then only as "no unique or exclusion constraint matching the
+   * ON CONFLICT specification".
    */
   private static final String UPSERT_URL_QUERY = "INSERT INTO "
       + URL_TABLE
       + "(" + URL_SEQ_COLUMN
       + "," + URL_COLUMN
       + ") VALUES (default,?)"
-      + " ON CONFLICT (md5(" + URL_COLUMN + ")) DO NOTHING"
+      + " ON CONFLICT (" + URL_DIGEST_EXPRESSION + ") DO NOTHING"
       + " RETURNING " + URL_SEQ_COLUMN;
 
   private static final String FIND_NAMESPACE_SEQ_QUERY = "SELECT "
@@ -239,9 +249,9 @@ public class SQLArtifactIndexManagerSql {
   /**
    * Placeholder for the literal URL-prefix range predicate, replaced at query
    * assembly time with the fragment built by
-   * {@link #urlPrefixCondition(String, boolean)}. Runtime substitution is
-   * required because the two forms of the predicate bind different numbers of
-   * parameters.
+   * {@link #urlPrefixCondition(String, boolean, boolean, boolean)}. Runtime
+   * substitution is required because the forms of the predicate bind different
+   * numbers of parameters.
    *
    * <p>Deliberately <em>not</em> spelled {@code --UrlPrefixCondition--} like the
    * sibling {@code --KeysetCondition--} placeholder: {@code --} starts a SQL line
@@ -440,7 +450,6 @@ public class SQLArtifactIndexManagerSql {
       + " a." + AUID_SEQ_COLUMN + ","
       + " a." + URL_SEQ_COLUMN;
 
-  // Latest version artifact for each AUID, for a given namespace and URL
   // Latest version artifact for each AUID, for a given namespace and URL prefix
   private static final String MAX_COMMITTED_VERSION_OF_URL_WITH_NAMESPACE_AND_URL_PREFIX_QUERY = "SELECT "
       + " a." + NAMESPACE_SEQ_COLUMN + ","
@@ -849,12 +858,22 @@ public class SQLArtifactIndexManagerSql {
       log.trace("lost insert race, found urlSeq = {}", urlSeq);
 
       if (urlSeq == null) {
-        // Not reachable: ON CONFLICT DO NOTHING waits for the conflicting
-        // transaction to end, and only suppresses the insert if that
-        // transaction committed. Fail loudly rather than returning null, which
-        // callers unbox into a long.
+        // Two things would have to be true at once for this to happen. ON
+        // CONFLICT DO NOTHING waits for the conflicting transaction to end and
+        // only suppresses the insert if that transaction committed, so a
+        // committed row for this digest exists; and the fallback compares the
+        // URL text, so that row holds a different URL. That is a SHA-256
+        // collision, which is why this is unreachable rather than merely
+        // unlikely - under MD5 it would be reachable, and cheaply so, by
+        // anyone able to choose two URLs the repository will crawl.
+        //
+        // Fail loudly rather than returning null, which callers unbox into a
+        // long. Report it as what it would be: a broken assumption about the
+        // digest, not a transient database error to be retried.
         throw new DbException(
-            "Insert of url reported a conflict but no row exists: " + url);
+            "Insert of url reported a conflict but no row holds that url,"
+            + " which requires a " + URL_DIGEST_EXPRESSION + " collision: "
+            + url);
       }
     }
 
@@ -936,10 +955,10 @@ public class SQLArtifactIndexManagerSql {
       resultSet = idxDbManager.executeQuery(ps);
 
       // No row means ON CONFLICT DO NOTHING suppressed the insert because a
-      // concurrent transaction created this URL first. That is a normal
+      // concurrent transaction created this URL digest first. That is a normal
       // outcome, not an error; the caller resolves it with a lookup.
       if (!resultSet.next()) {
-        log.debug2("url already existed, no row inserted");
+        log.debug2("url digest already existed, no row inserted");
         return null;
       }
 
@@ -990,46 +1009,6 @@ public class SQLArtifactIndexManagerSql {
     // Atomic upsert; see findOrCreateUrlSeq() for why the former
     // retry-on-duplicate-key loop could not work.
     Long namespaceSeq = addNamespace(conn, namespace);
-
-    log.debug2("namespaceSeq = {}", namespaceSeq);
-    return namespaceSeq;
-  }
-
-  protected Long findNamespaceSeq(Connection conn, String namespace)
-      throws DbException {
-
-    log.debug2("namespace = {}", namespace);
-
-    Long namespaceSeq = null;
-    PreparedStatement ps = null;
-    ResultSet resultSet = null;
-    String errorMessage = "Cannot find namespace";
-
-    try {
-      // Prepare the query
-      ps = idxDbManager.prepareStatement(conn, FIND_NAMESPACE_SEQ_QUERY);
-
-      // Populate the query
-      ps.setString(1, namespace);
-
-      // Get the namespace row
-      resultSet = idxDbManager.executeQuery(ps);
-
-      // Check whether a result was obtained.
-      if (resultSet.next()) {
-        // Yes: Get the namespace sequence
-        namespaceSeq = resultSet.getLong(NAMESPACE_SEQ_COLUMN);
-        log.trace("Found namespaceSeq = {}", namespaceSeq);
-      }
-    } catch (SQLException sqle) {
-      log.error(errorMessage, sqle);
-      log.error("SQL = '{}'.", FIND_NAMESPACE_SEQ_QUERY);
-      log.error("namespace = {}", namespace);
-      throw new DbException(errorMessage, sqle);
-    } finally {
-      DbManager.safeCloseResultSet(resultSet);
-      DbManager.safeCloseStatement(ps);
-    }
 
     log.debug2("namespaceSeq = {}", namespaceSeq);
     return namespaceSeq;
@@ -1179,46 +1158,6 @@ public class SQLArtifactIndexManagerSql {
     // Atomic upsert; see findOrCreateUrlSeq() for why the former
     // retry-on-duplicate-key loop could not work.
     Long auidSeq = addAuid(conn, auid);
-
-    log.debug2("auidSeq = {}", auidSeq);
-    return auidSeq;
-  }
-
-  protected Long findAuidSeq(Connection conn, String auid)
-      throws DbException {
-
-    log.debug2("auid = {}", auid);
-
-    Long auidSeq = null;
-    PreparedStatement findAuid = null;
-    ResultSet resultSet = null;
-    String errorMessage = "Cannot find AUID";
-
-    try {
-      // Prepare the query
-      findAuid = idxDbManager.prepareStatement(conn, FIND_AUID_SEQ_QUERY);
-
-      // Populate the query
-      findAuid.setString(1, auid);
-
-      // Get the AUID row
-      resultSet = idxDbManager.executeQuery(findAuid);
-
-      // Check whether a result was obtained.
-      if (resultSet.next()) {
-        // Yes: Get the AUID sequence
-        auidSeq = resultSet.getLong(AUID_SEQ_COLUMN);
-        log.trace("Found auidSeq = {}", auidSeq);
-      }
-    } catch (SQLException sqle) {
-      log.error(errorMessage, sqle);
-      log.error("SQL = '{}'.", FIND_AUID_SEQ_QUERY);
-      log.error("auid = {}", auid);
-      throw new DbException(errorMessage, sqle);
-    } finally {
-      DbManager.safeCloseResultSet(resultSet);
-      DbManager.safeCloseStatement(findAuid);
-    }
 
     log.debug2("auidSeq = {}", auidSeq);
     return auidSeq;
@@ -1744,15 +1683,46 @@ public class SQLArtifactIndexManagerSql {
    * truncated range degrades to equality, needs the exact recheck against the
    * column.
    *
-   * @param column The qualified column holding the URL
-   * @param bounded Whether an exclusive upper bound is also to be bound; false
-   *                when {@link #prefixUpperBound} found none, in which case the
-   *                lower bound alone is the correct (trivially true) predicate
-   * @param recheck Whether the prefix is longer than {@link
-   *                SqlConstants#URL_PREFIX_INDEX_LENGTH}, so that the truncated
-   *                range alone does not decide the match
-   * @return The SQL fragment; binds the truncated bounds first, then the exact
-   *         bounds when {@code recheck}
+   * <p>So the fragment is built from two independent ranges, and the three
+   * booleans say which of their four bounds are present:
+   * <ul>
+   *   <li>the <em>truncated</em> range over {@code left(column, N)}, which
+   *       drives the index and is always emitted;
+   *   <li>the <em>exact</em> range over the bare column, emitted only when
+   *       {@code recheck}.
+   * </ul>
+   * Each range's lower bound always exists, so only the upper bounds are
+   * optional - {@link #prefixUpperBound} returns null for a prefix that has no
+   * successor, leaving that range open-ended.
+   *
+   * <p>The two upper bounds must be decided separately by the caller, because
+   * one can exist where the other does not: a prefix of {@code N} copies of
+   * U+10FFFF followed by any lesser character truncates to an all-U+10FFFF
+   * string, which has no successor, while the full prefix does. (The converse
+   * cannot happen - truncating an all-U+10FFFF prefix leaves it all-U+10FFFF.)
+   * Passing one flag for both would drop a bound that exists, or bind a
+   * parameter the predicate has no placeholder for.
+   *
+   * <p>The caller must bind exactly the parameters this emits, in this order:
+   * truncated lower, truncated upper if {@code idxBounded}, then - only when
+   * {@code recheck} - exact lower and exact upper if {@code exactBounded}.
+   *
+   * @param column       The qualified column holding the URL
+   * @param idxBounded   Whether the <em>truncated</em> range has an exclusive
+   *                     upper bound to bind, i.e. whether
+   *                     {@link #prefixUpperBound} found a successor for
+   *                     {@code leftCodePoints(prefix, N)}. When false the lower
+   *                     bound alone is the correct, trivially true, predicate
+   * @param recheck      Whether the prefix is longer than {@link
+   *                     SqlConstants#URL_PREFIX_INDEX_LENGTH}, so that the
+   *                     truncated range has degraded to equality and no longer
+   *                     decides the match on its own. When false, no exact
+   *                     range is emitted and {@code exactBounded} is ignored
+   * @param exactBounded Whether the <em>exact</em> range has an exclusive upper
+   *                     bound to bind, i.e. whether {@link #prefixUpperBound}
+   *                     found a successor for the full prefix. Only consulted
+   *                     when {@code recheck}
+   * @return The SQL fragment, each conjunct preceded by {@code AND}
    */
   private static String urlPrefixCondition(String column, boolean idxBounded,
                                            boolean recheck,
@@ -2340,11 +2310,8 @@ public class SQLArtifactIndexManagerSql {
     PreparedStatement ps = null;
     ResultSet resultSet = null;
     String errorMessage = "Cannot get artifact";
-    String sqlQuery = null;
-    String latestVersionQuery;
-
-      sqlQuery = GET_LATEST_ARTIFACT_QUERY;
-      latestVersionQuery = GET_LATEST_ARTIFACT_VERSION_QUERY;
+    String sqlQuery = GET_LATEST_ARTIFACT_QUERY;
+    String latestVersionQuery = GET_LATEST_ARTIFACT_VERSION_QUERY;
 
     try {
       if (!includeUncommitted) {

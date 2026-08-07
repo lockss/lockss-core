@@ -212,6 +212,58 @@ public class SqlConstants {
    */
   public static final int URL_PREFIX_INDEX_LENGTH = 600;
 
+  /**
+   * The expression that carries URL uniqueness: a SHA-256 digest of the URL.
+   * <p>
+   * Uniqueness cannot be declared on {@code urls.url} itself, because a btree
+   * index row is capped at 2704 bytes and a URL is not bounded at all. It is
+   * declared on a digest instead, which is fixed width whatever the input.
+   * <p>
+   * That makes the constraint only as strong as the digest, so the digest has
+   * to be one for which nobody can produce a collision: two distinct URLs
+   * sharing a digest are not two rows, they are one row and one URL that can
+   * never be stored. MD5 fails that test outright - colliding MD5 inputs are
+   * constructible in seconds on ordinary hardware - and URLs are attacker-
+   * supplied, so a publisher could make a chosen URL permanently unindexable.
+   * SHA-256 has no known collision.
+   * <p>
+   * The spelling is {@code pgcrypto}'s {@code digest(text, 'sha256')} rather
+   * than the built-in {@code sha256()}, and that is forced rather than
+   * preferred. {@code sha256()} takes {@code bytea}, and neither way of
+   * reaching {@code bytea} from {@code text} works here (both verified against
+   * PostgreSQL 14):
+   * <ul>
+   *   <li>{@code sha256(convert_to(url, 'UTF8'))} is rejected at
+   *       {@code CREATE INDEX} - {@code convert_to} is STABLE, not IMMUTABLE,
+   *       and an index expression must be IMMUTABLE. Wrapping it in a function
+   *       declared IMMUTABLE would suppress that check rather than satisfy it.
+   *   <li>{@code sha256(url::bytea)} is an I/O conversion cast, so it does not
+   *       take the bytes of the URL - it <em>parses</em> the URL as a bytea
+   *       literal. {@code http://host/e\b} fails with "invalid input syntax for
+   *       type bytea", and a URL beginning {@code \x} is silently read as hex
+   *       and hashed as different bytes entirely.
+   * </ul>
+   * {@code digest()} takes {@code text} directly, is genuinely IMMUTABLE, and
+   * handles both of those inputs correctly. Its cost is a dependency on the
+   * {@code pgcrypto} extension - see
+   * {@code SQLArtifactIndexDbManagerSql.CREATE_PGCRYPTO_EXTENSION_QUERY}.
+   * <p>
+   * A digest constraint narrows candidates; it never decides. Every lookup
+   * pairs this expression with an exact {@code url = ?} comparison. Must be
+   * spelled identically in the index DDL, in the {@code ON CONFLICT} target
+   * and in the lookup, or the {@code ON CONFLICT} inference fails at runtime -
+   * hence one constant, used by all three.
+   */
+  public static final String URL_DIGEST_EXPRESSION =
+      "digest(" + URL_COLUMN + ", 'sha256')";
+
+  /**
+   * {@link #URL_DIGEST_EXPRESSION} over a bound parameter rather than over the
+   * column, for the query side of a lookup.
+   */
+  public static final String URL_DIGEST_PARAM_EXPRESSION =
+      "digest(?, 'sha256')";
+
   /** Maximum length of the artifact storage URL column */
   public static final int MAX_ARTIFACT_STORAGE_URL_COLUMN = 1024;
 

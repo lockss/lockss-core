@@ -32,6 +32,7 @@ POSSIBILITY OF SUCH DAMAGE.
 package org.lockss.rs.io.index.db;
 
 import io.zonky.test.db.postgres.embedded.EmbeddedPostgres;
+import org.apache.commons.collections4.IterableUtils;
 import org.junit.AfterClass;
 import org.junit.BeforeClass;
 import org.junit.Test;
@@ -46,6 +47,8 @@ import org.lockss.util.time.TimeBase;
 
 import java.net.URI;
 import java.util.*;
+
+import static org.lockss.config.db.SqlConstants.URL_PREFIX_INDEX_LENGTH;
 
 /**
  * <b>Regression tests guarding literal URL-prefix matching.</b> These once
@@ -74,12 +77,23 @@ import java.util.*;
  *   <li>{@code \} is PostgreSQL's default LIKE escape character when no {@code ESCAPE}
  *       clause is given, so a prefix containing a backslash silently escaped the
  *       following character &rarr; <b>under-match</b>: the intended URL was missed.</li>
- *   <li><b>Length asymmetry</b>: when the prefix exceeds {@code LONG_URL_THRESHOLD}
- *       (2500), its first 2500 characters are bound to an {@code =} predicate (literal,
+ *   <li><b>Length asymmetry</b>: a URL was split at 2500 characters across
+ *       {@code urls.url} and {@code long_urls.long_url}, and the prefix was split to
+ *       match. Its first 2500 characters were bound to an {@code =} predicate (literal,
  *       and therefore always correct) and only {@code prefix.substring(2500)} reached the
  *       {@code LIKE}. An identical {@code %} was thus a wildcard in a short prefix and a
  *       literal in a long one.</li>
  * </ol>
+ *
+ * <p>Schema version 5 folded {@code long_urls} back into {@code urls.url}, so that
+ * head/tail split no longer exists. The asymmetry it created is nonetheless still the
+ * right thing to guard, because the predicate acquired a <em>new</em> length-dependent
+ * seam in the same change: the replacement {@code idx1_urls} is built over
+ * {@code left(url, }{@link org.lockss.config.db.SqlConstants#URL_PREFIX_INDEX_LENGTH
+ * URL_PREFIX_INDEX_LENGTH}{@code )}, so a prefix longer than that bound is matched by a
+ * truncated range plus an exact recheck, while a shorter one is matched by the truncated
+ * range alone. The threshold moved from 2500 to 600 and the mechanism changed entirely;
+ * the invariant did not.
  *
  * <p><b>Contract asserted here.</b> Literal prefix matching, i.e.
  * {@code artifact.getUri().startsWith(prefix)}. That is what the two sibling index
@@ -121,9 +135,6 @@ public class TestSQLArtifactIndexManagerSqlPrefixWildcards extends LockssTestCas
    * set in this class is far smaller than this.
    */
   private static final int TEST_PAGE_SIZE = 1000;
-
-  /** Mirrors the private {@code SQLArtifactIndexManagerSql.LONG_URL_THRESHOLD}. */
-  private static final int LONG_URL_THRESHOLD = 2500;
 
   private MockLockssDaemon theDaemon;
   private String tempDirPath;
@@ -207,14 +218,6 @@ public class TestSQLArtifactIndexManagerSqlPrefixWildcards extends LockssTestCas
     SQLArtifactIndexManagerSql idxdb = new SQLArtifactIndexManagerSql(idxDbManager);
     idxdb.setPageSize(TEST_PAGE_SIZE);
     return idxdb;
-  }
-
-  <T> List<T> toList(Iterable<T> itr) {
-    List<T> list = new ArrayList<>();
-    for (T t : itr) {
-      list.add(t);
-    }
-    return list;
   }
 
   // ==========================================================================
@@ -340,7 +343,7 @@ public class TestSQLArtifactIndexManagerSqlPrefixWildcards extends LockssTestCas
 
     String prefix = "http://example.com/a%b/";
 
-    List<Artifact> artifacts = toList(
+    List<Artifact> artifacts = IterableUtils.toList(
         idxdb.findArtifactsAllCommittedVersionsOfUrlByPrefixAllAuidsInNamespace(
             ns, prefix, VersionsEnum.ALL));
 
@@ -369,7 +372,7 @@ public class TestSQLArtifactIndexManagerSqlPrefixWildcards extends LockssTestCas
 
     String prefix = "http://example.com/my_page/";
 
-    List<Artifact> artifacts = toList(
+    List<Artifact> artifacts = IterableUtils.toList(
         idxdb.findArtifactsAllCommittedVersionsOfUrlByPrefixAllAuidsInNamespace(
             ns, prefix, VersionsEnum.ALL));
 
@@ -399,7 +402,7 @@ public class TestSQLArtifactIndexManagerSqlPrefixWildcards extends LockssTestCas
 
     String prefix = "%";
 
-    List<Artifact> artifacts = toList(
+    List<Artifact> artifacts = IterableUtils.toList(
         idxdb.findArtifactsAllCommittedVersionsOfUrlByPrefixAllAuidsInNamespace(
             ns, prefix, VersionsEnum.ALL));
 
@@ -431,7 +434,7 @@ public class TestSQLArtifactIndexManagerSqlPrefixWildcards extends LockssTestCas
 
     String prefix = "http://example.com/path/a%20b/";
 
-    List<Artifact> artifacts = toList(
+    List<Artifact> artifacts = IterableUtils.toList(
         idxdb.findArtifactsAllCommittedVersionsOfUrlByPrefixAllAuidsInNamespace(
             ns, prefix, VersionsEnum.ALL));
 
@@ -469,18 +472,11 @@ public class TestSQLArtifactIndexManagerSqlPrefixWildcards extends LockssTestCas
 
     String prefix = "http://example.com/a\\b/";
 
-    List<Artifact> artifacts = toList(
+    List<Artifact> artifacts = IterableUtils.toList(
         idxdb.findArtifactsAllCommittedVersionsOfUrlByPrefixAllAuidsInNamespace(
             ns, prefix, VersionsEnum.ALL));
 
     SortedSet<String> actualUris = uris(artifacts);
-
-    assertTrue("UNDER-MATCH: prefix [" + prefix + "] should have returned ["
-            + backslashUrl + "], the only stored URL that literally starts with it, but the"
-            + " result set was " + actualUris + ". This is the signature of PostgreSQL"
-            + " consuming the backslash as LIKE's default escape character (no ESCAPE"
-            + " clause), making the effective pattern 'http://example.com/ab/%'.",
-        actualUris.contains(backslashUrl));
 
     assertLiteralPrefixResult(prefix, setOf(backslashUrl), artifacts);
   }
@@ -514,7 +510,7 @@ public class TestSQLArtifactIndexManagerSqlPrefixWildcards extends LockssTestCas
 
     String prefix = "http://example.com/a%b/";
 
-    List<Artifact> artifacts = toList(
+    List<Artifact> artifacts = IterableUtils.toList(
         idxdb.findArtifactsLatestCommittedVersionsOfAllUrlsMatchingPrefixWithNamespaceAndAuid(
             ns, auid, prefix));
 
@@ -554,7 +550,7 @@ public class TestSQLArtifactIndexManagerSqlPrefixWildcards extends LockssTestCas
 
     String prefix = "http://example.com/my_page/";
 
-    List<Artifact> artifacts = toList(
+    List<Artifact> artifacts = IterableUtils.toList(
         idxdb.findArtifactsAllCommittedVersionsOfAllUrlsMatchingPrefixWithNamespaceAndAuid(
             ns, auid, prefix));
 
@@ -617,19 +613,19 @@ public class TestSQLArtifactIndexManagerSqlPrefixWildcards extends LockssTestCas
     SortedSet<String> auUris = setOf(url1, url2, url3);
 
     // ---- Q5, all versions, every AUID in the namespace.
-    List<Artifact> q5all = toList(
+    List<Artifact> q5all = IterableUtils.toList(
         idxdb.findArtifactsAllCommittedVersionsOfUrlByPrefixAllAuidsInNamespace(
             ns, "", VersionsEnum.ALL));
 
     assertEquals("Q5 with an empty prefix should return every committed version in the"
             + " namespace, but returned " + urisAndVersions(q5all),
         setOf(url1 + "@v1", url1 + "@v2", url2 + "@v1", url2 + "@v2",
-            url3 + "@v1", url3 + "@v2", url4 + "@v1"),
+              url3 + "@v1", url3 + "@v2", url4 + "@v1"),
         urisAndVersions(q5all));
     assertLiteralPrefixResult("", nsUris, q5all);
 
     // ---- Q5, latest versions only.
-    List<Artifact> q5latest = toList(
+    List<Artifact> q5latest = IterableUtils.toList(
         idxdb.findArtifactsAllCommittedVersionsOfUrlByPrefixAllAuidsInNamespace(
             ns, "", VersionsEnum.LATEST));
 
@@ -639,7 +635,7 @@ public class TestSQLArtifactIndexManagerSqlPrefixWildcards extends LockssTestCas
         urisAndVersions(q5latest));
 
     // ---- Q5 with a null prefix must behave exactly like the empty string.
-    List<Artifact> q5null = toList(
+    List<Artifact> q5null = IterableUtils.toList(
         idxdb.findArtifactsAllCommittedVersionsOfUrlByPrefixAllAuidsInNamespace(
             ns, null, VersionsEnum.ALL));
 
@@ -647,7 +643,7 @@ public class TestSQLArtifactIndexManagerSqlPrefixWildcards extends LockssTestCas
         urisAndVersions(q5all), urisAndVersions(q5null));
 
     // ---- Q6: latest version of each URL in (ns1, auid1).
-    List<Artifact> q6 = toList(
+    List<Artifact> q6 = IterableUtils.toList(
         idxdb.findArtifactsLatestCommittedVersionsOfAllUrlsMatchingPrefixWithNamespaceAndAuid(
             ns, auid, ""));
 
@@ -658,7 +654,7 @@ public class TestSQLArtifactIndexManagerSqlPrefixWildcards extends LockssTestCas
     assertLiteralPrefixResult("", auUris, q6);
 
     // ---- Q7: every version of every URL in (ns1, auid1).
-    List<Artifact> q7 = toList(
+    List<Artifact> q7 = IterableUtils.toList(
         idxdb.findArtifactsAllCommittedVersionsOfAllUrlsMatchingPrefixWithNamespaceAndAuid(
             ns, auid, ""));
 
@@ -666,7 +662,7 @@ public class TestSQLArtifactIndexManagerSqlPrefixWildcards extends LockssTestCas
             + " URL in the AU, and nothing from another AU or namespace, but returned "
             + urisAndVersions(q7),
         setOf(url1 + "@v1", url1 + "@v2", url2 + "@v1", url2 + "@v2",
-            url3 + "@v1", url3 + "@v2"),
+              url3 + "@v1", url3 + "@v2"),
         urisAndVersions(q7));
     assertLiteralPrefixResult("", auUris, q7);
   }
@@ -677,35 +673,43 @@ public class TestSQLArtifactIndexManagerSqlPrefixWildcards extends LockssTestCas
 
   /**
    * Guards against the return of a <b>length asymmetry</b>: whether a '%' in the prefix
-   * was treated as a wildcard used to depend on where in the prefix it sat, which in
-   * turn depends on the total prefix length.
+   * is treated as a wildcard must not depend on where in the prefix it sits.
    *
-   * <p>When the prefix is longer than {@code LONG_URL_THRESHOLD} (2500), the query takes
-   * the "long URL" branch: {@code prefix.substring(0, 2500)} is bound to
-   * {@code u.url = ?} &mdash; an equality predicate, in which a '%' is unambiguously
-   * literal &mdash; while only {@code prefix.substring(2500)} reaches the tail predicate.
-   * When that tail predicate was an unescaped {@code LIKE}, the very same character was
-   * interpreted two different ways depending on its offset.
+   * <p>The seam this straddles moved with schema version 5. It used to be the 2500
+   * character head/tail split across {@code urls.url} and {@code long_urls.long_url},
+   * where the head went to an {@code =} predicate and only the tail reached the
+   * {@code LIKE}. That split is gone. The seam is now
+   * {@link org.lockss.config.db.SqlConstants#URL_PREFIX_INDEX_LENGTH}: {@code idx1_urls}
+   * is built over {@code left(url, N)}, so {@code urlPrefixCondition} emits a truncated
+   * range over that expression, plus &mdash; only for a prefix longer than {@code N}
+   * &mdash; an exact recheck against the bare column. A prefix therefore falls into one
+   * of three classes, and this test covers all three:
    *
-   * <p>Both halves of this test assert the same thing (literal-prefix semantics), and
-   * both now hold:
    * <ul>
-   *   <li><b>Case 1 &mdash; '%' at offset 24, inside the head.</b> The head goes to the
-   *       {@code =} predicate, so the decoy whose head contains {@code aXb} instead of
-   *       {@code a%b} is excluded &mdash; even though that head <em>would</em> match if
-   *       the head were bound to a {@code LIKE}. This half passed even before the fix.</li>
-   *   <li><b>Case 2 &mdash; '%' just past offset 2500, in the tail.</b> The tail is now
-   *       matched by a byte-order range rather than a {@code LIKE}, so the decoy whose
-   *       tail contains {@code qZZr} instead of {@code q%r} is excluded too: 'Z' (0x5A)
-   *       sorts above '%' (0x25), putting it outside the range. This half used to fail.
-   *       It is also the assertion that depends on the explicit {@code COLLATE "C"}:
-   *       under a locale collation, punctuation weighting could reorder these.</li>
+   *   <li><b>Case 1 &mdash; prefix shorter than {@code N}.</b> The truncated range alone
+   *       decides; there is no recheck term at all. {@code left(U,N)} starts with P if
+   *       and only if {@code U} does, so the range is exact on its own.</li>
+   *   <li><b>Case 2 &mdash; prefix longer than {@code N}, '%' <em>within</em> the first
+   *       {@code N} characters.</b> The '%' appears in both the truncated range and the
+   *       recheck, and must be literal in both.</li>
+   *   <li><b>Case 3 &mdash; prefix longer than {@code N}, '%' <em>past</em> the first
+   *       {@code N} characters.</b> The truncated range has collapsed to equality on
+   *       {@code left(P,N)} and cannot see the '%' at all; only the exact recheck can
+   *       exclude the decoy. This is the direct descendant of the old tail case, and the
+   *       one that fails if the recheck term is dropped or mis-emitted.</li>
    * </ul>
    *
-   * <p>Long URLs are storable: the {@code urls.url} column is created with
-   * {@code --PreferUnboundedTextType--} and the overflow past 2500 characters is kept in
-   * {@code long_urls.long_url TEXT}, and {@code findUrlSeq} interns on head <em>and</em>
-   * tail, so URLs sharing a 2500-character head still get distinct {@code url_seq} rows.
+   * <p>Every decoy differs from its match by replacing the metacharacter with a run of
+   * the same length, so a wildcard reading really would match it. The exclusions are
+   * therefore genuine discriminators rather than length mismatches any implementation
+   * would reject. Cases 2 and 3 also depend on the explicit {@code COLLATE "C"}: they
+   * turn on 'Z' (0x5A) and 'X' (0x58) sorting above '%' (0x25), which a locale collation
+   * weighting punctuation differently could reorder.
+   *
+   * <p>Long URLs are storable because {@code urls.url} is declared
+   * {@code --PreferUnboundedTextType--} and, since version 5, holds the whole URL. The
+   * btree limit that once forced the split is now handled by indexing
+   * {@code left(url, N)} rather than by truncating the column.
    */
   @Test
   public void testLengthAsymmetryOfPercentHandling_Q5() throws Exception {
@@ -714,61 +718,94 @@ public class TestSQLArtifactIndexManagerSqlPrefixWildcards extends LockssTestCas
     String ns = "ns1";
     String base = "http://example.com/long/";
 
-    // Two heads of exactly LONG_URL_THRESHOLD characters, differing only at offset 25:
-    // headA contains a literal "a%b", headC contains "aXb". The markers are the same
-    // LENGTH on purpose, so that headA used as a LIKE pattern really would match headC
-    // ('%' absorbing the 'X'). That makes the '=' predicate the only thing that can
-    // exclude headC, so case 1 below is a genuine discriminator rather than a length
-    // mismatch that any implementation would reject.
-    String headA = base + "a%b" + repeat('z', LONG_URL_THRESHOLD - base.length() - 3);
-    String headC = base + "aXb" + repeat('z', LONG_URL_THRESHOLD - base.length() - 3);
+    // Case 1 data: a prefix comfortably below the index bound.
+    String shortA = base + "a%b/fileA.html";        // literal match
+    String shortC = base + "aXb/fileC.html";        // decoy: 'X' where the '%' is
 
-    assertEquals("headA must be exactly LONG_URL_THRESHOLD chars", LONG_URL_THRESHOLD, headA.length());
-    assertEquals("headC must be exactly LONG_URL_THRESHOLD chars", LONG_URL_THRESHOLD, headC.length());
+    // Heads of exactly URL_PREFIX_INDEX_LENGTH characters, differing only at the marker
+    // just after the base. headA carries a literal "a%b", headC an "aXb". Same LENGTH on
+    // purpose, so a wildcard reading of headA really would match headC.
+    String headA = base + "a%b" + repeat('z', URL_PREFIX_INDEX_LENGTH - base.length() - 3);
+    String headC = base + "aXb" + repeat('z', URL_PREFIX_INDEX_LENGTH - base.length() - 3);
 
-    // Case 1 data: tails with no LIKE metacharacters, so only the head is in question.
-    String urlA = headA + "plainTail/fileA.html";   // literal match for case 1
-    String urlC = headC + "plainTail/fileC.html";   // head decoy ("aXb"): only a wildcard head matches
+    assertEquals("headA must be exactly URL_PREFIX_INDEX_LENGTH chars",
+        URL_PREFIX_INDEX_LENGTH, headA.length());
+    assertEquals("headC must be exactly URL_PREFIX_INDEX_LENGTH chars",
+        URL_PREFIX_INDEX_LENGTH, headC.length());
 
-    // Case 2 data: identical heads, tails differing at a '%'.
-    String urlD = headA + "q%r/fileD.html";         // literal match for case 2
-    String urlE = headA + "qZZr/fileE.html";        // tail decoy: only a wildcard tail matches
+    // Case 2 data: tails carry no metacharacters, so only the in-bound '%' is in question.
+    String urlA = headA + "plainTail/fileA.html";   // literal match
+    String urlC = headC + "plainTail/fileC.html";   // decoy differing inside the bound
 
-    addCommitted(idxdb, ns, "auid1", urlA, urlC, urlD, urlE);
+    // Case 3 data: identical in-bound heads, differing only past the bound.
+    String urlD = headA + "q%r/fileD.html";         // literal match
+    String urlE = headA + "qZZr/fileE.html";        // decoy differing past the bound
 
-    // ---- Case 1: '%' lives at offset 24, inside the head -> bound to '=' -> literal.
+    addCommitted(idxdb, ns, "auid1", shortA, shortC, urlA, urlC, urlD, urlE);
+
+    // ---- Case 1: prefix below the index bound -> truncated range only, no recheck.
+    String shortPrefix = base + "a%b/";
+    assertTrue("Case 1 prefix must be shorter than URL_PREFIX_INDEX_LENGTH so that"
+            + " urlPrefixCondition emits no recheck term",
+        shortPrefix.length() < URL_PREFIX_INDEX_LENGTH);
+
+    List<Artifact> case1 = IterableUtils.toList(
+        idxdb.findArtifactsAllCommittedVersionsOfUrlByPrefixAllAuidsInNamespace(
+            ns, shortPrefix, VersionsEnum.ALL));
+
+    assertEquals("Case 1: a prefix shorter than " + URL_PREFIX_INDEX_LENGTH
+            + " is matched by the truncated range alone, which is exact at that length."
+            + " Only the URL ending 'fileA.html' should be returned, not the 'aXb' decoy"
+            + " ending 'fileC.html'. Returned " + case1.size() + ": " + abbrevUris(case1),
+        setOf(abbrev(shortA)), abbrevUris(case1));
+
+    // ---- Case 2: '%' inside the first N chars -> present in both range and recheck.
     String prefixHeadPercent = headA + "plainTail/";
-    assertTrue("Case 1 prefix must exceed LONG_URL_THRESHOLD to take the long-URL branch",
-        prefixHeadPercent.length() > LONG_URL_THRESHOLD);
+    assertTrue("Case 2 prefix must exceed URL_PREFIX_INDEX_LENGTH so that the recheck"
+            + " term is emitted",
+        prefixHeadPercent.length() > URL_PREFIX_INDEX_LENGTH);
 
-    List<Artifact> case1 = toList(
+    List<Artifact> case2 = IterableUtils.toList(
         idxdb.findArtifactsAllCommittedVersionsOfUrlByPrefixAllAuidsInNamespace(
             ns, prefixHeadPercent, VersionsEnum.ALL));
 
-    assertEquals("Case 1: with a prefix longer than " + LONG_URL_THRESHOLD
-            + " chars, the '%' at offset " + base.length() + " falls in the head, which is bound"
-            + " to an '=' predicate and is therefore treated literally. Only the URL ending"
-            + " 'fileA.html' should be returned, not the 'aXb' head decoy ending 'fileC.html'"
-            + " (which the same prefix WOULD match if the head were bound to a LIKE)."
-            + " Returned " + case1.size() + ": " + abbrevUris(case1),
-        setOf(abbrev(urlA)), abbrevUris(case1));
+    assertEquals("Case 2: the '%' at offset " + base.length() + " falls within the first "
+            + URL_PREFIX_INDEX_LENGTH + " characters, so it appears in the truncated range"
+            + " and in the recheck, and must be literal in both. Only the URL ending"
+            + " 'fileA.html' should be returned, not the 'aXb' decoy ending 'fileC.html'."
+            + " Returned " + case2.size() + ": " + abbrevUris(case2),
+        setOf(abbrev(urlA)), abbrevUris(case2));
 
-    // ---- Case 2: '%' lives just past offset 2500, in the tail -> bound to LIKE -> wildcard.
+    // ---- Case 3: '%' past the first N chars -> only the exact recheck can see it.
     String prefixTailPercent = headA + "q%r/";
-    assertTrue("Case 2 prefix must exceed LONG_URL_THRESHOLD to take the long-URL branch",
-        prefixTailPercent.length() > LONG_URL_THRESHOLD);
+    assertTrue("Case 3 prefix must exceed URL_PREFIX_INDEX_LENGTH so that the recheck"
+            + " term is emitted",
+        prefixTailPercent.length() > URL_PREFIX_INDEX_LENGTH);
 
-    List<Artifact> case2 = toList(
+    // The decoy must be invisible to the truncated range, or this case silently
+    // degenerates into case 2 and stops testing the recheck at all: the range is an
+    // equality on left(url, N) once the prefix is longer than N, so the decoy can only
+    // survive it by agreeing with the match over those first N characters.
+    assertEquals("Case 3's decoy must be indistinguishable from its match within the"
+            + " first " + URL_PREFIX_INDEX_LENGTH + " characters, so that only the exact"
+            + " recheck can separate them",
+        urlD.substring(0, URL_PREFIX_INDEX_LENGTH),
+        urlE.substring(0, URL_PREFIX_INDEX_LENGTH));
+    assertEquals("...and must agree with the prefix over those characters too",
+        prefixTailPercent.substring(0, URL_PREFIX_INDEX_LENGTH),
+        urlE.substring(0, URL_PREFIX_INDEX_LENGTH));
+
+    List<Artifact> case3 = IterableUtils.toList(
         idxdb.findArtifactsAllCommittedVersionsOfUrlByPrefixAllAuidsInNamespace(
             ns, prefixTailPercent, VersionsEnum.ALL));
 
-    assertEquals("Case 2: the '%' at offset " + LONG_URL_THRESHOLD + "+1 falls in the"
-            + " tail. It must be as literal there as case 1 makes it in the head: only the"
-            + " URL ending 'fileD.html' literally starts with the prefix, and the 'qZZr'"
-            + " tail decoy ending 'fileE.html' must not be matched. A failure here means"
-            + " the tail predicate is treating '%' as a wildcard again, i.e. whether it is"
-            + " a wildcard depends on its offset within the prefix. Returned "
-            + case2.size() + ": " + abbrevUris(case2),
-        setOf(abbrev(urlD)), abbrevUris(case2));
+    assertEquals("Case 3: the '%' at offset " + URL_PREFIX_INDEX_LENGTH + "+1 lies past"
+            + " the indexed prefix, where the truncated range has collapsed to equality"
+            + " and cannot discriminate. Only the exact recheck against the bare column"
+            + " can exclude the 'qZZr' decoy ending 'fileE.html', so a failure here means"
+            + " the recheck term is missing, mis-emitted, or treating '%' as a wildcard"
+            + " -- i.e. whether '%' is literal depends on its offset again. Returned "
+            + case3.size() + ": " + abbrevUris(case3),
+        setOf(abbrev(urlD)), abbrevUris(case3));
   }
 }
