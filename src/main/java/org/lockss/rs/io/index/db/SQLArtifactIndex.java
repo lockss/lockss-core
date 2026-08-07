@@ -507,8 +507,16 @@ public class SQLArtifactIndex extends AbstractArtifactIndex {
     } catch (DbException e) {
       throw new IOException("Could not query AU size from database", e);
     } catch (ExecutionException e) {
-      log.error("Could not recompute AU size", e.getCause());
-      throw (IOException) e.getCause();
+      // Unconditionally casting the cause to IOException would throw
+      // ClassCastException and discard the real error whenever the cause is
+      // anything else -- which it now can be, since getAuSizeFuture() completes
+      // the future with whatever it caught.
+      Throwable cause = e.getCause();
+      log.error("Could not recompute AU size", cause);
+      if (cause instanceof IOException ioe) {
+        throw ioe;
+      }
+      throw new IOException("Could not recompute AU size", cause);
     } catch (InterruptedException e) {
       log.error("Interrupted while waiting for AU size recalculation", e);
       throw new IOException("AU size recalculation was interrupted", e);
@@ -539,6 +547,15 @@ public class SQLArtifactIndex extends AbstractArtifactIndex {
     } catch (IOException e) {
       log.error("Couldn't compute AU size", e);
       ausFuture.completeExceptionally(e);
+    } catch (Throwable t) {
+      // Nothing else can ever complete this future: the finally below removes it
+      // from the map, so a concurrent caller that already read it out and is
+      // blocked in auSize() on get() would wait forever -- an unbounded,
+      // uninterruptible hang rather than a failure. Catching Throwable rather
+      // than RuntimeException so an Error can't leave a thread hung either.
+      log.error("Couldn't compute AU size", t);
+      ausFuture.completeExceptionally(t);
+      throw t;
     } finally {
       synchronized (auSizeFutures) {
         auSizeFutures.remove(nsAuid);
