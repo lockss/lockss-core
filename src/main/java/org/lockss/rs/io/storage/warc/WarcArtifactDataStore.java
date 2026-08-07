@@ -2961,24 +2961,36 @@ public abstract class WarcArtifactDataStore implements ArtifactDataStore, WARCCo
 
       List<Artifact> batch = new ArrayList<>(BATCH_SIZE);
 
-      // Main loop over artifacts of the WARC file
+      // Main loop over artifacts of the WARC file.
+      //
+      // The loop is wrapped so that a failure we cannot skip past still keeps
+      // the artifacts parsed before it: abandoning the file with a partially
+      // filled batch would throw away up to BATCH_SIZE - 1 good artifacts that
+      // were parsed but never handed to the index.
+      try {
       while (recordIter.hasNext()) {
-        long startOffset = reader.getStartOffset();
-        WarcRecord record = recordIter.next();
-
-        // FIXME: May be truncated; detect here
-        long recordLength = recordIter.hasNext() ?
-          reader.getStartOffset() - startOffset :
-          getWarcLength(warcFile) - startOffset; // FIXME: Probably not correct to assume this
-
-        URI storageUrl = makeWarcRecordStorageUrl(warcFile, startOffset, recordLength);
-
-        log.debug2("Re-indexing artifact from WARC {} record {} from {}",
-                   record.getHeader(WARCConstants.HEADER_KEY_TYPE),
-                   record.getHeader(WARCConstants.HEADER_KEY_ID),
-                   warcFile);
+        // Stays null until this iteration has a record in hand. Everything that
+        // reads from the reader is inside the per-record try, so a truncated or
+        // malformed record fails there rather than outside any handler; the null
+        // then tells the handler the reader may not have advanced.
+        WarcRecord record = null;
 
         try {
+          long startOffset = reader.getStartOffset();
+          record = recordIter.next();
+
+          // FIXME: May be truncated; detect here
+          long recordLength = recordIter.hasNext() ?
+            reader.getStartOffset() - startOffset :
+            getWarcLength(warcFile) - startOffset; // FIXME: Probably not correct to assume this
+
+          URI storageUrl = makeWarcRecordStorageUrl(warcFile, startOffset, recordLength);
+
+          log.debug2("Re-indexing artifact from WARC {} record {} from {}",
+                     record.getHeader(WARCConstants.HEADER_KEY_TYPE),
+                     record.getHeader(WARCConstants.HEADER_KEY_ID),
+                     warcFile);
+
           // Transform ArchiveRecord to ArtifactData
           ArtifactData ad = WarcArtifactDataUtil.fromWarcRecord(record);
 
@@ -3067,20 +3079,45 @@ public abstract class WarcArtifactDataStore implements ArtifactDataStore, WARCCo
           if (shouldAddToBatch && !artifact.equals(indexedArtifact)) {
               batch.add(artifact);
           }
-
-          // Index artifacts in batch if we've reached the batch size
-          if (batch.size() == BATCH_SIZE) {
-            index.reindexArtifacts(batch);
-            artifactsIndexed += BATCH_SIZE;
-            batch.clear();
-          }
-        } catch (IOException e) {
+        } catch (Exception e) {
+          // Exception, not IOException: a record missing WARC-Date NPEs on
+          // .value and a malformed one throws DateTimeParseException. Those
+          // used to escape this handler entirely, discarding the pending batch
+          // and skipping the rest of the file -- up to a WARC's worth of
+          // artifacts lost to one bad record.
           log.error("Could not index artifact from WARC record [WARC-Record-ID: {}, warcFile: {}]",
-                    record.getHeader(WARCConstants.HEADER_KEY_ID),
+                    record == null ?
+                      "(record not read)" : record.getHeader(WARCConstants.HEADER_KEY_ID),
                     warcFile, e);
 
-          throw e;
+          if (record == null) {
+            // The failure happened while advancing the reader, so the iterator
+            // has not necessarily made progress and skipping this record could
+            // spin forever. Abandon the file; the handler below keeps whatever
+            // has already been parsed, and the file is not recorded as
+            // reindexed, so a later run re-reads it from offset 0.
+            throw e;
+          }
+
+          // One bad record costs one artifact, not the rest of the file.
+          continue;
         }
+
+        // Flushed outside the per-record try on purpose: a failure here is an
+        // index failure, not a malformed record, and must not be swallowed as
+        // one. ">=" rather than "==" because the flush no longer happens on
+        // every path that adds to the batch.
+        if (batch.size() >= BATCH_SIZE) {
+          index.reindexArtifacts(batch);
+          artifactsIndexed += batch.size();
+          batch.clear();
+        }
+      } // end of main loop over records
+      } catch (Exception e) {
+        // Keep the artifacts parsed before the failure rather than dropping
+        // them along with the file.
+        artifactsIndexed += flushReindexBatchQuietly(index, batch, warcFile);
+        throw e;
       }
 
       // Index any remaining artifacts (is a no-op if empty)
@@ -3096,6 +3133,38 @@ public abstract class WarcArtifactDataStore implements ArtifactDataStore, WARCCo
 
     // Return the number of artifacts indexed from this WARC file
     return artifactsIndexed;
+  }
+
+  /**
+   * Indexes a partially filled reindex batch on the path where reading the WARC
+   * has already failed, and clears it.
+   *
+   * <p>Failures here are logged and swallowed: the exception that aborted the
+   * file is the one worth propagating, and this is a salvage attempt on top of
+   * it.
+   *
+   * @return the number of artifacts indexed, 0 if the batch was empty or could
+   *         not be indexed.
+   */
+  private int flushReindexBatchQuietly(ArtifactIndex index, List<Artifact> batch,
+                                       Path warcFile) {
+    if (batch.isEmpty()) {
+      return 0;
+    }
+
+    int n = batch.size();
+
+    try {
+      index.reindexArtifacts(batch);
+    } catch (Exception e) {
+      log.error("Could not index the {} artifacts parsed from {} before the failure",
+                n, warcFile, e);
+      n = 0;
+    } finally {
+      batch.clear();
+    }
+
+    return n;
   }
 
   /** Invoked when a WARC journal entry is corrupted, attempt to
