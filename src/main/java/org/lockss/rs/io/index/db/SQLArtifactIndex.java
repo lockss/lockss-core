@@ -98,7 +98,10 @@ public class SQLArtifactIndex extends AbstractArtifactIndex {
 
   @Override
   public void stop() {
-    // Intentionally left blank
+    if (idxdb != null) {
+      // Stops the background statistics-refresh thread.
+      idxdb.shutdown();
+    }
   }
 
   @Override

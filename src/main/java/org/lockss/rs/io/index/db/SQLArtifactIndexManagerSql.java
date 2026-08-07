@@ -47,6 +47,13 @@ import org.lockss.util.time.TimeBase;
 import java.lang.ref.Cleaner;
 import java.sql.*;
 import java.util.*;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicLong;
 
 import static org.lockss.config.db.SqlConstants.*;
@@ -2547,6 +2554,51 @@ public class SQLArtifactIndexManagerSql {
   // with a per-table key in pg_try_advisory_xact_lock(int, int).
   private static final int ANALYZE_ADVISORY_LOCK_NAMESPACE = 0x4C4B5341; // "LKSA"
 
+  // Longest a loading thread will wait for an out-of-band ANALYZE before
+  // carrying on without it.
+  //
+  // The refresh takes a second connection while the caller already holds one.
+  // Under pool pressure that acquisition can BLOCK rather than throw, so a load
+  // could stall indefinitely waiting for a connection it needs only to update
+  // planner statistics. Waiting buys the caller nothing anyway: the replan the
+  // ANALYZE enables benefits whichever batch runs after it lands, not this one.
+  // The wait exists only so the refresh doesn't drift arbitrarily far behind
+  // the load, so it is deliberately short.
+  private static final long ANALYZE_WAIT_TIMEOUT_MS = 5000;
+
+  // Runs the out-of-band ANALYZEs. Single-threaded and daemon: at most one
+  // refresh is ever in flight, and a stuck one can't hold up JVM exit. The
+  // executor creates its thread on first use, so instances that never load
+  // artifacts never start one.
+  private final ExecutorService analyzeExecutor =
+      Executors.newSingleThreadExecutor(r -> {
+        Thread t = new Thread(r, "sql-artifact-index-analyze");
+        t.setDaemon(true);
+        return t;
+      });
+
+  // Tables with an ANALYZE currently scheduled or running. Entries are added by
+  // the submitter and removed by the task itself -- removing on the submitter's
+  // timeout would let refresh requests pile up behind a task that is still
+  // blocked, which is exactly what this is here to prevent.
+  //
+  // Keyed by table, not a single flag: addArtifacts() refreshes the urls table
+  // during the load and the artifacts table right after the last commit, and a
+  // single flag would let an in-flight urls refresh swallow the trailing
+  // artifacts one -- which is the refresh that keeps post-load reads from
+  // waiting on autovacuum. The executor is single-threaded, so refreshes of
+  // different tables still never run concurrently; the second one queues.
+  private final Set<String> analyzesInFlight = ConcurrentHashMap.newKeySet();
+
+  /**
+   * Stops the background ANALYZE thread. Pending refreshes are best-effort and
+   * are simply dropped; in-flight ones are left to finish or to be killed at
+   * JVM exit (the thread is a daemon).
+   */
+  public void shutdown() {
+    analyzeExecutor.shutdownNow();
+  }
+
   /** Add all the Artifacts to the DB, return a Set containing all
    * unique (Namespace, AUID) pairs */
   public Set<Pair<String,String>> addArtifacts(Iterable<Artifact> artifacts)
@@ -2691,7 +2743,67 @@ public class SQLArtifactIndexManagerSql {
   // artifact left in the iterable -- or, from the trailing call site, fails an
   // AU whose rows are already 100% committed. Nothing a statistics refresh does
   // can justify that: ANALYZE only affects query planning.
+  //
+  // IT IS ALSO BOUNDED: the refresh runs on the background thread and the caller
+  // waits at most ANALYZE_WAIT_TIMEOUT_MS for it, because getConnection() can
+  // block, not just throw, when the pool is under pressure -- and the caller is
+  // holding a connection of its own while it waits. Totality alone does not
+  // cover a stall.
+  //
+  // The honest cost of that bound: the caller's wait is bounded, the background
+  // thread's is not. One permanently stuck refresh means no further ANALYZEs of
+  // that table for the life of the process, since its in-flight entry never
+  // clears. That is the intended trade -- a load that keeps running with stale
+  // statistics beats a load that stops -- and it is why repeat refreshes of a
+  // table are skipped rather than queued while one is in flight: the total
+  // added stall is one timeout per stuck episode, not one per batch.
+  //
+  // The timeout runs from submission, not from the start of the ANALYZE, so a
+  // refresh that queues behind another table's can spend its whole budget
+  // waiting for the thread. The caller returns either way; the refresh still
+  // happens, just later.
   private void analyzeTableOutOfBand(String table) {
+    if (!analyzesInFlight.add(table)) {
+      log.debug2("Out-of-band ANALYZE {} skipped: a refresh of it is already in flight", table);
+      return;
+    }
+
+    Future<?> future;
+
+    try {
+      future = analyzeExecutor.submit(() -> {
+        try {
+          analyzeTableNow(table);
+        } finally {
+          analyzesInFlight.remove(table);
+        }
+      });
+    } catch (RuntimeException e) {
+      // Notably RejectedExecutionException, after shutdown().
+      analyzesInFlight.remove(table);
+      log.warn("Could not schedule out-of-band ANALYZE {} (ignored): {}", table, e.toString());
+      return;
+    }
+
+    try {
+      future.get(ANALYZE_WAIT_TIMEOUT_MS, TimeUnit.MILLISECONDS);
+    } catch (TimeoutException e) {
+      // Carry on: the refresh keeps running and will benefit whatever comes
+      // after it. The in-flight flag stops requests piling up behind it.
+      log.warn("Out-of-band ANALYZE {} did not finish within {}ms; continuing without it",
+               table, ANALYZE_WAIT_TIMEOUT_MS);
+    } catch (ExecutionException e) {
+      // analyzeTableNow() is total, so this should be unreachable.
+      log.warn("Out-of-band ANALYZE {} failed (ignored): {}", table, e.getCause());
+    } catch (InterruptedException e) {
+      Thread.currentThread().interrupt();
+      log.warn("Interrupted waiting for out-of-band ANALYZE {}", table);
+    }
+  }
+
+  // The body of the out-of-band ANALYZE, run on analyzeExecutor. Total, for the
+  // reasons given on analyzeTableOutOfBand().
+  private void analyzeTableNow(String table) {
     Connection conn = null;
     try {
       conn = getConnection();
