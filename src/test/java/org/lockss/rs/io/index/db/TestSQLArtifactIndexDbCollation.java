@@ -85,6 +85,17 @@ import static org.lockss.config.db.SqlConstants.URL_PREFIX_INDEX_LENGTH;
  * upgrade test asserts that before/after transition rather than only the final
  * state, so that it cannot pass vacuously.
  *
+ * <p>One test here is not about collation at all.
+ * {@link #testAllAssembledQueryVariantsParse} asserts that every runtime-
+ * assembled variant of every templated query parses and plans on a real server.
+ * It arrived with the collation work, because adding {@code COLLATE "C"} to an
+ * {@code ORDER BY} term is exactly the sort of edit a server can reject while
+ * the Java still compiles, but what it guards is broader and outlives that
+ * change: these queries are built by string substitution at execution time, so
+ * nothing but a server can tell whether the result is valid SQL. It is kept
+ * here rather than moved because it needs this class's migrated database and
+ * embedded server.
+ *
  * @see SQLArtifactIndexDbManagerSql#updateDatabaseFrom4To5
  */
 public class TestSQLArtifactIndexDbCollation extends LockssTestCase4 {
@@ -243,9 +254,19 @@ public class TestSQLArtifactIndexDbCollation extends LockssTestCase4 {
         urlIndexDef.contains("left(" + "url, " + URL_PREFIX_INDEX_LENGTH + ")")
             || urlIndexDef.contains("\"left\"(url, " + URL_PREFIX_INDEX_LENGTH + ")"));
 
-    // The uniqueness that version 4 removed, restored on a key that fits.
-    assertTrue("idx4_urls must enforce uniqueness on md5(url)",
-        indexExists(conn, "idx4_urls"));
+    // The uniqueness that version 4 removed, restored on a key that fits. As
+    // with idx1_urls above, existence alone is the wrong assertion: the whole
+    // constraint is only as good as the digest under it, and a weaker digest
+    // would leave an index that exists, passes, and can be collided on demand.
+    // Pin the expression, not the name.
+    String digestIndexDef = indexDefinition(conn, "idx4_urls");
+
+    assertTrue("idx4_urls must enforce uniqueness on a SHA-256 digest of the"
+            + " URL, not on a digest a collision can be constructed for; was:\n"
+            + digestIndexDef,
+        digestIndexDef.contains("sha256"));
+    assertTrue("idx4_urls must be UNIQUE; was:\n" + digestIndexDef,
+        digestIndexDef.contains("CREATE UNIQUE INDEX"));
 
     // ALTER COLUMN ... TYPE preserves NOT NULL, but silently losing it would be
     // a quiet data-integrity regression, so pin it.
@@ -415,6 +436,7 @@ public class TestSQLArtifactIndexDbCollation extends LockssTestCase4 {
 
     List<String> lines = java.nio.file.Files.readAllLines(report.toPath());
 
+    // TODO: Use a CSV parser library to check header and row contents
     assertEquals("expected a header and one line per colliding artifact, got:\n"
         + String.join("\n", lines), 3, lines.size());
     assertTrue("the header must name the columns; was: " + lines.get(0),
@@ -460,9 +482,8 @@ public class TestSQLArtifactIndexDbCollation extends LockssTestCase4 {
   }
 
   /**
-   * The point of the migration: the URL prefix range predicate, spelled exactly
-   * as {@code SQLArtifactIndexManagerSql} assembles it, must be able to use
-   * {@code idx1_urls}.
+   * The URL prefix range predicate, spelled exactly as {@code SQLArtifactIndexManagerSql}
+   * assembles it, must be able to use {@code idx1_urls}.
    *
    * <p>Asserted with {@code enable_seqscan = off}, which asks whether the index
    * is <em>usable</em> for the predicate rather than whether the planner prefers
@@ -505,20 +526,44 @@ public class TestSQLArtifactIndexDbCollation extends LockssTestCase4 {
    * Every assembled variant of every templated query must parse and plan on a
    * real server.
    *
-   * <p>This exists because the {@code COLLATE "C"} added to the {@code auid}
-   * {@code ORDER BY} term is the kind of change a server can reject even though
-   * it compiles: under {@code SELECT DISTINCT}, PostgreSQL requires each
-   * {@code ORDER BY} expression to appear in the select list, and
-   * {@code auid.auid COLLATE "C"} is a different expression from {@code
-   * auid.auid}. Four of the eight edited {@code ORDER BY} clauses moreover live
-   * in {@code LONG_URL_*} queries, which only run for URLs past the 2500
-   * character split threshold and are otherwise thinly covered.
+   * <p>The paged queries are not written; they are <em>assembled</em>, by
+   * {@code String.replace} at execution time, from a template plus a keyset
+   * clause plus a URL-prefix predicate plus whatever subquery a given template
+   * injects. The Java compiler checks none of that. A fragment that is valid on
+   * its own but not in the position it lands in, a missing space between two
+   * concatenated pieces, a placeholder whose spelling has drifted from its
+   * substitution - none of it is detectable until a server parses the result.
+   * This test is the only thing that parses it.
+   *
+   * <p>Two failures it is specifically shaped to catch:
+   *
+   * <ul>
+   *   <li><b>A surviving placeholder.</b> {@code --Token--} begins a SQL line
+   *       comment, and these queries are single-line concatenations, so an
+   *       unreplaced token silently comments out the remainder - including
+   *       {@code ORDER BY} and {@code LIMIT}. The statement still runs and still
+   *       returns rows; they are simply the wrong rows in the wrong order. See
+   *       the note on {@code URL_PREFIX_CONDITION_TOKEN} for why that one is
+   *       spelled {@code @@...@@} instead.
+   *   <li><b>A prefix predicate that is wrong for one shape only.</b>
+   *       {@code urlPrefixCondition} emits a different set of conjuncts, binding
+   *       a different number of parameters, for each combination of its three
+   *       booleans. Production reaches all of them, but only for prefixes long
+   *       enough or adversarial enough that ordinary tests never generate them.
+   *       Every shape is enumerated here instead.
+   * </ul>
    *
    * <p>{@code PREPARE} is used rather than {@code EXPLAIN} because it lets
    * PostgreSQL infer the parameter types, so the check needs no per-query
    * knowledge of how many parameters each variant binds or of what type. A
    * successful {@code PREPARE} means the statement was parsed, analyzed and
    * planned.
+   *
+   * <p>The counts asserted at the end are coverage tripwires rather than
+   * statements about SQL. They exist because every part of this test is driven
+   * by reflection and by {@code contains()} checks: if a constant is renamed, a
+   * placeholder respelled, or the query set reorganised, the loops would quietly
+   * match nothing and the test would pass having checked nothing at all.
    */
   @Test
   public void testAllAssembledQueryVariantsParse() throws Exception {
@@ -536,19 +581,58 @@ public class TestSQLArtifactIndexDbCollation extends LockssTestCase4 {
     prefixCond.setAccessible(true);
 
     // Every shape urlPrefixCondition can emit, as {idxBounded, recheck,
-    // exactBounded}. The recheck arm only appears for a prefix longer than
-    // URL_PREFIX_INDEX_LENGTH, and the two upper bounds are computed
-    // independently, so a truncated range can be bounded where the exact one is
-    // not.
-    boolean[][] prefixShapes = {
-        {true, false, false},   // within the index bound, upper bound found
-        {false, false, false},  // within the bound, range open-ended
-        {true, true, true},     // longer than the bound, both bounded
-        {true, true, false},    // longer than the bound, exact range open-ended
+    // exactBounded}, paired with the number of parameters that shape must bind.
+    //
+    // The recheck arm only appears for a prefix longer than
+    // URL_PREFIX_INDEX_LENGTH. The two upper bounds are decided separately by
+    // the caller because one can exist where the other does not: a prefix of N
+    // copies of U+10FFFF followed by any lesser character truncates to an
+    // all-U+10FFFF string, which has no successor, while the full prefix has
+    // one. That is why the !idxBounded && recheck rows below are reachable and
+    // not merely defensive. (The converse is not reachable - truncating an
+    // all-U+10FFFF prefix leaves it all-U+10FFFF - so there is no
+    // idxBounded && recheck && !exactBounded-only gap to cover.)
+    //
+    // When recheck is false, exactBounded is ignored, so those two rows cover
+    // all four of their combinations between them.
+    Object[][] prefixShapes = {
+        // {idxBounded, recheck, exactBounded}, expected bound parameters
+        {new boolean[] {true,  false, false}, 2},  // within the bound, bounded
+        {new boolean[] {false, false, false}, 1},  // within the bound, open-ended
+        {new boolean[] {true,  true,  true},  4},  // longer, both bounded
+        {new boolean[] {true,  true,  false}, 3},  // longer, exact open-ended
+        {new boolean[] {false, true,  true},  3},  // longer, truncated open-ended
+        {new boolean[] {false, true,  false}, 2},  // longer, both open-ended
     };
+
+    // Assert the fragment contract directly, before using it to build queries.
+    // Without this, a urlPrefixCondition that ignored one of its flags would
+    // emit an identical fragment for two shapes, both would still PREPARE, and
+    // the loop below would report full coverage of a collapsed matrix.
+    java.util.Set<String> distinctFragments = new java.util.HashSet<>();
+
+    for (Object[] row : prefixShapes) {
+      boolean[] s = (boolean[]) row[0];
+      int expectedParams = (Integer) row[1];
+      String fragment =
+          (String) prefixCond.invoke(null, "u.url", s[0], s[1], s[2]);
+
+      assertEquals("urlPrefixCondition" + java.util.Arrays.toString(s)
+              + " must bind " + expectedParams + " parameters; emitted: "
+              + fragment,
+          expectedParams, countChar(fragment, '?'));
+
+      assertTrue("urlPrefixCondition" + java.util.Arrays.toString(s)
+              + " emitted a fragment identical to another shape's, so at least"
+              + " one of its flags is being ignored: " + fragment,
+          distinctFragments.add(fragment));
+    }
 
     int prepared = 0;
     int withAuidOrder = 0;
+    int templatesMatched = 0;
+    int templatesWithPrefix = 0;
+    int[] shapesExercised = new int[prefixShapes.length];
 
     try (Connection conn = openRawConnection()) {
       for (java.lang.reflect.Field f
@@ -569,11 +653,17 @@ public class TestSQLArtifactIndexDbCollation extends LockssTestCase4 {
           continue;
         }
 
+        templatesMatched++;
+
         // Schema version 6 folded long_urls back into urls.url, so there is a
         // single sortUri expression and the prefix predicate always binds
         // against u.url. Before that, both followed the query's long/short
         // branch and had to be selected per template.
         String prefixColumn = "u.url";
+
+        if (template.contains(prefixToken)) {
+          templatesWithPrefix++;
+        }
 
         // The all-AUIDs queries are exactly those whose ORDER BY carries the
         // AUID tiebreaker; they are the ones that take the extended keyset.
@@ -598,9 +688,10 @@ public class TestSQLArtifactIndexDbCollation extends LockssTestCase4 {
                 readStaticString("ARTIFACT_COMMITTED_STATUS_CONDITION"));
 
             if (sql.contains(prefixToken)) {
-              boolean[] s = prefixShapes[shape];
+              boolean[] s = (boolean[]) prefixShapes[shape][0];
               sql = sql.replace(prefixToken, (String) prefixCond.invoke(
                   null, prefixColumn, s[0], s[1], s[2]));
+              shapesExercised[shape]++;
             } else if (shape > 0) {
               // No prefix predicate: the shape axis is degenerate.
               continue;
@@ -619,15 +710,58 @@ public class TestSQLArtifactIndexDbCollation extends LockssTestCase4 {
       }
     }
 
-    assertTrue("expected to have exercised many query variants, got " + prepared,
-        prepared > 20);
-    // A coverage tripwire, not a collation assertion. The floor was eight while
-    // each all-AUIDs query had a LONG_URL_* twin; schema version 6 collapsed
-    // those pairs, so four remain. If you added an all-AUIDs paged query, this
-    // count simply needs bumping - nothing is wrong with the collation.
-    assertTrue("expected at least the four known AUID-ordered queries to be"
-        + " covered, found " + withAuidOrder + "; if you added an all-AUIDs paged"
-        + " query, raise this floor", withAuidOrder >= 4);
+    // Coverage tripwires. Each is a floor at the count measured when it was
+    // written, so it fires when coverage is LOST - either because a query was
+    // deliberately removed, or because a rename broke the reflection or the
+    // contains() checks and the loops silently matched less than they should.
+    // The second case is the one worth catching: it makes this test pass
+    // without checking anything. Raise a floor when you add queries; lower one
+    // only after confirming the drop was intended.
+
+    assertTrue("only " + templatesMatched + " templated queries were found."
+        + " Either a paged query was removed, or the filter stopped matching"
+        + " them - check that they still begin with 'SELECT ' and still carry"
+        + " the --KeysetCondition-- placeholder", templatesMatched >= 9);
+
+    assertTrue("only " + templatesWithPrefix + " templated queries carry "
+        + prefixToken.trim() + ". Either a prefix query was removed, or the"
+        + " token was respelled in the queries but not in"
+        + " URL_PREFIX_CONDITION_TOKEN", templatesWithPrefix >= 4);
+
+    assertTrue("only " + withAuidOrder + " AUID-ordered queries were found."
+        + " Either an all-AUIDs paged query was removed, or SORT_AUID_EXPR no"
+        + " longer appears verbatim in their ORDER BY, in which case every such"
+        + " query was silently assembled with the plain keyset clause instead"
+        + " of the extended one", withAuidOrder >= 4);
+
+    // Aggregate count last: it is the weakest of these, since a shape that
+    // stopped being emitted would still leave it comfortably above any floor.
+    assertTrue("only " + prepared + " query variants were prepared",
+        prepared >= 58);
+
+    // ...which is why each shape is also asserted individually. Every prefix
+    // query must have been assembled once per shape.
+    for (int shape = 0; shape < prefixShapes.length; shape++) {
+      boolean[] s = (boolean[]) prefixShapes[shape][0];
+
+      assertEquals("prefix shape " + java.util.Arrays.toString(s)
+              + " was assembled " + shapesExercised[shape] + " times, expected"
+              + " once per prefix query per keyset variant",
+          2 * templatesWithPrefix, shapesExercised[shape]);
+    }
+  }
+
+  /** The number of occurrences of {@code ch} in {@code s}. */
+  private static int countChar(String s, char ch) {
+    int n = 0;
+
+    for (int i = 0; i < s.length(); i++) {
+      if (s.charAt(i) == ch) {
+        n++;
+      }
+    }
+
+    return n;
   }
 
   /** Reads a private static String constant from the query class. */

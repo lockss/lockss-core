@@ -53,6 +53,9 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
 
+import static org.lockss.config.db.SqlConstants.URL_DIGEST_EXPRESSION;
+import static org.lockss.config.db.SqlConstants.URL_DIGEST_PARAM_EXPRESSION;
+
 /**
  * Pins the concurrency semantics that {@code findOrCreate{Url,Auid,Namespace}Seq}
  * depend on, against a real PostgreSQL rather than against the documentation.
@@ -216,6 +219,10 @@ public class TestSQLArtifactIndexUpsertRace extends LockssTestCase4 {
     return readStaticString("UPSERT_URL_QUERY");
   }
 
+  private static String findUrlSeqSql() throws Exception {
+    return readStaticString("FIND_URL_SEQ_QUERY");
+  }
+
   private static String readStaticString(String name) throws Exception {
     java.lang.reflect.Field f =
         SQLArtifactIndexManagerSql.class.getDeclaredField(name);
@@ -231,8 +238,10 @@ public class TestSQLArtifactIndexUpsertRace extends LockssTestCase4 {
   public void testDoUpdateInsertsWhenTheWinnerRollsBack() throws Exception {
     Connection a = openConnection();
 
-    try (Statement st = a.createStatement()) {
-      st.executeUpdate("INSERT INTO namespaces (namespace) VALUES ('" + NS + "')");
+    try (PreparedStatement ps =
+             a.prepareStatement("INSERT INTO namespaces (namespace) VALUES (?)")) {
+      ps.setString(1, NS);
+      ps.executeUpdate();
     }
     // A is deliberately left uncommitted.
 
@@ -249,12 +258,15 @@ public class TestSQLArtifactIndexUpsertRace extends LockssTestCase4 {
         countRows("namespaces"));
 
     try (Connection conn = openConnection();
-         Statement st = conn.createStatement();
-         ResultSet rs = st.executeQuery(
-             "SELECT namespace_seq FROM namespaces WHERE namespace = '" + NS + "'")) {
-      assertTrue("the namespace must exist", rs.next());
-      assertEquals("B must have returned the sequence of the row it inserted",
-          bSeq.longValue(), rs.getLong(1));
+         PreparedStatement ps = conn.prepareStatement(
+             "SELECT namespace_seq FROM namespaces WHERE namespace = ?")) {
+      ps.setString(1, NS);
+
+      try (ResultSet rs = ps.executeQuery()) {
+        assertTrue("the namespace must exist", rs.next());
+        assertEquals("B must have returned the sequence of the row it inserted",
+            bSeq.longValue(), rs.getLong(1));
+      }
     }
   }
 
@@ -264,12 +276,15 @@ public class TestSQLArtifactIndexUpsertRace extends LockssTestCase4 {
     Connection a = openConnection();
     long aSeq;
 
-    try (Statement st = a.createStatement();
-         ResultSet rs = st.executeQuery(
-             "INSERT INTO namespaces (namespace) VALUES ('" + NS + "')"
+    try (PreparedStatement ps = a.prepareStatement(
+             "INSERT INTO namespaces (namespace) VALUES (?)"
              + " RETURNING namespace_seq")) {
-      rs.next();
-      aSeq = rs.getLong(1);
+      ps.setString(1, NS);
+
+      try (ResultSet rs = ps.executeQuery()) {
+        rs.next();
+        aSeq = rs.getLong(1);
+      }
     }
 
     Future<Long> b = upsertAsync(upsertNamespaceSql(), NS);
@@ -339,5 +354,90 @@ public class TestSQLArtifactIndexUpsertRace extends LockssTestCase4 {
         + " which is what sends findOrCreateUrlSeq to its fallback SELECT",
         bSeq);
     assertEquals("no second row may be created", 1L, countRows("urls"));
+  }
+
+  /**
+   * Pins what a digest collision would cost, and so what the digest choice is
+   * buying.
+   *
+   * <p>Uniqueness is declared on a digest of the URL rather than on the URL,
+   * because a btree index row is bounded and a URL is not. The price of that is
+   * this: a digest collision does not produce a wrong row, it produces a URL
+   * that cannot be stored at all. The upsert's {@code ON CONFLICT DO NOTHING}
+   * suppresses the insert, the fallback SELECT's {@code url = ?} term correctly
+   * refuses to match the other URL, and {@code findOrCreateUrlSeq()} turns the
+   * empty result into a {@link org.lockss.db.DbException}.
+   *
+   * <p>Producing a genuine colliding pair would make the fixture opaque, and
+   * for SHA-256 it is not possible at all. So the test substitutes a
+   * deterministic collision injector - the production digest truncated to zero
+   * bytes - which drives precisely the same
+   * {@code ON CONFLICT DO NOTHING -> exact fallback SELECT} control flow with
+   * every distinct URL colliding.
+   *
+   * <p>This is why {@code SqlConstants.URL_DIGEST_EXPRESSION} specifies
+   * SHA-256: the behavior below is reached whenever two distinct URLs share a
+   * digest, and MD5 collisions are constructible in seconds by anyone able to
+   * choose two URLs the repository will crawl. The exact-comparison term bounds
+   * the damage to a refused URL rather than a wrong one; only the strength of
+   * the digest keeps the case out of reach.
+   */
+  @Test
+  public void testDigestCollisionSuppressesDistinctUrlAndExactFallbackFindsNothing()
+      throws Exception {
+    String firstUrl = "http://example.com/first";
+    String secondUrl = "http://example.com/second";
+
+    // Same shape as the production expression, and constant for every input.
+    String collisionExpression =
+        "substring(" + URL_DIGEST_EXPRESSION + " from 1 for 0)";
+    String collisionParamExpression =
+        "substring(" + URL_DIGEST_PARAM_EXPRESSION + " from 1 for 0)";
+
+    // Keep the test statements structurally identical to the production
+    // statements; only substitute a deterministic collision-producing key.
+    String upsertSql =
+        upsertUrlSql().replace(URL_DIGEST_EXPRESSION, collisionExpression);
+    String findSql = findUrlSeqSql()
+        .replace(URL_DIGEST_EXPRESSION, collisionExpression)
+        .replace(URL_DIGEST_PARAM_EXPRESSION, collisionParamExpression);
+
+    assertNotEquals("the collision injector must actually replace something,"
+            + " or this test silently exercises the production expression",
+        upsertUrlSql(), upsertSql);
+
+    try (Connection conn = openConnection();
+         Statement st = conn.createStatement()) {
+      st.executeUpdate("DROP INDEX idx4_urls");
+      st.executeUpdate("CREATE UNIQUE INDEX idx4_urls ON urls ("
+          + collisionExpression + ")");
+
+      try (PreparedStatement first = conn.prepareStatement(upsertSql);
+           PreparedStatement second = conn.prepareStatement(upsertSql);
+           PreparedStatement fallback = conn.prepareStatement(findSql)) {
+        first.setString(1, firstUrl);
+        try (ResultSet rs = first.executeQuery()) {
+          assertTrue("the first URL must insert", rs.next());
+        }
+
+        second.setString(1, secondUrl);
+        try (ResultSet rs = second.executeQuery()) {
+          assertFalse("the conflicting distinct URL is incorrectly suppressed",
+              rs.next());
+        }
+
+        fallback.setString(1, secondUrl);
+        fallback.setString(2, secondUrl);
+        try (ResultSet rs = fallback.executeQuery()) {
+          assertFalse("the exact fallback must not mistake the first URL for the"
+              + " second", rs.next());
+        }
+      }
+
+      conn.commit();
+    }
+
+    assertEquals("the distinct colliding URL was not stored", 1L,
+        countRows("urls"));
   }
 }
