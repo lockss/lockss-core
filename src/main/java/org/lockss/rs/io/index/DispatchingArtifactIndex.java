@@ -343,19 +343,39 @@ public class DispatchingArtifactIndex extends AbstractArtifactIndex {
       }
     }
     // copy Artifacts to master index
-    ArtifactIndex volInd;
-    volInd = tempIndexMap.remove(key(namespace, auid));
+    //
+    // The volatile index is the ONLY copy of this AU's index until the copy
+    // below succeeds, so it must stay reachable through tempIndexMap until
+    // then. Removing it first (as this used to do) meant that any failure in
+    // indexArtifacts() -- a single bad artifact, a failed batch -- dropped the
+    // AU's entire index on the floor with no way to retry: the local reference
+    // went out of scope with the exception, and a second finishBulkStore() hit
+    // the "not in bulk store mode" IllegalStateException below. Recovery was a
+    // full reindex from WARCs.
+    //
+    // Leaving the entry in place on failure also keeps reads working: they are
+    // routed by findIndexHolding(), which consults tempIndexMap, so the AU
+    // continues to be served from the volatile index until a retried
+    // finishBulkStore() succeeds.
+    ArtifactIndex volInd = tempIndexMap.get(key(namespace, auid));
     if (volInd == null) {
       throw new IllegalStateException("Attempt to finishBulkStore of AU not in bulk store mode: " + namespace + ", " + auid);
     }
-    volInd.stop();
     try {
       Iterable<Artifact> artifacts = volInd.getArtifactsAllVersions(namespace, auid, true);
       masterIndex.indexArtifacts(artifacts);
     } catch (IOException e) {
-      log.error("Failed to retrieve and bulk add artifacts", e);
+      log.error("Failed to retrieve and bulk add artifacts; AU left in bulk " +
+                "store mode so finishBulkStore can be retried [ns: {}, auid: {}]",
+                namespace, auid, e);
       throw e;
     }
+
+    // Only now that the master index holds the artifacts is it safe to retire
+    // the volatile index. stop() is deferred to here for the same reason: a
+    // stopped index restored to the map would report itself not ready.
+    tempIndexMap.remove(key(namespace, auid));
+    volInd.stop();
   }
 
   private String key(String namespace, String auid) {
