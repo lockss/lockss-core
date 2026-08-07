@@ -2633,6 +2633,12 @@ public class SQLArtifactIndexManagerSql {
     // Refresh artifact-table stats once, after all rows are committed, so
     // post-load reads don't have to wait for autovacuum to catch up. Done
     // out-of-band for the same safety reason as the URL analyze.
+    //
+    // This is past the finally above: every artifact is durably committed and
+    // the connection is closed. Anything thrown from here would report the AU
+    // as failed with 100% of its rows in the database -- a pure false negative
+    // that, at the finishBulkStore() call site, used to cost the AU's entire
+    // volatile index. analyzeTableOutOfBand() is total, so it cannot.
     if (count > 0) {
       analyzeTableOutOfBand(ARTIFACT_TABLE);
     }
@@ -2677,6 +2683,14 @@ public class SQLArtifactIndexManagerSql {
   // A per-table advisory lock serializes concurrent refreshes so they don't
   // collide (and so we skip redundant work: the holder's ANALYZE benefits us
   // too). The advisory lock is transaction-scoped and released by the commit.
+  //
+  // THIS METHOD IS TOTAL: it returns normally no matter what goes wrong. That
+  // is a requirement, not a nicety. It is called from inside the addArtifacts()
+  // insert loop (via maybeAnalyzeUrls()) and again after the final commit, so
+  // anything it throws destroys the uncommitted batch and abandons every
+  // artifact left in the iterable -- or, from the trailing call site, fails an
+  // AU whose rows are already 100% committed. Nothing a statistics refresh does
+  // can justify that: ANALYZE only affects query planning.
   private void analyzeTableOutOfBand(String table) {
     Connection conn = null;
     try {
@@ -2700,10 +2714,16 @@ public class SQLArtifactIndexManagerSql {
 
       // Commit to release the advisory lock (and the ANALYZE's catalog updates).
       DbManager.commitOrRollback(conn, log);
-    } catch (SQLException | DbException e) {
+    } catch (Exception e) {
       // Best-effort: a failed ANALYZE (e.g. "tuple concurrently updated") aborts
       // only this throwaway transaction; the finally rolls it back and closes.
-      log.warn("Out-of-band ANALYZE {} failed (ignored): {}", table, e.getMessage());
+      //
+      // Deliberately Exception and not a checked list: an unchecked failure here
+      // is at least as likely as a checked one (a connection pool that is
+      // exhausted or shutting down throws IllegalStateException, drivers throw
+      // unchecked wrappers), and it would propagate all the way out of
+      // addArtifacts(). See the totality note above.
+      log.warn("Out-of-band ANALYZE {} failed (ignored): {}", table, e.toString());
     } finally {
       if (conn != null) {
         DbManager.safeRollbackAndClose(conn);
@@ -2732,8 +2752,11 @@ public class SQLArtifactIndexManagerSql {
     long seed = 0;
     try {
       seed = estimatedRowCount(URL_TABLE);
-    } catch (DbException e) {
-      log.warn("Could not seed urls row estimate; assuming empty: {}", e.getMessage());
+    } catch (Exception e) {
+      // Total, like analyzeTableOutOfBand(): this runs from noteUrlRowCreated(),
+      // i.e. on the creation of every new url row, deep inside the addArtifacts()
+      // insert loop. A failure to read a row estimate must never cost artifacts.
+      log.warn("Could not seed urls row estimate; assuming empty: {}", e.toString());
     }
     // Only the first thread to seed wins; others adopt whatever value was set.
     if (urlTableRowEstimate.compareAndSet(-1, seed)) {
@@ -2761,7 +2784,10 @@ public class SQLArtifactIndexManagerSql {
       long n = rs.next() ? rs.getLong(1) : 0;
       DbManager.commitOrRollback(conn, log);
       return Math.max(n, 0);
-    } catch (SQLException e) {
+    } catch (SQLException | RuntimeException e) {
+      // RuntimeException included so this method's whole failure surface is
+      // DbException; its caller is a best-effort path that must not let an
+      // unchecked failure escape into the artifact insert loop.
       throw new DbException("Could not read estimated row count for " + table, e);
     } finally {
       DbManager.safeCloseResultSet(rs);
