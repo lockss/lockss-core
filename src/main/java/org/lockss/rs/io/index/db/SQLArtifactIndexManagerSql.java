@@ -3023,6 +3023,24 @@ public class SQLArtifactIndexManagerSql {
    * also what makes the skip below safe -- a server-side error aborts the
    * transaction it is in, so a failed artifact must not leave the next one
    * sharing a poisoned connection.
+   *
+   * <p><b>TODO: batch this before making it the reindex path.</b> It has no
+   * callers today; the TODO in {@code SQLArtifactIndex.reindexArtifacts()}
+   * proposes wiring it up in place of that method's per-artifact loop, and as
+   * written it would be no faster than the loop it replaced. Per-artifact
+   * transactions cost a pool checkout and a COMMIT each, and the COMMIT is the
+   * expensive half: with {@code synchronous_commit=on} that is a WAL flush per
+   * artifact -- 1000 fsyncs per 1000 artifacts where a batched version does
+   * one.
+   *
+   * <p>The shape that keeps both throughput and isolation is the one
+   * {@code addArtifacts()} already uses, plus a failure path: hold one
+   * connection, commit every {@code ARTIFACT_INSERT_BATCH_SIZE} artifacts,
+   * and when a batch fails roll it back, take a fresh connection (a failed
+   * commit closes the old one) and re-drive that batch's artifacts
+   * individually, skipping the ones that actually fail. Buffer each batch in a
+   * {@code List} so the replay does not re-iterate the input, which may be
+   * single-use. Only the batch that failed pays the per-artifact cost.
    */
   public void upsertArtifactsForReindex(Iterable<Artifact> artifacts) throws DbException {
     int attempted = 0;
