@@ -651,6 +651,7 @@ public class SQLArtifactIndexDbManagerSql extends DbManagerSql {
     // costs nothing, whereas failing it where digest() is first needed would
     // abort after the table rewrites and the index build - the expensive part
     // of the migration - with no more of the schema converted than this.
+    log.info("createPgcryptoExtension");
     createPgcryptoExtension(conn);
 
     // First, for two independent reasons. It has to precede the merge, because
@@ -658,19 +659,26 @@ public class SQLArtifactIndexDbManagerSql extends DbManagerSql {
     // deployment where long_urls is not empty, the merge would fail trying to
     // write an oversized index row. And it has to precede the ALTER below, so
     // that a 108M-row btree is not rebuilt only to be dropped moments later.
+    log.info("DROP_URL_BTREE_INDEX_QUERY");
     executeDdlQuery(conn, DROP_URL_BTREE_INDEX_QUERY);
 
     // Queries to alter tables and indicies
+    log.info("VERSION_5_ALTER_TABLE_QUERIES");
     executeDdlQueries(conn, VERSION_5_ALTER_TABLE_QUERIES);
 
     // Reassemble any truncated URLs before anything depends on urls.url being
     // whole. Expected to affect no rows.
+    log.info("MERGE_LONG_URL_TAILS_QUERY");
     executeDdlQuery(conn, MERGE_LONG_URL_TAILS_QUERY);
 
     // Identify the duplicate groups and their survivors.
+    log.info("CREATE_DUP_URL_DIGESTS_QUERY");
     executeDdlQuery(conn, CREATE_DUP_URL_DIGESTS_QUERY);
+    log.info("INDEX_DUP_URL_DIGESTS_QUERY");
     executeDdlQuery(conn, INDEX_DUP_URL_DIGESTS_QUERY);
+    log.info("CREATE_URL_CANON_QUERY");
     executeDdlQuery(conn, CREATE_URL_CANON_QUERY);
+    log.info("INDEX_URL_CANON_QUERY");
     executeDdlQuery(conn, INDEX_URL_CANON_QUERY);
 
     // Collapsing duplicate URLs can leave two artifacts claiming the same
@@ -697,19 +705,26 @@ public class SQLArtifactIndexDbManagerSql extends DbManagerSql {
     }
 
     // Collapse the duplicates.
+    log.info("REPOINT_ARTIFACTS_QUERY");
     executeDdlQuery(conn, REPOINT_ARTIFACTS_QUERY);
+    log.info("DELETE_DUPLICATE_URLS_QUERY");
     executeDdlQuery(conn, DELETE_DUPLICATE_URLS_QUERY);
+    log.info("DROP_URL_CANON_QUERY");
     executeDdlQuery(conn, DROP_URL_CANON_QUERY);
+    log.info("DROP_DUP_URL_DIGESTS_QUERY");
     executeDdlQuery(conn, DROP_DUP_URL_DIGESTS_QUERY);
 
     // urls.url now holds every URL whole, so the tail table has no purpose.
+    log.info("DROP_LONG_URL_TABLE_QUERY");
     executeDdlQuery(conn, DROP_LONG_URL_TABLE_QUERY);
 
     // Restore the uniqueness v4 removed. Fails if any duplicate survived above.
+    log.info("UNIQUE_URL_DIGEST_INDEX_QUERY");
     executeDdlQuery(conn, UNIQUE_URL_DIGEST_INDEX_QUERY);
 
     // Rebuild the prefix index over a bounded expression. Last, so it is built
     // once over the final row set rather than maintained through the dedup.
+    log.info("URL_PREFIX_INDEX_QUERY");
     executeDdlQuery(conn, URL_PREFIX_INDEX_QUERY);
 
     log.debug2("Done.");
