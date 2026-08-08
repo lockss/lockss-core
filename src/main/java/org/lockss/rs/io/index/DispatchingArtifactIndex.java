@@ -54,7 +54,11 @@ public class DispatchingArtifactIndex extends AbstractArtifactIndex {
   private final static L4JLogger log = L4JLogger.getLogger();
 
   private final ArtifactIndex masterIndex;
-  private final Map<String,ArtifactIndex> tempIndexMap = new CopyOnWriteMap<>();
+  // Typed as VolatileArtifactIndex, not ArtifactIndex: finishBulkStore() needs
+  // setReadOnly()/setWritable(), which are on AbstractArtifactIndex rather than
+  // the ArtifactIndex interface, and startBulkStore() is the only thing that
+  // ever puts into this map.
+  private final Map<String,VolatileArtifactIndex> tempIndexMap = new CopyOnWriteMap<>();
 
   public DispatchingArtifactIndex(ArtifactIndex master) {
     this.masterIndex = master;
@@ -331,17 +335,6 @@ public class DispatchingArtifactIndex extends AbstractArtifactIndex {
   @Override
   public void finishBulkStore(String namespace, String auid,
                               int copyBatchSize) throws IOException {
-    // Wait for all background commits for this AU to finish.  (They
-    // call updateStorageUrl(), but index reads or writes are not
-    // permitted and likely won't work correctly while the Artifacts
-    // are being copied into Solr
-    ArtifactDataStore store = repository.getArtifactDataStore();
-    if (store instanceof WarcArtifactDataStore warcStore) {
-      if (!warcStore.waitForCommitTasks(namespace, auid)) {
-        log.warn("waitForCommitTasks() was interrupted");
-        throw new InterruptedIOException("finishBulk interrupted");
-      }
-    }
     // copy Artifacts to master index
     //
     // The volatile index is the ONLY copy of this AU's index until the copy
@@ -357,14 +350,60 @@ public class DispatchingArtifactIndex extends AbstractArtifactIndex {
     // routed by findIndexHolding(), which consults tempIndexMap, so the AU
     // continues to be served from the volatile index until a retried
     // finishBulkStore() succeeds.
-    ArtifactIndex volInd = tempIndexMap.get(key(namespace, auid));
+    VolatileArtifactIndex volInd = tempIndexMap.get(key(namespace, auid));
     if (volInd == null) {
       throw new IllegalStateException("Attempt to finishBulkStore of AU not in bulk store mode: " + namespace + ", " + auid);
     }
+
+    // Quiesce the AU in two phases, because a modification arriving during the
+    // copy is either lost -- it lands after its artifact was copied, in an
+    // index about to be discarded -- or breaks the copy outright, since the
+    // iterable below is a sorted stream over the live index and a mutation
+    // mid-iteration surfaces as ConcurrentModificationException. Neither is
+    // visible to the caller today; making the index reject the write turns a
+    // silent loss into an exception at the point of the attempt.
+    //
+    // Phase 1: stop accepting new work, but let work already accepted finish.
+    // This has to come BEFORE the drain below and must NOT be a full freeze:
+    // the drain waits for queued CopyArtifactTasks, whose whole purpose is to
+    // call updateStorageUrl() so the index points at each artifact's permanent
+    // WARC rather than the temporary one it was first written to. Freezing
+    // first would reject exactly the writes being waited for, and the copy
+    // would push temporary-WARC storage URLs into the master index.
+    String reason = "bulk-store copy in progress [ns: " + namespace + ", auid: " + auid + "]";
+    volInd.setWriteMode(AbstractArtifactIndex.WriteMode.DRAINING, reason);
+
     try {
+      // Wait for all background commits for this AU to finish.  (They
+      // call updateStorageUrl(), but index reads or writes are not
+      // permitted and likely won't work correctly while the Artifacts
+      // are being copied into Solr
+      ArtifactDataStore store = repository.getArtifactDataStore();
+      if (store instanceof WarcArtifactDataStore warcStore) {
+        if (!warcStore.waitForCommitTasks(namespace, auid)) {
+          log.warn("waitForCommitTasks() was interrupted");
+          throw new InterruptedIOException("finishBulk interrupted");
+        }
+      }
+
+      // Phase 2: nothing accepted before the drain is still outstanding, so
+      // refuse everything for the copy itself.
+      //
+      // This is not airtight. commitArtifactData() commits to the index, writes
+      // its journal entry, and only then submits the copy task, so a commit
+      // that got past phase 1 just before it was set can still queue a task
+      // after the drain. That task now fails here instead of mutating an index
+      // about to be discarded; it leaves the artifact PENDING_COPY, so the copy
+      // is retried rather than lost. Closing that gap entirely needs a per-AU
+      // gate held across the whole commit sequence, not a mode flag.
+      volInd.setWriteMode(AbstractArtifactIndex.WriteMode.FROZEN, reason);
+
       Iterable<Artifact> artifacts = volInd.getArtifactsAllVersions(namespace, auid, true);
       masterIndex.indexArtifacts(artifacts);
-    } catch (IOException e) {
+    } catch (IOException | RuntimeException e) {
+      // Neither the drain nor the copy is still running, so the AU goes back to
+      // accepting writes until finishBulkStore is retried.
+      volInd.setWritable();
       log.error("Failed to retrieve and bulk add artifacts; AU left in bulk " +
                 "store mode so finishBulkStore can be retried [ns: {}, auid: {}]",
                 namespace, auid, e);
@@ -374,6 +413,11 @@ public class DispatchingArtifactIndex extends AbstractArtifactIndex {
     // Only now that the master index holds the artifacts is it safe to retire
     // the volatile index. stop() is deferred to here for the same reason: a
     // stopped index restored to the map would report itself not ready.
+    //
+    // Note the index stays read-only across the remove(): dropping the freeze
+    // first would reopen the window for a write to land in an index that is
+    // about to be discarded. Once it is out of the map, findIndexHolding()
+    // routes the AU's writes to the master index.
     tempIndexMap.remove(key(namespace, auid));
     volInd.stop();
   }
