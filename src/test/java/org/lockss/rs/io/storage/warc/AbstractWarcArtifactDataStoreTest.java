@@ -1569,6 +1569,68 @@ public abstract class AbstractWarcArtifactDataStoreTest<WADS extends WarcArtifac
   }
 
   /**
+   * Regression test for the temporary-WARC reload path: after reloading a tmp WARC
+   * that still holds a live uncommitted artifact, an immediate GC tick must NOT reap
+   * the WARC, and {@code getArtifactData} must succeed against the reloaded artifact.
+   * Previously, the reloaded {@link WarcFile} was added to the pool with zero stats
+   * and {@code latestExpiration=0}, so the very next {@code runGC()} pass deleted
+   * the file and subsequent reads failed with "expired and was GCed".
+   */
+  @Test
+  public void testReloadedTempWarcSurvivesImmediateGc() throws Exception {
+    teardownDataStore();
+
+    ArtifactIndex index = new VolatileArtifactIndex();
+    index.init();
+
+    store = makeWarcArtifactDataStore(index);
+    assertNotNull(store);
+    assertEquals(1, store.getTmpWarcBasePaths().length);
+    Path tmpWarcBasePath = store.getTmpWarcBasePaths()[0];
+
+    // Add a single uncommitted artifact so its tmp WARC is non-removable on reload.
+    ArtifactSpec spec = ArtifactSpec.forNsAuUrl(NS1, AUID1, URL1);
+    spec.setArtifactUuid(UUID.randomUUID().toString());
+    spec.generateContent();
+    ArtifactData ad = spec.getArtifactData();
+    ad.setStorageUrl(new URI("test://artifacts.warc"));
+    Artifact storedRef = store.addArtifactData(ad);
+    assertNotNull(storedRef);
+    String artifactUuid = storedRef.getUuid();
+    Path tmpWarcPath = WarcArtifactDataStore.getPathFromStorageUrl(new URI(storedRef.getStorageUrl()));
+    assertTrue(tmpWarcPath.startsWith(tmpWarcBasePath));
+
+    // Restart against the same on-disk state and reload from the journal.
+    WADS reloadedStore = makeWarcArtifactDataStore(index, store);
+    assertNotNull(reloadedStore);
+    // Keep the default (long) uncommitted expiration so the UNCOMMITTED entry is not
+    // immediately past-expiration.
+    for (Path tmpBasePath : store.getTmpWarcBasePaths()) {
+      reloadedStore.reloadTemporaryWarcs(index, tmpBasePath);
+    }
+
+    // The tmp WARC must still be on disk and registered with the pool.
+    assertTrue(isFile(tmpWarcPath), "Reloaded tmp WARC missing from disk: " + tmpWarcPath);
+    WarcFile pooled = reloadedStore.tmpWarcPool.getWarcFile(tmpWarcPath);
+    assertNotNull(pooled, "Reloaded tmp WARC not in pool");
+
+    // Fire the GC immediately. With correct stats (uncommitted > 0, latestExpiration in
+    // the future) the WARC must survive.
+    reloadedStore.tmpWarcPool.runGC();
+
+    assertTrue(isFile(tmpWarcPath), "GC reaped a non-removable reloaded tmp WARC: " + tmpWarcPath);
+    assertNotNull(reloadedStore.tmpWarcPool.getWarcFile(tmpWarcPath),
+        "Reloaded tmp WARC removed from pool by GC");
+
+    // getArtifactData must succeed instead of throwing LockssNoSuchArtifactIdException.
+    Artifact reloadedArtifact = index.getArtifact(artifactUuid);
+    assertNotNull(reloadedArtifact);
+    try (ArtifactData reloadedData = reloadedStore.getArtifactData(reloadedArtifact)) {
+      assertNotNull(reloadedData);
+    }
+  }
+
+  /**
    * Test for {@link WarcArtifactDataStore#isTempWarcRemovable(Path)}.
    *
    * @throws Exception

@@ -40,6 +40,11 @@ import org.lockss.exporter.kbart.HtmlKbartExporter;
  * that don't currently have the ability to register themselves.
  */
 public class MiscConfig {
+
+  public static String PARAM_AVOID_EXCESSIVE_NEVER_DELETED_LOGGING =
+    Configuration.PREFIX + "misc.avoidExcessiveNeverDeletedLogging";
+  public static boolean DEFAULT_AVOID_EXCESSIVE_NEVER_DELETED_LOGGING = true;
+
   public static Configuration.Callback getConfigCallback() {
     return
       new Configuration.Callback() {
@@ -65,6 +70,7 @@ public class MiscConfig {
 	  CharsetUtil.setConfig(config,oldConfig,diffs);
 	  SubscriptionManagement.setConfig(config, oldConfig, diffs);
 	  org.lockss.pdf.pdfbox.PdfBoxDocumentFactory.SINGLETON.setConfig(config, oldConfig, diffs);
+          org.lockss.util.io.DeferredTempFileOutputStream.setAvoidExcessiveNeverDeletedLogging(config.getBoolean(PARAM_AVOID_EXCESSIVE_NEVER_DELETED_LOGGING, DEFAULT_AVOID_EXCESSIVE_NEVER_DELETED_LOGGING));
 	}
       };
   }

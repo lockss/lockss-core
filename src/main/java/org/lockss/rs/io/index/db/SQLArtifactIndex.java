@@ -54,6 +54,14 @@ import java.util.concurrent.Future;
 public class SQLArtifactIndex extends AbstractArtifactIndex {
   private final static L4JLogger log = L4JLogger.getLogger();
 
+  public SQLArtifactIndex() {
+    // Intentionally left blank
+  }
+
+  public SQLArtifactIndex(SQLArtifactIndexManagerSql idxdb) {
+    this.idxdb = idxdb;
+  }
+
   @Override
   public ArtifactIndexVersion getArtifactIndexTargetVersion() {
     return new ArtifactIndexVersion()

@@ -44,7 +44,8 @@ public class PersistentStateManager extends CachingStateManager {
   protected static L4JLogger log = L4JLogger.getLogger();
 
   // The database state manager SQL executor.
-  private StateStore stateStore = null;
+  private volatile StateStore stateStore = null;
+  private final Object stateStoreInitLock = new Object();
 
 
   // /////////////////////////////////////////////////////////////////
@@ -322,13 +323,19 @@ public class PersistentStateManager extends CachingStateManager {
    *           if any problem occurred accessing the database.
    */
   protected StateStore getStateStore() throws StoreException {
-    if (stateStore == null) {
-      ConfigDbManager cfgDbMgr = theApp.getManagerByType(ConfigDbManager.class);
-      assert cfgDbMgr.isReady();
-      stateStore = new PersistentStateManagerStateStore(cfgDbMgr);
+    StateStore store = stateStore;
+    if (store == null) {
+      synchronized (stateStoreInitLock) {
+        store = stateStore;
+        if (store == null) {
+          ConfigDbManager cfgDbMgr = theApp.getManagerByType(ConfigDbManager.class);
+          assert cfgDbMgr.isReady();
+          store = new PersistentStateManagerStateStore(cfgDbMgr);
+          stateStore = store;
+        }
+      }
     }
-
-    return stateStore;
+    return store;
   }
 
   // /////////////////////////////////////////////////////////////////

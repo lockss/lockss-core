@@ -31,6 +31,7 @@ package org.lockss.state;
 import java.io.*;
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.locks.ReentrantLock;
 
 import org.lockss.account.AccountManager;
 import org.lockss.account.UserAccount;
@@ -51,6 +52,26 @@ import org.lockss.state.AuSuspectUrlVersions.SuspectUrlVersion;
  * exist) but still want to cache bean data to avoid extra DB accesses.
  */
 public abstract class CachingStateManager extends BaseStateManager {
+
+  /**
+   * Locks used to serialize operations on one cached state object.  Locks are
+   * striped so that the registry remains bounded; the state kind is part of
+   * the key, therefore an AuState update does not block an AuAgreements
+   * update for the same AU.
+   */
+  private static final int STATE_LOCK_STRIPES = 1024;
+  private final ReentrantLock[] stateLocks = new ReentrantLock[STATE_LOCK_STRIPES];
+
+  protected CachingStateManager() {
+    for (int i = 0; i < stateLocks.length; i++) {
+      stateLocks[i] = new ReentrantLock();
+    }
+  }
+
+  private ReentrantLock stateLock(String kind, String key) {
+    int hash = 31 * kind.hashCode() + (key == null ? 0 : key.hashCode());
+    return stateLocks[(hash & 0x7fffffff) % stateLocks.length];
+  }
 
   protected static L4JLogger log = L4JLogger.getLogger();
 
@@ -136,29 +157,38 @@ public abstract class CachingStateManager extends BaseStateManager {
   /** Return the current singleton AuState for the AU, creating one if
    * necessary. */
   @Override
-  public synchronized AuState getAuState(ArchivalUnit au) {
+  public AuState getAuState(ArchivalUnit au) {
     String key = auKey(au);
-    AuState aus = auStates.get(key);
-    if (aus == null) {
-      AuStateBean ausb = auStateBeans.get(key);
-      if (ausb != null) {
+    ReentrantLock lock = stateLock("AuState", key);
+    lock.lock();
+    try {
+      AuState aus = auStates.get(key);
+      if (aus == null) {
+	AuStateBean ausb = auStateBeans.get(key);
+	if (ausb != null) {
 	// Create an AuState, move the item from bean to main cache.  No
 	// store needed here has been exists and has been stored
-	aus = new AuState(au, this, ausb);
-	putAuState(key, aus);
+	  aus = new AuState(au, this, ausb);
+	  putAuState(key, aus);
+	}
       }
+      log.debug2("getAuState({}) [{}] = {}", au, key, aus);
+      if (aus == null) {
+	aus = handleAuStateCacheMiss(au);
+      }
+      return aus;
+    } finally {
+      lock.unlock();
     }
-    log.debug2("getAuState({}) [{}] = {}", au, key, aus);
-    if (aus == null) {
-      aus = handleAuStateCacheMiss(au);
-    }
-    return aus;
   }
 
   /** Return the current singleton AuStateBean for the auid, creating one
    * if necessary. */
   @Override
-  public synchronized AuStateBean getAuStateBean(String key) {
+  public AuStateBean getAuStateBean(String key) {
+    ReentrantLock lock = stateLock("AuState", key);
+    lock.lock();
+    try {
     // first look for a cached AuState, return its bean
     AuState aus = auStates.get(key);
     if (aus != null) {
@@ -172,14 +202,20 @@ public abstract class CachingStateManager extends BaseStateManager {
       ausb = handleAuStateBeanCacheMiss(key);
     }
     return ausb;
+    } finally {
+      lock.unlock();
+    }
   }
 
   /** Update the stored AuState with the values of the listed fields.
    * @param aus The source of the new values.
    */
   @Override
-  public synchronized void updateAuState(AuState aus, Set<String> fields) {
+  public void updateAuState(AuState aus, Set<String> fields) {
     String key = auKey(aus.getArchivalUnit());
+    ReentrantLock lock = stateLock("AuState", key);
+    lock.lock();
+    try {
     log.debug2("updateAuState: {}: {}", key, fields);
     AuState cur = auStates.get(key);
     try {
@@ -206,22 +242,29 @@ public abstract class CachingStateManager extends BaseStateManager {
       log.error("Couldn't serialize AuState: {}", aus, e);
       throw new StateLoadStoreException("Couldn't serialize AuState: " + aus);
     }
+    }
+    finally {
+      lock.unlock();
+    }
   }
 
   /** Update the stored AuState with the values of the listed fields.
    * @param ausb The source of the new values.
    */
   @Override
-  public synchronized void updateAuStateBean(String key,
+  public void updateAuStateBean(String key,
 					     AuStateBean ausb,
 					     Set<String> fields) {
     updateAuStateBean(key, ausb, fields, null);
   }
 
-  public synchronized void updateAuStateBean(String key,
+  public void updateAuStateBean(String key,
 					     AuStateBean ausb,
 					     Set<String> fields,
 					     String cookie) {
+    ReentrantLock lock = stateLock("AuState", key);
+    lock.lock();
+    try {
     log.debug2("Updating AuState: {}: {}", key, fields);
     AuState curaus = auStates.get(key);
     AuStateBean curausb;
@@ -250,6 +293,10 @@ public abstract class CachingStateManager extends BaseStateManager {
       throw new StateLoadStoreException("Couldn't serialize AuStateBean: " +
 					ausb);
     }
+    }
+    finally {
+      lock.unlock();
+    }
   }
 
   /** Update AuState from a json string
@@ -261,9 +308,13 @@ public abstract class CachingStateManager extends BaseStateManager {
   @Override
   public void updateAuStateFromJson(String auid, String json, String cookie)
       throws IOException {
+    ReentrantLock lock = stateLock("AuState", auid);
+    lock.lock();
+    try {
     AuStateBean ausb = getAuStateBean(auid);
     ausb.updateFromJson(json, daemon);
     updateAuStateBean(auid, ausb, AuUtil.jsonToMap(json).keySet(), cookie);
+    } finally { lock.unlock(); }
   }
 
   /** Store an AuState from a json string
@@ -281,24 +332,32 @@ public abstract class CachingStateManager extends BaseStateManager {
   /** Store an AuState not obtained from StateManager.  Useful in tests.
    * Can only be called once per AU. */
   @Override
-  public synchronized void storeAuState(AuState aus) {
+  public void storeAuState(AuState aus) {
     String key = auKey(aus.getArchivalUnit());
+    ReentrantLock lock = stateLock("AuState", key);
+    lock.lock();
+    try {
     if (auStates.containsKey(key)) {
       throw new IllegalStateException("Storing 2nd AuState: " + key);
     }
     putAuState(key, aus);
     doStoreAuStateBean(key, aus.getBean(), null);
+    } finally { lock.unlock(); }
   }
 
   /** Store an AuStateBean not obtained from StateManager.  Useful in
    * tests.  Can only be called once per AU. */
   @Override
-  public synchronized void storeAuStateBean(String key, AuStateBean ausb) {
+  public void storeAuStateBean(String key, AuStateBean ausb) {
+    ReentrantLock lock = stateLock("AuState", key);
+    lock.lock();
+    try {
     if (hasAuState(key)) {
       throw new IllegalStateException("Storing 2nd AuState: " + key);
     }
     auStateBeans.put(key, ausb);
     doStoreAuStateBean(key, ausb, null);
+    } finally { lock.unlock(); }
   }
 
   /** Return true if an AuState(Bean) exists for the given auid
@@ -312,9 +371,14 @@ public abstract class CachingStateManager extends BaseStateManager {
   /** Default behavior when AU is deleted/deactivated is to remove AuState
    * from cache.  Persistent implementations should not remove it from
    * storage. */
-  protected synchronized void handleAuDeletedAuState(ArchivalUnit au) {
-    auStates.remove(auKey(au));
-    auStateBeans.remove(auKey(au));
+  protected void handleAuDeletedAuState(ArchivalUnit au) {
+    String key = auKey(au);
+    ReentrantLock lock = stateLock("AuState", key);
+    lock.lock();
+    try {
+      auStates.remove(key);
+      auStateBeans.remove(key);
+    } finally { lock.unlock(); }
   }
 
   /** Handle a cache miss.  Call hooks to load an object from backing
@@ -362,13 +426,13 @@ public abstract class CachingStateManager extends BaseStateManager {
   /** @return a Map suitable for an AuState cache.  By default a HashMap,
    * for a complete cache. */
   protected Map<String,AuState> newAuStateMap() {
-    return new HashMap<>();
+    return new ConcurrentHashMap<>();
   }
 
   /** @return a Map suitable for an AuStateBean cache.  By default a
    * HashMap, for a complete cache. */
   protected Map<String,AuStateBean> newAuStateBeanMap() {
-    return new HashMap<>();
+    return new ConcurrentHashMap<>();
   }
 
   /** Return true if an update call for an unknown AuState should be
@@ -388,25 +452,32 @@ public abstract class CachingStateManager extends BaseStateManager {
 
   /** Return the current singleton AuAgreements for the auid, creating one
    * if necessary. */
-  public synchronized AuAgreements getAuAgreements(String key) {
+  public AuAgreements getAuAgreements(String key) {
+    ReentrantLock lock = stateLock("AuAgreements", key);
+    lock.lock();
+    try {
     AuAgreements aua = agmnts.get(key);
     log.debug2("getAuAgreements({}) = {}", key, aua);
     if (aua == null) {
       aua = handleAuAgreementsCacheMiss(key);
     }
     return aua;
+    } finally { lock.unlock(); }
   }
 
-  public synchronized void updateAuAgreements(String key,
+  public void updateAuAgreements(String key,
 					      AuAgreements aua,
 					      Set<PeerIdentity> peers) {
     updateAuAgreements(key, aua, peers, null);
   }
 
-  public synchronized void updateAuAgreements(String key,
+  public void updateAuAgreements(String key,
 					      AuAgreements aua,
 					      Set<PeerIdentity> peers,
 					      String cookie) {
+    ReentrantLock lock = stateLock("AuAgreements", key);
+    lock.lock();
+    try {
     log.debug2("Updating AuAgreements: {}: {}", key, peers);
     AuAgreements curaua = agmnts.get(key);
     try {
@@ -428,6 +499,8 @@ public abstract class CachingStateManager extends BaseStateManager {
       throw new StateLoadStoreException("Couldn't serialize AuAgreements: " +
 					aua);
     }
+    }
+    finally { lock.unlock(); }
   }
 
   /** Entry point from state service to store changes to an AuAgreements.  Write
@@ -440,22 +513,29 @@ public abstract class CachingStateManager extends BaseStateManager {
   public void updateAuAgreementsFromJson(String auid, String json,
 					 String cookie)
       throws IOException {
+    ReentrantLock lock = stateLock("AuAgreements", auid);
+    lock.lock();
+    try {
     AuAgreements aua = getAuAgreements(auid);
     Set<PeerIdentity> changedPids = aua.updateFromJson(json, daemon);
     updateAuAgreements(auid, aua, changedPids, cookie);
+    } finally { lock.unlock(); }
   }
 
   /** Store an AuAgreements not obtained from StateManager.  Useful in tests.
    * Can only be called once per AU. */
-  public synchronized void storeAuAgreements(String key, AuAgreements aua) {
+  public void storeAuAgreements(String key, AuAgreements aua) {
     updateAuAgreements(key, aua, null);
   }
 
   /** Default behavior when AU is deleted/deactivated is to remove
    * AuAgreements from cache.  Persistent implementations should not remove
    * it from storage. */
-  protected synchronized void handleAuDeletedAuAgreements(ArchivalUnit au) {
-    agmnts.remove(auKey(au));
+  protected void handleAuDeletedAuAgreements(ArchivalUnit au) {
+    String key = auKey(au);
+    ReentrantLock lock = stateLock("AuAgreements", key);
+    lock.lock();
+    try { agmnts.remove(key); } finally { lock.unlock(); }
   }
 
   /** Handle a cache miss.  Call hooks to load an object from backing
@@ -507,19 +587,23 @@ public abstract class CachingStateManager extends BaseStateManager {
 
   /** Return the current singleton AuSuspectUrlVersions for the auid,
    * creating one if necessary. */
-  public synchronized AuSuspectUrlVersions getAuSuspectUrlVersions(String key) {
+  public AuSuspectUrlVersions getAuSuspectUrlVersions(String key) {
+    ReentrantLock lock = stateLock("AuSuspectUrlVersions", key);
+    lock.lock();
+    try {
     AuSuspectUrlVersions asuv = suspectVers.get(key);
     log.debug2("getAuSuspectUrlVersions({}) = {}", key, asuv);
     if (asuv == null) {
       asuv = handleAuSuspectUrlVersionsCacheMiss(key);
     }
     return asuv;
+    } finally { lock.unlock(); }
   }
 
   /** Completely replace the stored AuSuspectUrlVersions with the data from
    * this one.
    */
-  public synchronized void updateAuSuspectUrlVersions(String key,
+  public void updateAuSuspectUrlVersions(String key,
 					     AuSuspectUrlVersions asuv) {
     updateAuSuspectUrlVersions(key, asuv, null);
   }
@@ -528,16 +612,19 @@ public abstract class CachingStateManager extends BaseStateManager {
    * this one.  The versions arg is intended for future use, to support
    * incremental udpate.  It's currently always null.
    */
-  public synchronized void updateAuSuspectUrlVersions(String key,
+  public void updateAuSuspectUrlVersions(String key,
 					      AuSuspectUrlVersions asuv,
 					      Set<SuspectUrlVersion> versions) {
     updateAuSuspectUrlVersions(key, asuv, versions, null);
   }
 
-  public synchronized void updateAuSuspectUrlVersions(String key,
+  public void updateAuSuspectUrlVersions(String key,
 					      AuSuspectUrlVersions asuv,
 					      Set<SuspectUrlVersion> versions,
 					      String cookie) {
+    ReentrantLock lock = stateLock("AuSuspectUrlVersions", key);
+    lock.lock();
+    try {
     log.debug2("Updating suspectUrlVersions: {}: {}", key, asuv);
     AuSuspectUrlVersions curasuv = suspectVers.get(key);
     try {
@@ -559,6 +646,8 @@ public abstract class CachingStateManager extends BaseStateManager {
       throw new StateLoadStoreException("Couldn't serialize AuSuspectUrlVersions: " +
 	  asuv);
     }
+    }
+    finally { lock.unlock(); }
   }
 
   /** Entry point from state service to store changes to an AuSuspectUrlVersions.  Write
@@ -571,14 +660,18 @@ public abstract class CachingStateManager extends BaseStateManager {
   public void updateAuSuspectUrlVersionsFromJson(String auid, String json,
 						 String cookie)
       throws IOException {
+    ReentrantLock lock = stateLock("AuSuspectUrlVersions", auid);
+    lock.lock();
+    try {
     AuSuspectUrlVersions asuv = getAuSuspectUrlVersions(auid);
     Set<SuspectUrlVersion> changedVersions = asuv.updateFromJson(json, daemon);
     updateAuSuspectUrlVersions(auid, asuv, changedVersions);
+    } finally { lock.unlock(); }
   }
 
   /** Store an AuSuspectUrlVersions not obtained from StateManager.  Useful in tests.
    * Can only be called once per AU. */
-  public synchronized void storeAuSuspectUrlVersions(String key,
+  public void storeAuSuspectUrlVersions(String key,
       AuSuspectUrlVersions asuv) {
     updateAuSuspectUrlVersions(key, asuv, null);
   }
@@ -586,8 +679,11 @@ public abstract class CachingStateManager extends BaseStateManager {
   /** Default behavior when AU is deleted/deactivated is to remove
    * AuSuspectUrlVersions from cache.  Persistent implementations should not remove
    * it from storage. */
-  protected synchronized void handleAuDeletedAuSuspectUrlVersions(ArchivalUnit au) {
-    suspectVers.remove(auKey(au));
+  protected void handleAuDeletedAuSuspectUrlVersions(ArchivalUnit au) {
+    String key = auKey(au);
+    ReentrantLock lock = stateLock("AuSuspectUrlVersions", key);
+    lock.lock();
+    try { suspectVers.remove(key); } finally { lock.unlock(); }
   }
 
   /** Handle a cache miss.  Call hooks to load an object from backing
@@ -640,30 +736,37 @@ public abstract class CachingStateManager extends BaseStateManager {
 
   /** Return the current singleton NoAuPeerSet for the auid,
    * creating one if necessary. */
-  public synchronized DatedPeerIdSet getNoAuPeerSet(String key) {
+  public DatedPeerIdSet getNoAuPeerSet(String key) {
+    ReentrantLock lock = stateLock("NoAuPeerSet", key);
+    lock.lock();
+    try {
     DatedPeerIdSet naps = noAuPeerSets.get(key);
     log.debug2("getNoAuPeerSet({}) = {}", key, naps);
     if (naps == null) {
       naps = handleNoAuPeerSetCacheMiss(key);
     }
     return naps;
+    } finally { lock.unlock(); }
   }
 
-  public synchronized void updateNoAuPeerSet(String key,
+  public void updateNoAuPeerSet(String key,
 					     DatedPeerIdSet naps) {
     updateNoAuPeerSet(key, naps, null);
   }
 
-  public synchronized void updateNoAuPeerSet(String key,
+  public void updateNoAuPeerSet(String key,
 					     DatedPeerIdSet naps,
 					     Set<PeerIdentity> peers) {
     updateNoAuPeerSet(key, naps, peers, null);
   }
 
-  public synchronized void updateNoAuPeerSet(String key,
+  public void updateNoAuPeerSet(String key,
 					     DatedPeerIdSet naps,
 					     Set<PeerIdentity> peers,
 					     String cookie) {
+    ReentrantLock lock = stateLock("NoAuPeerSet", key);
+    lock.lock();
+    try {
     log.debug2("Updating NoAuPeerSet: {}: {})", key, naps);
     DatedPeerIdSet curnaps = noAuPeerSets.get(key);
     try {
@@ -685,6 +788,8 @@ public abstract class CachingStateManager extends BaseStateManager {
       throw new StateLoadStoreException("Couldn't serialize NoAuPeerSet: " +
 					naps);
     }
+    }
+    finally { lock.unlock(); }
   }
 
   /** Entry point from state service to store changes to an NoAuPeerSet.  Write
@@ -696,22 +801,29 @@ public abstract class CachingStateManager extends BaseStateManager {
    */
   public void updateNoAuPeerSetFromJson(String auid, String json, String cookie)
       throws IOException {
+    ReentrantLock lock = stateLock("NoAuPeerSet", auid);
+    lock.lock();
+    try {
     DatedPeerIdSet naps = getNoAuPeerSet(auid);
     Set<PeerIdentity> changedPids = naps.updateFromJson(json, daemon);
     updateNoAuPeerSet(auid, naps, changedPids, cookie);
+    } finally { lock.unlock(); }
   }
 
   /** Store an NoAuPeerSet not obtained from StateManager.  Useful in tests.
    * Can only be called once per AU. */
-  public synchronized void storeNoAuPeerSet(String key, DatedPeerIdSet naps) {
+  public void storeNoAuPeerSet(String key, DatedPeerIdSet naps) {
     updateNoAuPeerSet(key, naps, null);
   }
 
   /** Default behavior when AU is deleted/deactivated is to remove
    * NoAuPeerSet from cache.  Persistent implementations should not remove
    * it from storage. */
-  protected synchronized void handleAuDeletedNoAuPeerSet(ArchivalUnit au) {
-    noAuPeerSets.remove(auKey(au));
+  protected void handleAuDeletedNoAuPeerSet(ArchivalUnit au) {
+    String key = auKey(au);
+    ReentrantLock lock = stateLock("NoAuPeerSet", key);
+    lock.lock();
+    try { noAuPeerSets.remove(key); } finally { lock.unlock(); }
   }
 
   /** Handle a cache miss.  Call hooks to load an object from backing
@@ -770,12 +882,16 @@ public abstract class CachingStateManager extends BaseStateManager {
   }
 
   @Override
-  public synchronized UserAccount getUserAccount(String name) throws IOException {
+  public UserAccount getUserAccount(String name) throws IOException {
+    ReentrantLock lock = stateLock("UserAccount", name);
+    lock.lock();
+    try {
     UserAccount acct = userAccounts.get(name);
     if (acct == null) {
       acct = handleUserAccountCacheMiss(name);
     }
     return acct;
+    } finally { lock.unlock(); }
   }
 
   protected UserAccount handleUserAccountCacheMiss(String name) throws IOException {
@@ -787,12 +903,15 @@ public abstract class CachingStateManager extends BaseStateManager {
   }
 
   @Override
-  public synchronized void storeUserAccount(UserAccount acct) throws IOException {
+  public void storeUserAccount(UserAccount acct) throws IOException {
     if (acct == null) {
       throw new IllegalArgumentException("Cannot store null UserAccount");
     }
 
     String name = acct.getName();
+    ReentrantLock lock = stateLock("UserAccount", name);
+    lock.lock();
+    try {
 
     // Check whether the UserAccount already exists in this cache (if loaded
     // or added already) or the user exists in the StateStore:
@@ -820,11 +939,15 @@ public abstract class CachingStateManager extends BaseStateManager {
     doUserAccountChangedCallbacks(UserAccount.UserAccountChange.ADD, name, acct);
     doStoreUserAccount(name, acct, null);
     doNotifyUserAccountChanged(UserAccount.UserAccountChange.ADD, name, acct.toJson(), null);
+    } finally { lock.unlock(); }
   }
 
   @Override
-  public synchronized UserAccount updateUserAccountFromJson(String username, String json, String cookie)
+  public UserAccount updateUserAccountFromJson(String username, String json, String cookie)
       throws IOException {
+    ReentrantLock lock = stateLock("UserAccount", username);
+    lock.lock();
+    try {
     UserAccount userAccount = getUserAccount(username);
     if (userAccount != null) {
       userAccount.updateFromJson(json);
@@ -834,19 +957,23 @@ public abstract class CachingStateManager extends BaseStateManager {
       log.debug("Attempted to update non-existent UserAccount");
       return null;
     }
+    } finally { lock.unlock(); }
   }
 
   @Override
-  public synchronized UserAccount updateUserAccount(UserAccount acct,
+  public UserAccount updateUserAccount(UserAccount acct,
                                                     Set<String> fields) throws IOException {
     return updateUserAccount(acct, fields, null);
   }
 
   /** Update UserAccount in cache */
-  public synchronized UserAccount updateUserAccount(UserAccount acct,
+  public UserAccount updateUserAccount(UserAccount acct,
                                                     Set<String> fields,
                                                     String cookie) throws IOException {
     String username = acct.getName();
+    ReentrantLock lock = stateLock("UserAccount", username);
+    lock.lock();
+    try {
     log.debug2("Updating user account: {}", username);
     UserAccount curAcct = getUserAccount(username);
     try {
@@ -889,6 +1016,8 @@ public abstract class CachingStateManager extends BaseStateManager {
       log.error("Could not update user account", e);
       throw e;
     }
+    }
+    finally { lock.unlock(); }
   }
 
   private boolean isStoreOfMissingUserAccountAllowed(Set<String> fields) {
@@ -896,7 +1025,7 @@ public abstract class CachingStateManager extends BaseStateManager {
   }
 
   @Override
-  public synchronized void removeUserAccount(UserAccount acct) throws IOException {
+  public void removeUserAccount(UserAccount acct) throws IOException {
     if (acct == null) {
       // This may occur under normal operation because DELETE messages are
       // sent without a cookie. I.e., the originating client may call this
@@ -908,6 +1037,9 @@ public abstract class CachingStateManager extends BaseStateManager {
     }
 
     String username = acct.getName();
+    ReentrantLock lock = stateLock("UserAccount", username);
+    lock.lock();
+    try {
     userAccounts.remove(username);
     /*
     ClientA:
@@ -922,6 +1054,7 @@ public abstract class CachingStateManager extends BaseStateManager {
     doRemoveUserAccount(acct);
     doUserAccountChangedCallbacks(UserAccount.UserAccountChange.DELETE, username, acct);
     doNotifyUserAccountChanged(UserAccount.UserAccountChange.DELETE, username, null, null);
+    } finally { lock.unlock(); }
   }
 
   @Override

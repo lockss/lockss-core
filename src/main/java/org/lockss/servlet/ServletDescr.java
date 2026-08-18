@@ -73,6 +73,9 @@ public class ServletDescr {
   /** Suppress the usual nav table when displaying this servlet */
   public static final int NO_NAV_TABLE = 0x40;
 
+  /** Servlet disallowed in migration mode */
+  public static final int MIGRATION_DISALLOW = 0x80;
+
   /** Needs debug role */
   public static final int NEED_ROLE_DEBUG = 0x1000;
 
@@ -307,6 +310,11 @@ public class ServletDescr {
   /** return true if servlet should be in UI home page */
   public boolean isInUiHome(LockssServlet uiHomeServlet) {
     return isFlagSet(IN_UIHOME);
+  }
+
+  /** return true if the servlet is not allowed in migration mode */
+  public boolean isDisallowInMigration() {
+    return isFlagSet(MIGRATION_DISALLOW);
   }
 
   /** return true if servlet should not have a nav table */

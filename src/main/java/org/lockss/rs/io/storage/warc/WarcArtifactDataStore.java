@@ -107,6 +107,7 @@ import java.time.temporal.ChronoField;
 import java.time.temporal.ChronoUnit;
 import java.util.*;
 import java.util.concurrent.*;
+import java.util.function.BiConsumer;
 import java.util.function.Function;
 import java.util.function.Predicate;
 import java.util.stream.Stream;
@@ -482,26 +483,36 @@ public abstract class WarcArtifactDataStore implements ArtifactDataStore, WARCCo
     this.dataStoreState = state;
   }
 
-  protected void reloadDataStoreState() {
-    log.debug("Scheduling data store reload");
-    stripedExecutor.submit(new ReloadDataStoreStateTask());
-  }
-
   /**
-   * Asynchronous data store reload tasks for non-volatile storage implementations.
+   * Synchronously reloads temporary WARC state from disk, processing each
+   * configured temporary WARC base path in parallel. {@link #start()} blocks
+   * on this so {@code getArtifactData} cannot race ahead of the pool being
+   * populated.
    */
-  public class ReloadDataStoreStateTask implements Runnable {
-    @Override
-    public void run() {
-      try {
-        //// Reload temporary WARCs
-        for (Path tmpBasePath : getTmpWarcBasePaths()) {
-          reloadTemporaryWarcs(getArtifactIndex(), tmpBasePath);
+  protected void reloadDataStoreState() {
+    Path[] basePaths = getTmpWarcBasePaths();
+    log.debug("Reloading data store state from {} temporary WARC base path(s)", basePaths.length);
+    if (basePaths.length == 0) {
+      return;
+    }
+    ArtifactIndex index = getArtifactIndex();
+    CompletableFuture<?>[] futures = new CompletableFuture<?>[basePaths.length];
+    for (int i = 0; i < basePaths.length; i++) {
+      final Path basePath = basePaths[i];
+      futures[i] = CompletableFuture.runAsync(() -> {
+        try {
+          reloadTemporaryWarcs(index, basePath);
+        } catch (IOException e) {
+          throw new CompletionException(e);
         }
-      } catch (Exception e) {
-        log.error("Could not complete asynchronous data store reload", e);
-        throw new IllegalStateException("Could not complete asynchronous reload", e);
-      }
+      });
+    }
+    try {
+      CompletableFuture.allOf(futures).join();
+    } catch (CompletionException e) {
+      Throwable cause = (e.getCause() != null) ? e.getCause() : e;
+      log.error("Could not complete data store reload", cause);
+      throw new IllegalStateException("Could not complete data store reload", cause);
     }
   }
 
@@ -1075,6 +1086,8 @@ public abstract class WarcArtifactDataStore implements ArtifactDataStore, WARCCo
    * either uncommitted-but-expired, committed-and-moved-to-permanent-storage, or deleted.
    */
   public void reloadTemporaryWarcs(ArtifactIndex index, Path tmpWarcBasePath) throws IOException {
+    long startMs = TimeBase.nowMs();
+
     if (index == null) {
       throw new IllegalArgumentException("Null artifact index");
     }
@@ -1090,11 +1103,13 @@ public abstract class WarcArtifactDataStore implements ArtifactDataStore, WARCCo
 
     log.debug("Found {} temporary WARCs: {}", tmpWarcs.size(), tmpWarcs);
 
-    // Iterate over the temporary WARC files that were found
+    // Iterate over the temporary WARC files that were found. Drive reload from each
+    // WARC's journal (small file, fast) and fall back to scanning the WARC body only
+    // when the journal is missing or empty.
     for (Path tmpWarc : tmpWarcs) {
       try {
-        if (!tmpWarcPool.isInPool(tmpWarc)) {
-          reloadOrRemoveTemporaryWarc(index, tmpWarc);
+        if (!reloadOrRemoveTemporaryWarcFromJournal(index, tmpWarc)) {
+          reloadOrRemoveTemporaryWarcByScan(index, tmpWarc);
         }
       } catch (Exception e) {
         log.error("Encountered an error while reloading artifacts from WARC [tmpWarc: {}]", tmpWarc, e);
@@ -1103,7 +1118,8 @@ public abstract class WarcArtifactDataStore implements ArtifactDataStore, WARCCo
       }
     }
 
-    log.debug("Finished reloading temporary WARCs from {}", tmpWarcBasePath);
+    log.info("Finished reloading temporary WARCs from {} in {}",
+        tmpWarcBasePath, StringUtil.timeIntervalToString(TimeBase.msSince(startMs)));
   }
 
   /**
@@ -1120,17 +1136,181 @@ public abstract class WarcArtifactDataStore implements ArtifactDataStore, WARCCo
   }
 
   /**
+   * Resumes the lifecycle of artifacts in a temporary WARC by replaying its journal,
+   * without reading the (potentially huge) content WARC. Populates a {@link WarcFile}
+   * for the pool with stats derived from journal transitions, requeues copy tasks for
+   * any {@code PENDING_COPY} artifacts, and drops expired uncommitted artifacts from
+   * the index. Returns {@code true} if the journal had at least one entry and the
+   * caller should consider this WARC handled; returns {@code false} if the journal is
+   * missing, unreadable, or empty so the caller can fall back to the body-scan path.
+   */
+  protected boolean reloadOrRemoveTemporaryWarcFromJournal(ArtifactIndex index, Path tmpWarc)
+      throws IOException {
+    log.trace("tmpWarc = {}", tmpWarc);
+
+    Path journalPath = getJournalPath(tmpWarc);
+
+    // Walk every journal entry in arrival order; for each artifact UUID, remember
+    // the latest journal state and (when the latest is UNCOMMITTED) the entryDate
+    // for the expiry decision. The journal tells us *which* artifacts have
+    // records in this WARC and *when* uncommitted ones started counting toward
+    // expiry; it does not get the final word on the artifact's live state — the
+    // index + storage URL do (see the getWarcArtifactState call below).
+    Map<String, WarcArtifactState> journalState = new LinkedHashMap<>();
+    Map<String, Long> uncommittedEntryDate = new HashMap<>();
+
+    try {
+      forEachJournalEntry(journalPath, WarcArtifactStateEntry.class, this::synthesizeStateEntry,
+          (uuid, entry) -> {
+            if (uuid == null || entry == null || entry.getArtifactState() == null) return;
+            WarcArtifactState next = entry.getArtifactState();
+            journalState.put(uuid, next);
+            if (next == WarcArtifactState.UNCOMMITTED) {
+              uncommittedEntryDate.put(uuid, entry.getEntryDate());
+            } else {
+              uncommittedEntryDate.remove(uuid);
+            }
+          });
+    } catch (IOException e) {
+      log.warn("Couldn't read journal for {}, deferring to WARC scan", tmpWarc, e);
+      return false;
+    }
+
+    if (journalState.isEmpty()) {
+      log.debug("No journal entries for {}, deferring to WARC scan", tmpWarc);
+      return false;
+    }
+
+    long uncommittedExpiration = getUncommittedArtifactExpiration();
+    int recTotal = 0, recUncommitted = 0, recCommitted = 0, recCopied = 0;
+    long latestExpirationMs = 0L;
+    boolean isWarcFileRemovable = true;
+
+    for (Map.Entry<String, WarcArtifactState> e : journalState.entrySet()) {
+      String uuid = e.getKey();
+      Long entryMs = uncommittedEntryDate.get(uuid);
+
+      Artifact artifact = index.getArtifact(uuid);
+      ArtifactIdentifier aid = (artifact != null) ? artifact.getIdentifier() : null;
+
+      try (SemaphoreLock lock = (aid != null) ? lockArtifact(aid) : null) {
+        // Re-derive against the live (index, storage URL) tuple so a stale journal
+        // entry (e.g. crash between copy completion and the COPIED journal write)
+        // doesn't cause a spurious requeue or block GC.
+        boolean isExpired = (entryMs != null) && isArtifactExpired(entryMs);
+        WarcArtifactState state = getWarcArtifactState(artifact, isExpired);
+        recTotal++;
+
+        switch (state) {
+          case UNCOMMITTED:
+            recUncommitted++;
+            if (entryMs != null) {
+              long exp = entryMs + uncommittedExpiration;
+              if (exp > latestExpirationMs) latestExpirationMs = exp;
+            }
+            isWarcFileRemovable = false;
+            break;
+
+          case PENDING_COPY:
+            recCommitted++;
+            CopyArtifactTask task = new CopyArtifactTask(artifact);
+            queuedCopyTasks.put(artifact.getIdentifier(), task);
+            stripedExecutor.submit(task);
+            isWarcFileRemovable = false; // copy must finish before this WARC can drain
+            break;
+
+          case COPIED:
+            recCommitted++;
+            recCopied++;
+            // Drainable
+            break;
+
+          case EXPIRED:
+            if (artifact != null && !index.deleteArtifact(uuid)) {
+              log.warn("Could not remove expired artifact from index [uuid: {}]", uuid);
+            }
+            // Drainable; no counter contribution beyond total.
+            break;
+
+          case DELETED:
+          case NOT_INDEXED:
+          case UNKNOWN:
+            // Drainable; no counter contribution beyond total.
+            break;
+
+          default:
+            log.warn("Unexpected artifact state during journal-driven reload [uuid: {}, state: {}]",
+                uuid, state);
+            // Be conservative: keep the WARC.
+            isWarcFileRemovable = false;
+            break;
+        }
+      }
+    }
+
+    log.debug2("tmpWarc: {}, isWarcFileRemovable: {}", tmpWarc, isWarcFileRemovable);
+
+    if (isWarcFileRemovable) {
+      try {
+        log.debug("Removing temporary WARC file [tmpWarc: {}]", tmpWarc);
+        removeWarc(tmpWarc);
+        removeWarc(journalPath);
+      } catch (IOException e) {
+        log.warn("Could not remove a removable temporary WARC file", e);
+      }
+      return true;
+    }
+
+    // Add the WARC file back to pool with all of the right stats
+    WarcFile warcFile = new WarcFile(tmpWarc, isCompressedWarcFile(tmpWarc));
+    warcFile.setLength(getWarcLengthOrZero(tmpWarc));
+    warcFile.getStats()
+        .setArtifactsTotal(recTotal)
+        .setArtifactsUncommitted(recUncommitted)
+        .setArtifactsCommitted(recCommitted)
+        .setArtifactsCopied(recCopied)
+        .setLatestExpiration(latestExpirationMs);
+    tmpWarcPool.addAsFullWarcFile(warcFile);
+    return true;
+  }
+
+  /**
    * Reloads artifacts from a temporary WARC file and resumes their lifecycle in this WARC artifact data store. If
    * the artifacts in this data store are no longer needed, the temporary WARC file is deleted.
+   *
+   * <p>This path scans the entire WARC body and is used as a fallback when the
+   * journal is missing, unreadable, or empty (legacy WARCs, partial writes).
+   * Prefer {@link #reloadOrRemoveTemporaryWarcFromJournal}, which is driven by the
+   * much smaller journal file.
    *
    * @param index   The {@link ArtifactIndex} used to determine artifact state.
    * @param tmpWarc A {@link Path} to the temporary WARC file to examine.
    * @throws IOException Thrown if there are any I/O errors.
    */
-  protected void reloadOrRemoveTemporaryWarc(ArtifactIndex index, Path tmpWarc) throws IOException {
+  protected void reloadOrRemoveTemporaryWarcByScan(ArtifactIndex index, Path tmpWarc) throws IOException {
     log.trace("tmpWarc = {}", tmpWarc);
 
     boolean isWarcFileRemovable = true;
+
+    // Load this tmp WARC's journal. The UNCOMMITTED entry's date is set
+    // when the artifact write to the tmp WARC finishes, so it's the right basis
+    // for the expiry decision. Fall back to the WARC-Date header per-record if
+    // the journal is missing or no entry is present for an artifact (legacy
+    // tmp WARCs, partial writes).
+    Map<String, WarcArtifactStateEntry> journal;
+    try {
+      journal = getJournalForWarc(tmpWarc, WarcArtifactStateEntry.class, this::synthesizeStateEntry);
+    } catch (Exception e) {
+      log.warn("Couldn't read journal for {}, falling back to WARC-Date for expiry", tmpWarc, e);
+      journal = new HashMap<>();
+    }
+
+    // Accumulators for the WarcFile we may add back to the pool: keep stats in sync
+    // with how the live write/commit/copy paths maintain them, so runGC does not
+    // reap this reloaded WARC on its very next tick.
+    int recTotal = 0, recUncommitted = 0, recCommitted = 0, recCopied = 0;
+    long latestExpirationMs = 0L;
+    long uncommittedExpiration = getUncommittedArtifactExpiration();
 
     // Open WARC file
     try (InputStream warcStream = markAndGetInputStream(tmpWarc)) {
@@ -1144,6 +1324,7 @@ public abstract class WarcArtifactDataStore implements ArtifactDataStore, WARCCo
       // ArchiveReader is an iterable over ArchiveRecord objects
       for (ArchiveRecord record : archiveReader) {
         boolean isRecordRemovable = false;
+        recTotal++;
 
         // Read WARC record header for artifact ID
         ArtifactIdentifier aid = WarcArtifactDataUtil.buildArtifactIdentifier(record.getHeader());
@@ -1152,13 +1333,22 @@ public abstract class WarcArtifactDataStore implements ArtifactDataStore, WARCCo
         // Acquire artifact lock: Operations below alter artifact state
         try (SemaphoreLock lock = lockArtifact(aid)) {
           Artifact artifact = index.getArtifact(aid);
-          WarcArtifactState state = getWarcArtifactState(artifact, isArtifactExpired(record.getHeader()));
+          WarcArtifactStateEntry journalEntry = journal.get(aid.getUuid());
+          boolean isExpired = (journalEntry != null)
+              ? isArtifactExpired(journalEntry.getEntryDate())
+              : isArtifactExpired(record.getHeader());
+          WarcArtifactState state = getWarcArtifactState(artifact, isExpired);
 
           switch (state) {
             case UNCOMMITTED:
+              recUncommitted++;
+              long entryMs = (journalEntry != null) ? journalEntry.getEntryDate() : TimeBase.nowMs();
+              long exp = entryMs + uncommittedExpiration;
+              if (exp > latestExpirationMs) latestExpirationMs = exp;
               break;
 
             case PENDING_COPY:
+              recCommitted++;
               // Requeue the copy of this artifact from temporary to permanent storage
               CopyArtifactTask task = new CopyArtifactTask(artifact);
               queuedCopyTasks.put(artifact.getIdentifier(), task);
@@ -1171,9 +1361,11 @@ public abstract class WarcArtifactDataStore implements ArtifactDataStore, WARCCo
                 log.warn("Could not remove expired artifact from index [uuid: {}]", aid.getUuid());
               }
 
+            case COPIED:
+              recCommitted++;
+              recCopied++;
             case UNKNOWN:
             case NOT_INDEXED:
-            case COPIED:
             case DELETED:
               log.debug2("WARC record is removable [state: {}, warcId: {}, tmpWarc: {}]",
                   state, record.getHeader().getHeaderValue(WARCConstants.HEADER_KEY_ID), tmpWarc);
@@ -1204,14 +1396,10 @@ public abstract class WarcArtifactDataStore implements ArtifactDataStore, WARCCo
       }
     }
 
-    // Protect against a reader still/already reading from temporary WARC even if WARC is now removable
-    boolean isInUse = TempWarcInUseTracker.INSTANCE.isInUse(tmpWarc);
-
-    log.debug2("tmpWarc: {}, isWarcFileRemovable: {}, isInUse: {}",
-        tmpWarc, isWarcFileRemovable, isInUse);
+    log.debug2("tmpWarc: {}, isWarcFileRemovable: {}", tmpWarc, isWarcFileRemovable);
 
     // Remove file depending on results
-    if (isWarcFileRemovable && !isInUse) {
+    if (isWarcFileRemovable) {
       try {
         log.debug("Removing temporary WARC file [tmpWarc: {}]", tmpWarc);
         removeWarc(tmpWarc);
@@ -1220,6 +1408,19 @@ public abstract class WarcArtifactDataStore implements ArtifactDataStore, WARCCo
         log.warn("Could not remove a removable temporary WARC file", e);
         // Try again later - avoid reprocessing by marking as already processed and removable?
       }
+    } else {
+      // We do not want to resume writing to any existing temporary WARC files, but we need to
+      // add them to the WARC file pool for them to resume their GC lifecycle. Populate stats
+      // from what we just scanned so runGC does not see an all-zero stub and reap the file.
+      WarcFile warcFile = new WarcFile(tmpWarc, isCompressedWarcFile(tmpWarc));
+      warcFile.setLength(getWarcLengthOrZero(tmpWarc));
+      warcFile.getStats()
+          .setArtifactsTotal(recTotal)
+          .setArtifactsUncommitted(recUncommitted)
+          .setArtifactsCommitted(recCommitted)
+          .setArtifactsCopied(recCopied)
+          .setLatestExpiration(latestExpirationMs);
+      tmpWarcPool.addAsFullWarcFile(warcFile);
     }
   }
 
@@ -1360,6 +1561,18 @@ public abstract class WarcArtifactDataStore implements ArtifactDataStore, WARCCo
     Instant created = Instant.from(DateTimeFormatter.ISO_INSTANT.parse(warcDateHeader));
     Instant expiration = created.plus(getUncommittedArtifactExpiration(), ChronoUnit.MILLIS);
     return Instant.ofEpochMilli(TimeBase.nowMs()).isAfter(expiration);
+  }
+
+  /**
+   * Returns whether an uncommitted artifact has expired, measured from the time its
+   * write to the temporary WARC finished (as recorded in the journal's UNCOMMITTED
+   * entry). Prefer this over the WARC-Date-header variant: that header carries the
+   * artifact's fetch time, which can predate the local write by hours or days for
+   * large or backfilled artifacts.
+   */
+  protected boolean isArtifactExpired(long writeFinishedMs) {
+    long expirationMs = writeFinishedMs + getUncommittedArtifactExpiration();
+    return TimeBase.nowMs() > expirationMs;
   }
 
   /**
@@ -1730,6 +1943,9 @@ public abstract class WarcArtifactDataStore implements ArtifactDataStore, WARCCo
 
     Path warcFilePath = null;
     boolean isTmpStorage = false;
+    // Owe a markUseEnd? True once markUseStart has been called and until
+    // responsibility transfers to the CloseCallbackInputStream wrapper.
+    boolean owesUseEnd = false;
     InputStream warcStream = null;
 
     try {
@@ -1765,6 +1981,7 @@ public abstract class WarcArtifactDataStore implements ArtifactDataStore, WARCCo
             } else {
               // Increment usage counter of temporary WARC -- cannot now mark for GC
               TempWarcInUseTracker.INSTANCE.markUseStart(warcFilePath);
+              owesUseEnd = true;
             }
           }
         }
@@ -1783,7 +2000,8 @@ public abstract class WarcArtifactDataStore implements ArtifactDataStore, WARCCo
 
       if (isTmpStorage) {
         // Wrap the stream with a CloseCallbackInputStream with a callback that will mark the end of the use of this file
-        // when close() is called.
+        // when close() is called. Closing the wrapped stream now owns the markUseEnd
+        // obligation; clear the flag so the catch block doesn't double-decrement.
         warcStream = new CloseCallbackInputStream(
             warcStream,
             closingWarcFilePath -> {
@@ -1792,6 +2010,7 @@ public abstract class WarcArtifactDataStore implements ArtifactDataStore, WARCCo
             },
             warcFilePath
         );
+        owesUseEnd = false;
       }
 
       // Create WARCRecord object from InputStream
@@ -1820,7 +2039,7 @@ public abstract class WarcArtifactDataStore implements ArtifactDataStore, WARCCo
         IOUtils.closeQuietly(warcStream);
       }
 
-      if (isTmpStorage) {
+      if (owesUseEnd) {
         TempWarcInUseTracker.INSTANCE.markUseEnd(warcFilePath);
       }
 
@@ -2773,11 +2992,18 @@ public abstract class WarcArtifactDataStore implements ArtifactDataStore, WARCCo
           boolean isCopied = artifactState != null && artifactState.isCopied();
           boolean isDeleted = artifactState != null && artifactState.isDeleted();
 
-          // Q: Override isArtifactExpired()?
-          String dateVal = record.getHeader(WARCConstants.HEADER_KEY_DATE).value;
-          Instant created = Instant.from(DateTimeFormatter.ISO_INSTANT.parse(dateVal));
-          Instant expiration = created.plus(getUncommittedArtifactExpiration(), ChronoUnit.MILLIS);
-          boolean isExpired = Instant.ofEpochMilli(TimeBase.nowMs()).isAfter(expiration);
+          // Prefer the journal entry's date (set when the artifact write to the tmp
+          // WARC finished); fall back to the artifact's WARC-Date header if there's
+          // no journal entry for this artifact.
+          boolean isExpired;
+          if (artifactState != null) {
+            isExpired = isArtifactExpired(artifactState.getEntryDate());
+          } else {
+            String dateVal = record.getHeader(WARCConstants.HEADER_KEY_DATE).value;
+            Instant created = Instant.from(DateTimeFormatter.ISO_INSTANT.parse(dateVal));
+            Instant expiration = created.plus(getUncommittedArtifactExpiration(), ChronoUnit.MILLIS);
+            isExpired = Instant.ofEpochMilli(TimeBase.nowMs()).isAfter(expiration);
+          }
 
           // Avoid reindexing this artifact if it is deleted or this record is from a temporary
           // WARC and has been copied to a permanent WARC file (in which case, we should wait
@@ -2933,8 +3159,21 @@ public abstract class WarcArtifactDataStore implements ArtifactDataStore, WARCCo
 
   protected <T> Map<String, T> readJournalFromWarc(Path journalFile, Class<T> journalEntryClass,
                                                    Function<WarcRecord,T> journalEntrySynth) throws IOException {
-    String journalType = journalEntryClass.getSimpleName();
     Map<String, T> result = new HashMap<>();
+    forEachJournalEntry(journalFile, journalEntryClass, journalEntrySynth, result::put);
+    return result;
+  }
+
+  /**
+   * Iterates the entries of a journal WARC in arrival order, invoking {@code consumer}
+   * with the artifact UUID and the parsed (or synthesized) entry for each. Unlike
+   * {@link #readJournalFromWarc}, no de-duplication is performed: callers see every
+   * transition recorded for an artifact, in the order they were written.
+   */
+  protected <T> void forEachJournalEntry(Path journalFile, Class<T> journalEntryClass,
+                                         Function<WarcRecord,T> journalEntrySynth,
+                                         BiConsumer<String,T> consumer) throws IOException {
+    String journalType = journalEntryClass.getSimpleName();
     int rec = -1;                   // file not open yet
     try (InputStream warcStream = new BufferedInputStream(getInputStreamAndSeek(journalFile, 0))) {
       WarcReader warcReader = WarcReaderFactory.getReaderUncompressed(warcStream);
@@ -2956,8 +3195,8 @@ public abstract class WarcArtifactDataStore implements ArtifactDataStore, WARCCo
             if (journalType.equals(record.getHeader(HEADER_KEY_JOURNAL_TYPE).value)) {
               try {
                 T journalEntry = mapper.readValue(record.getPayloadContent(), journalEntryClass);
-                result.put(artifactId, journalEntry);
-                log.debug2("Put journal entry for artId: {}: {}", artifactId, journalEntry);
+                consumer.accept(artifactId, journalEntry);
+                log.debug2("Visited journal entry for artId: {}: {}", artifactId, journalEntry);
               } catch (Exception e) {
                 if (journalEntrySynth == null) {
                   log.error("Error reading journal entry for artifactId {} from {} at rec {}",
@@ -2967,7 +3206,7 @@ public abstract class WarcArtifactDataStore implements ArtifactDataStore, WARCCo
                   if (synthEntry != null) {
                     log.error("Error reading journal entry for artifactId {} from {} at rec {}, synthesizing one",
                               artifactId, journalFile, rec, e);
-                    result.put(artifactId, synthEntry);
+                    consumer.accept(artifactId, synthEntry);
                   } else {
                     log.error("Error reading journal entry for artifactId {} from {} at rec {}, synthesizier returned null",
                               artifactId, journalFile, rec, e);
@@ -2986,8 +3225,6 @@ public abstract class WarcArtifactDataStore implements ArtifactDataStore, WARCCo
         }
       }
     }
-
-    return result;
   }
 
   public static Path getJournalPath(Path warcFile) {

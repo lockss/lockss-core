@@ -755,55 +755,18 @@ public class RestConfigClient {
 
     // Loop through all pages
     do {
-      // Build URI with optional continuation token
-      Map<String, String> uriVars = new HashMap<>();
-      UriComponentsBuilder builder =
-          UriComponentsBuilder.fromUriString(serviceLocation + "/aus");
-
-      Map<String,String> params = new HashMap<>();
-      if (continuationToken != null) {
-        builder.queryParam("continuationToken", "{continuationToken}");
-        params.put("continuationToken", continuationToken);
+      AuConfigPageInfo pageInfo =
+          getArchivalUnitConfigurationsPage(continuationToken);
+      if (pageInfo == null) {
+        break;
       }
-
-      URI uri = builder.encode().build().expand(params).toUri();
-      if (log.isDebug3()) log.debug3("uri = " + uri);
-
-      // Initialize the request headers.
-      HttpHeaders requestHeaders = new HttpHeaders();
-
-      // Set the authentication credentials.
-      setAuthenticationCredentials(requestHeaders);
-
-      // Create the request entity.
-      HttpEntity<AuConfigPageInfo> requestEntity =
-          new HttpEntity<>(null, requestHeaders);
-
-      // Make the request and get the response.
-      ResponseEntity<AuConfigPageInfo> response =
-          RestUtil.callRestService(restTemplate, uri, HttpMethod.GET,
-              requestEntity, AuConfigPageInfo.class,
-              "Cannot get all AU configurations");
-
-      AuConfigPageInfo pageInfo = response.getBody();
-
-      if (pageInfo != null) {
-        // Extract the AU configurations from this page
-        Collection<AuConfiguration> pageResults = pageInfo.getAuConfigs();
-        if (pageResults != null) {
-          allResults.addAll(pageResults);
-        }
-
-        // Get continuation token for next page
-        PageInfo pageInfoData = pageInfo.getPageInfo();
-        if (pageInfoData != null) {
-          continuationToken = pageInfoData.getContinuationToken();
-        } else {
-          continuationToken = null;
-        }
-      } else {
-        continuationToken = null;
+      Collection<AuConfiguration> pageResults = pageInfo.getAuConfigs();
+      if (pageResults != null) {
+        allResults.addAll(pageResults);
       }
+      PageInfo pageInfoData = pageInfo.getPageInfo();
+      continuationToken =
+          (pageInfoData == null) ? null : pageInfoData.getContinuationToken();
     } while (continuationToken != null);
 
     // Intern all AU configurations
@@ -812,6 +775,58 @@ public class RestConfigClient {
     }
     if (log.isDebug2()) log.debug2("result = " + allResults);
     return allResults;
+  }
+
+  /**
+   * Provides a single page of Archival Unit configurations.
+   *
+   * <p>Callers that want page-by-page processing (e.g. a scan that should
+   * not accumulate every {@link AuConfiguration} in memory before doing any
+   * work) should call this method directly in a loop: start with
+   * {@code null}, then pass back the {@link PageInfo#getContinuationToken()}
+   * from the previous response. The returned {@link AuConfigPageInfo} also
+   * exposes the page's continuation token; iteration ends when that token
+   * is {@code null}.
+   *
+   * <p>AuConfigurations returned by this method are not interned — callers
+   * that retain them across pages should call
+   * {@link AuConfiguration#intern()} themselves. Per-page processing
+   * callers can typically skip interning.
+   *
+   * @param continuationToken
+   *          A String with the continuation token from the previous page,
+   *          or {@code null} for the first page.
+   * @return an {@link AuConfigPageInfo} with this page's AuConfigurations
+   *         and pagination info, or {@code null} on an empty response.
+   * @throws LockssRestException
+   *           if there are problems contacting the REST service.
+   */
+  public AuConfigPageInfo getArchivalUnitConfigurationsPage(
+      String continuationToken) throws LockssRestException {
+    UriComponentsBuilder builder =
+        UriComponentsBuilder.fromUriString(serviceLocation + "/aus");
+
+    Map<String, String> params = new HashMap<>();
+    if (continuationToken != null) {
+      builder.queryParam("continuationToken", "{continuationToken}");
+      params.put("continuationToken", continuationToken);
+    }
+
+    URI uri = builder.encode().build().expand(params).toUri();
+    if (log.isDebug3()) log.debug3("uri = " + uri);
+
+    HttpHeaders requestHeaders = new HttpHeaders();
+    setAuthenticationCredentials(requestHeaders);
+
+    HttpEntity<AuConfigPageInfo> requestEntity =
+        new HttpEntity<>(null, requestHeaders);
+
+    ResponseEntity<AuConfigPageInfo> response =
+        RestUtil.callRestService(restTemplate, uri, HttpMethod.GET,
+            requestEntity, AuConfigPageInfo.class,
+            "Cannot get a page of AU configurations");
+
+    return response.getBody();
   }
 
   /**

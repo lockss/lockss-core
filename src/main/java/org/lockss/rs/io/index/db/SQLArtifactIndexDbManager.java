@@ -38,6 +38,8 @@ import org.lockss.db.DbManager;
 import org.lockss.db.DbManagerSql;
 import org.lockss.log.L4JLogger;
 
+import org.lockss.config.ConfigManager;
+
 import java.sql.Connection;
 import java.sql.SQLException;
 
@@ -188,6 +190,21 @@ public class SQLArtifactIndexDbManager extends DbManager implements Configurable
 
     setDbManagerSql(idxDbManagerSql);
     super.startService();
+  }
+
+  /**
+   * The artifact index does heavy bulk INSERT through
+   * {@link SQLArtifactIndexManagerSql#addArtifacts}, which uses JDBC batching.
+   * On PostgreSQL, {@code reWriteBatchedInserts=true} lets pgjdbc collapse each
+   * {@code executeBatch} round into a single multi-VALUES INSERT. The property
+   * is pgjdbc-specific and should be ignored by other drivers (e.g. Derby). It
+   * should be safe to apply here unconditionally.
+   */
+  @Override
+  protected Configuration getDefaultDbcpConnectionProperties() {
+    Configuration props = ConfigManager.newConfiguration();
+    props.put("reWriteBatchedInserts", "true");
+    return props;
   }
 
   /**
