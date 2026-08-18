@@ -33,10 +33,14 @@ package org.lockss.rs.io.index.db;
 
 import io.zonky.test.db.postgres.embedded.EmbeddedPostgres;
 import org.apache.commons.io.FileUtils;
+import org.junit.Test;
 import org.lockss.config.ConfigManager;
 import org.lockss.db.DbException;
 import org.lockss.log.L4JLogger;
 import org.lockss.repository.RepositoryDbManager;
+import org.lockss.rs.BaseLockssRepository;
+import org.lockss.rs.io.index.ArtifactIndex;
+import org.lockss.rs.io.index.DispatchingArtifactIndex;
 import org.lockss.test.ConfigurationUtil;
 import org.lockss.test.LockssTestCase;
 import org.lockss.test.MockLockssDaemon;
@@ -61,8 +65,10 @@ import java.lang.reflect.Method;
 import java.net.URI;
 import java.nio.file.Files;
 import java.nio.file.attribute.PosixFilePermission;
+import java.time.Instant;
 import java.util.*;
-import org.junit.Test;
+
+import static org.mockito.Mockito.mock;
 
 public class SQLArtifactIndexMetrics extends LockssTestCase {
   private static L4JLogger log = L4JLogger.getLogger();
@@ -92,7 +98,7 @@ public class SQLArtifactIndexMetrics extends LockssTestCase {
     SQLArtifactIndexMetrics metricsRunner = new SQLArtifactIndexMetrics();
 
     int ix = 0;
-    String metricName = null;
+    String metricNames = null;
     try {
       // Parse arguments
       for (ix = 0; ix < argv.length; ix++) {
@@ -100,7 +106,7 @@ public class SQLArtifactIndexMetrics extends LockssTestCase {
         if (arg.equals("-d") || arg.equals("--data")) {
           metricsRunner.setSrcBaseDir(argv[++ix]);
         } else if (arg.equals("-m") || arg.equals("--metric")) {
-          metricName = argv[++ix];
+          metricNames = argv[++ix];
         } else if (arg.equals("-t") || arg.equals("--tmpdir")) {
           metricsRunner.setTmpDirPath(argv[++ix]);
         } else {
@@ -110,10 +116,15 @@ public class SQLArtifactIndexMetrics extends LockssTestCase {
       }
 
       // Run metrics
-      if (StringUtil.isNullString(metricName)) {
+      if (StringUtil.isNullString(metricNames)) {
         metricsRunner.runAllMetrics();
       } else {
-        metricsRunner.runMetric(metricName);
+        for (String name : metricNames.split(",")) {
+          long start = TimeBase.nowMs();
+          log.info("Running " + name + "; started at " + Date.from(Instant.ofEpochMilli(start)));
+          metricsRunner.runMetric(name);
+          log.info("Completed " + name + " in " + StringUtil.timeIntervalToString(TimeBase.msSince(start)));
+        }
       }
 
       System.exit(0);
@@ -185,7 +196,9 @@ public class SQLArtifactIndexMetrics extends LockssTestCase {
 
     initializePostgreSQL(m.usePopulatedDb(), m.isDestructive());
     idxdb = new SQLArtifactIndexManagerSql(idxDbManager);
+    long start = TimeBase.nowMs();
     mm.invoke(this);
+    log.info("Completed " + mm.getName() + " in " + StringUtil.timeIntervalToString(TimeBase.msSince(start)));
     embeddedPg.close();
 
     if (m.isDestructive() && currentBaseDir != null) {
@@ -276,7 +289,7 @@ public class SQLArtifactIndexMetrics extends LockssTestCase {
         SQLArtifactIndexDbManager.PARAM_DATASOURCE_PORTNUMBER, String.valueOf(port));
 
     idxDbManager = new SQLArtifactIndexDbManager();
-    idxDbManager.initService(getMockLockssDaemon());
+    idxDbManager.initService(theDaemon);
 
     idxDbManager.setTargetDatabaseVersion(4);
     idxDbManager.startService();
@@ -411,6 +424,56 @@ public class SQLArtifactIndexMetrics extends LockssTestCase {
         }
       };
     }
+  }
+
+  private static int ARTIFACTS_TO_ADD = 250_000;
+
+  @Metric(value = "addArtifactNotBulk", usePopulatedDb = false, isDestructive = true)
+  public void runAddArtifactNotBulkMetric() throws Exception {
+    ArtifactIndex sqlIndex = new SQLArtifactIndex(idxdb);
+
+    ArtifactSpecGenerator specs =
+        new ArtifactSpecGenerator(1, 1, ARTIFACTS_TO_ADD);
+
+    runMetric(specs, "addArtifactNotBulk()", (spec) ->
+        {
+          Artifact artifact = spec.getArtifact();
+          sqlIndex.indexArtifact(artifact);
+          sqlIndex.commitArtifact(artifact.getUuid());
+        }
+    );
+  }
+
+  @Metric(value = "addArtifactViaBulk", usePopulatedDb = false, isDestructive = true)
+  public void runAddArtifactViaBulkMetric() throws Exception {
+    ArtifactIndex sqlIndex = new SQLArtifactIndex(idxdb);
+
+    ArtifactSpecGenerator specs =
+        new ArtifactSpecGenerator(1, 1, ARTIFACTS_TO_ADD);
+
+    // From ArtifactSpecGenerator above:
+    final String ns = "ns0";
+    final String auid = "auid0";
+
+    // From laaws-repository-service's AusApiServiceImpl:
+    final int DEFAULT_BULK_INDEX_BATCH_SIZE = 1000;
+
+    // Start bulk mode
+    BaseLockssRepository mockRepo = mock(BaseLockssRepository.class);
+    ArtifactIndex dispatchingIndex = new DispatchingArtifactIndex(sqlIndex);
+    dispatchingIndex.setLockssRepository(mockRepo);
+    dispatchingIndex.startBulkStore(ns, auid);
+
+    runMetric(specs, "addArtifactViaBulk()", (spec) ->
+        {
+          Artifact artifact = spec.getArtifact();
+          dispatchingIndex.indexArtifact(artifact);
+          dispatchingIndex.commitArtifact(artifact.getUuid());
+        }
+    );
+
+    // End bulk mode
+    dispatchingIndex.finishBulkStore(ns, auid, DEFAULT_BULK_INDEX_BATCH_SIZE);
   }
 
   @Metric(value = "addArtifact", usePopulatedDb = false, isDestructive = true)

@@ -47,11 +47,19 @@ import org.lockss.util.time.TimeBase;
 import java.lang.ref.Cleaner;
 import java.sql.*;
 import java.util.*;
+import java.util.concurrent.atomic.AtomicLong;
 
 import static org.lockss.config.db.SqlConstants.*;
 
 /**
- * SQL queries and operations in support of {@link SQLArtifactIndex}.
+ * Manages SQL interactions for the Artifact Index, handling queries and operations
+ * related to namespaces, AUIDs, URLs, and artifacts. This class is critical for
+ * facilitating the storage, retrieval, and manipulation of artifact data in the
+ * underlying database.
+ *
+ * The class supports operations such as creating or finding sequences for namespaces,
+ * AUIDs, and URLs, fetching artifacts using keyset pagination, and performing updates
+ * and deletions of artifacts or metadata.
  */
 public class SQLArtifactIndexManagerSql {
   private static final L4JLogger log = L4JLogger.getLogger();
@@ -987,6 +995,17 @@ public class SQLArtifactIndexManagerSql {
       + " ON CONFLICT (" + ARTIFACT_UUID_COLUMN + ") DO UPDATE SET "
       + ARTIFACT_COMMITTED_COLUMN + " = ? , " + ARTIFACT_STORAGE_URL_COLUMN + " = ?";
 
+  // Idempotent variant of INSERT_ARTIFACT_QUERY used by the bulk addArtifacts()
+  // path. Because that path now commits per batch, a retried finishBulkStore
+  // (e.g. after a partial failure) can re-present artifacts that already landed;
+  // ON CONFLICT refreshes the committed flag and storage URL instead of failing
+  // on the UUID unique constraint. Uses EXCLUDED so it binds the same 10
+  // parameters as INSERT_ARTIFACT_QUERY (see bindArtifactInsertParams).
+  private static final String UPSERT_ARTIFACT_QUERY = INSERT_ARTIFACT_QUERY
+      + " ON CONFLICT (" + ARTIFACT_UUID_COLUMN + ") DO UPDATE SET "
+      + ARTIFACT_COMMITTED_COLUMN + " = EXCLUDED." + ARTIFACT_COMMITTED_COLUMN
+      + ", " + ARTIFACT_STORAGE_URL_COLUMN + " = EXCLUDED." + ARTIFACT_STORAGE_URL_COLUMN;
+
   private static final String GET_SIZE_OF_ARTIFACTS_QUERY = "SELECT "
       + " SUM(" + ARTIFACT_LENGTH_COLUMN + ") total_size"
       + " FROM " + ARTIFACT_TABLE + " a"
@@ -1213,6 +1232,9 @@ public class SQLArtifactIndexManagerSql {
 
         idxDbManager.executeUpdate(ps);
       }
+
+      // Count this new urls-table row toward the geometric ANALYZE cadence.
+      noteUrlRowCreated();
 
       return urlSeq;
     } catch (SQLException sqle) {
@@ -2699,12 +2721,14 @@ public class SQLArtifactIndexManagerSql {
       long namespaceSeq = findOrCreateNamespaceSeq(conn, artifact.getNamespace());
       long auidSeq = findOrCreateAuidSeq(conn, artifact.getAuid());
       long urlSeq = findOrCreateUrlSeq(conn, artifact.getUri());
+
       addArtifact(conn, auidSeq, namespaceSeq, urlSeq, artifact);
 
       // Commit the transaction.
       DbManager.commitOrRollback(conn, log);
 
-      // Update LRU caches
+      // Update LRU caches - note that these must happen *after* the transaction is
+      // committed;  otherwise they may not reflect the actual database state
       lru_namespace_seqs.putIfAbsent(artifact.getNamespace(), namespaceSeq);
       lru_auids_seqs.putIfAbsent(artifact.getAuid(), auidSeq);
       lru_urls_seqs.putIfAbsent(artifact.getUri(), urlSeq);
@@ -2713,82 +2737,324 @@ public class SQLArtifactIndexManagerSql {
     }
   }
 
+  // How many artifact INSERTs to accumulate before flushing via executeBatch()
+  private static final int ARTIFACT_INSERT_BATCH_SIZE = 1000;
+
+  // Geometric ANALYZE cadence for the urls table (see maybeAnalyzeUrls()). The
+  // seq-scan -> index-scan plan flip for FIND_URL_SEQ_QUERY happens once, very
+  // early; refreshing stats past that point does not change the equality-lookup
+  // plan. So we ANALYZE densely while the table is small and stop once it is
+  // large, letting autovacuum own steady state. A fixed row interval would be
+  // both too sparse early and pointlessly frequent at scale (100M / interval).
+  //
+  // URL_ANALYZE_MIN_ROWS: floor so the first refresh happens on a cold table.
+  // URL_ANALYZE_CAP_ROWS: above this the plan is settled; hand off to autovacuum.
+  // Package-visible so shouldAnalyzeUrls() can be unit-tested against them.
+  static final long URL_ANALYZE_MIN_ROWS = 1000;
+  static final long URL_ANALYZE_CAP_ROWS = 1_000_000;
+
+  // Running estimate of the number of rows in the urls table. Seeded lazily from
+  // the database (the index is not necessarily empty at startup) and incremented
+  // as new url rows are created; drives the geometric ANALYZE cadence. -1 means
+  // "not yet seeded".
+  private final AtomicLong urlTableRowEstimate = new AtomicLong(-1);
+  // The estimate as of the last urls ANALYZE. Guarded by urlAnalyzeLock.
+  private long urlRowsAtLastAnalyze;
+  private final Object urlAnalyzeLock = new Object();
+
+  // Advisory-lock namespace used to serialize out-of-band ANALYZE across
+  // concurrent bulk loads so they don't collide on a table's catalog rows
+  // (which produces PostgreSQL "tuple concurrently updated" errors). Combined
+  // with a per-table key in pg_try_advisory_xact_lock(int, int).
+  private static final int ANALYZE_ADVISORY_LOCK_NAMESPACE = 0x4C4B5341; // "LKSA"
+
   /** Add all the Artifacts to the DB, return a Set containing all
    * unique (Namespace, AUID) pairs */
   public Set<Pair<String,String>> addArtifacts(Iterable<Artifact> artifacts)
       throws DbException {
     Connection conn = null;
+    PreparedStatement ps = null;
     Set<Pair<String,String>> nsAuids = new HashSet<>();
+    int count = 0;
+
+    // Sequence numbers created for the rows accumulated in the current (not yet
+    // committed) batch. They are published to the shared LRU caches only after
+    // the batch commits, since the sequences do not durably exist until then.
+    Map<String, Long> pending_ns_seqs = new HashMap<>();
+    Map<String, Long> pending_auid_seqs = new HashMap<>();
+    Map<String, Long> pending_url_seqs = new HashMap<>();
+
     try {
       conn = getConnection();
-
-      Map<String, Long> new_ns_seqs = new HashMap<>();
-      Map<String, Long> new_auid_seqs = new HashMap<>();
-      Map<String, Long> new_url_seqs = new HashMap<>();
+      // Idempotent insert so a retried finishBulkStore that re-presents artifacts
+      // already committed by an earlier partial run updates rather than fails.
+      ps = idxDbManager.prepareStatement(conn, UPSERT_ARTIFACT_QUERY);
 
       for (Artifact artifact : artifacts) {
         nsAuids.add(Pair.of(artifact.getNamespace(), artifact.getAuid()));
 
-        Long namespaceSeq = new_ns_seqs.get(artifact.getNamespace());
+        Long namespaceSeq = pending_ns_seqs.get(artifact.getNamespace());
         if (namespaceSeq == null) {
           namespaceSeq = findOrCreateNamespaceSeq(conn, artifact.getNamespace());
         }
 
-        Long auidSeq = new_auid_seqs.get(artifact.getAuid());
+        Long auidSeq = pending_auid_seqs.get(artifact.getAuid());
         if (auidSeq == null) {
           auidSeq = findOrCreateAuidSeq(conn, artifact.getAuid());
         }
 
-        Long urlSeq = new_url_seqs.get(artifact.getUri());
+        Long urlSeq = pending_url_seqs.get(artifact.getUri());
         if (urlSeq == null) {
           urlSeq = findOrCreateUrlSeq(conn, artifact.getUri());
         }
 
-        addArtifact(conn, auidSeq, namespaceSeq, urlSeq, artifact);
+        try {
+          bindArtifactInsertParams(ps, namespaceSeq, auidSeq, urlSeq, artifact);
+          ps.addBatch();
+          count++;
+        } catch (SQLException e) {
+          throw new DbException("Error binding artifact INSERT parameters", e);
+        }
 
-        new_ns_seqs.put(artifact.getNamespace(), namespaceSeq);
-        new_auid_seqs.put(artifact.getAuid(), auidSeq);
-        new_url_seqs.put(artifact.getUri(), urlSeq);
+        pending_ns_seqs.put(artifact.getNamespace(), namespaceSeq);
+        pending_auid_seqs.put(artifact.getAuid(), auidSeq);
+        pending_url_seqs.put(artifact.getUri(), urlSeq);
+
+        if (count % ARTIFACT_INSERT_BATCH_SIZE == 0) {
+          // Flush and commit this batch so its rows are durable and visible to
+          // the out-of-band ANALYZE below. Committing per batch also bounds the
+          // blast radius of a mid-load failure to a single batch instead of the
+          // whole AU.
+          flushArtifactBatch(ps);
+          DbManager.commitOrRollback(conn, log);
+          publishSeqLrus(pending_ns_seqs, pending_auid_seqs, pending_url_seqs);
+          pending_ns_seqs.clear();
+          pending_auid_seqs.clear();
+          pending_url_seqs.clear();
+
+          // Refresh URL-table planner stats on a geometric, whole-table cadence
+          // so findOrCreateUrlSeq keeps using the index rather than degrading to
+          // a seq scan while the table is small. Rows are committed above, so the
+          // out-of-band ANALYZE sees them.
+          maybeAnalyzeUrls();
+        }
       }
 
-      // Commit the transaction.
-      DbManager.commitOrRollback(conn, log);
-
-      // Update the LRU caches
-      lru_namespace_seqs.putAll(new_ns_seqs);
-      lru_auids_seqs.putAll(new_auid_seqs);
-      lru_urls_seqs.putAll(new_url_seqs);
+      // Flush and commit any partial trailing batch.
+      if (count % ARTIFACT_INSERT_BATCH_SIZE != 0) {
+        flushArtifactBatch(ps);
+        DbManager.commitOrRollback(conn, log);
+        publishSeqLrus(pending_ns_seqs, pending_auid_seqs, pending_url_seqs);
+      }
     } finally {
+      DbManager.safeCloseStatement(ps);
       DbManager.safeRollbackAndClose(conn);
     }
+
+    // Refresh artifact-table stats once, after all rows are committed, so
+    // post-load reads don't have to wait for autovacuum to catch up. Done
+    // out-of-band for the same safety reason as the URL analyze.
+    if (count > 0) {
+      analyzeTableOutOfBand(ARTIFACT_TABLE);
+    }
+
     return nsAuids;
   }
 
-  private void addArtifact(Connection conn, Artifact artifact) throws DbException {
-    long namespaceSeq = findOrCreateNamespaceSeq(conn, artifact.getNamespace());
-    long auidSeq = findOrCreateAuidSeq(conn, artifact.getAuid());
-    long urlSeq = findOrCreateUrlSeq(conn, artifact.getUri());
-    addArtifact(conn, auidSeq, namespaceSeq, urlSeq, artifact);
+  /** Publish committed sequence numbers to the shared LRU caches. */
+  private void publishSeqLrus(Map<String, Long> nsSeqs,
+                              Map<String, Long> auidSeqs,
+                              Map<String, Long> urlSeqs) {
+    lru_namespace_seqs.putAll(nsSeqs);
+    lru_auids_seqs.putAll(auidSeqs);
+    lru_urls_seqs.putAll(urlSeqs);
+  }
+
+  private void flushArtifactBatch(PreparedStatement ps) throws DbException {
+    try {
+      ps.executeBatch();
+      ps.clearBatch();
+    } catch (SQLException e) {
+      throw new DbException("Error executing artifact INSERT batch", e);
+    }
+  }
+
+  // Refresh planner statistics on the given table on a dedicated connection,
+  // OUTSIDE any data-loading transaction. This matters for correctness as much
+  // as performance: ANALYZE run inside the load transaction can fail (notably
+  // "tuple concurrently updated" when concurrent bulk loads touch the same
+  // table's catalog rows), and because that error aborts the whole transaction,
+  // a subsequent commit is silently turned into a rollback by PostgreSQL --
+  // discarding every insert in the batch with no exception thrown. Running it
+  // here means such a failure only loses the (best-effort) stats refresh.
+  //
+  // Why it still helps: autovacuum can't ANALYZE another connection's in-flight
+  // tuples, so during a bulk load pg_class.reltuples stays stale and the planner
+  // seq-scans tables the load is filling -- e.g. FIND_URL_SEQ_QUERY degrades to
+  // O(N) per row, O(N²) over the load. Because callers commit each batch before
+  // calling this, the rows ARE visible here; ANALYZE refreshes stats and its
+  // cross-backend cache invalidation makes the loader replan onto the index.
+  //
+  // A per-table advisory lock serializes concurrent refreshes so they don't
+  // collide (and so we skip redundant work: the holder's ANALYZE benefits us
+  // too). The advisory lock is transaction-scoped and released by the commit.
+  private void analyzeTableOutOfBand(String table) {
+    Connection conn = null;
+    try {
+      conn = getConnection();
+
+      boolean locked;
+      try (PreparedStatement lockPs =
+               conn.prepareStatement("SELECT pg_try_advisory_xact_lock(?, ?)")) {
+        lockPs.setInt(1, ANALYZE_ADVISORY_LOCK_NAMESPACE);
+        lockPs.setInt(2, table.hashCode());
+        try (ResultSet rs = lockPs.executeQuery()) {
+          locked = rs.next() && rs.getBoolean(1);
+        }
+      }
+
+      if (locked) {
+        try (Statement st = conn.createStatement()) {
+          st.execute("ANALYZE " + table);
+        }
+      }
+
+      // Commit to release the advisory lock (and the ANALYZE's catalog updates).
+      DbManager.commitOrRollback(conn, log);
+    } catch (SQLException | DbException e) {
+      // Best-effort: a failed ANALYZE (e.g. "tuple concurrently updated") aborts
+      // only this throwaway transaction; the finally rolls it back and closes.
+      log.warn("Out-of-band ANALYZE {} failed (ignored): {}", table, e.getMessage());
+    } finally {
+      if (conn != null) {
+        DbManager.safeRollbackAndClose(conn);
+      }
+    }
+  }
+
+  /** Record that one new row was added to the urls table, seeding the estimate
+   *  first if this is the first url we've seen (the table may be non-empty at
+   *  startup). */
+  private void noteUrlRowCreated() {
+    seedUrlEstimateIfNeeded();
+    urlTableRowEstimate.incrementAndGet();
+  }
+
+  /** Lazily seed the urls-table row estimate from the database, since the index
+   *  is not necessarily empty when we start. Uses pg_class.reltuples (an
+   *  estimate; no full table scan). If the table has never been analyzed
+   *  (reltuples < 0) or the estimate can't be read, it seeds to 0, which only
+   *  makes us ANALYZE early -- harmless and self-correcting. */
+  private long seedUrlEstimateIfNeeded() {
+    long cur = urlTableRowEstimate.get();
+    if (cur >= 0) {
+      return cur;
+    }
+    long seed = 0;
+    try {
+      seed = estimatedRowCount(URL_TABLE);
+    } catch (DbException e) {
+      log.warn("Could not seed urls row estimate; assuming empty: {}", e.getMessage());
+    }
+    // Only the first thread to seed wins; others adopt whatever value was set.
+    if (urlTableRowEstimate.compareAndSet(-1, seed)) {
+      synchronized (urlAnalyzeLock) {
+        urlRowsAtLastAnalyze = seed;
+      }
+      return seed;
+    }
+    return urlTableRowEstimate.get();
+  }
+
+  /** Return PostgreSQL's estimated live row count for a table from
+   *  pg_class.reltuples, clamped at 0 (reltuples is -1 when never analyzed).
+   *  Package-visible for testing the non-empty-at-startup seed path. */
+  long estimatedRowCount(String table) throws DbException {
+    Connection conn = null;
+    PreparedStatement ps = null;
+    ResultSet rs = null;
+    try {
+      conn = getConnection();
+      ps = idxDbManager.prepareStatement(conn,
+          "SELECT reltuples::bigint FROM pg_class WHERE relname = ?");
+      ps.setString(1, table);
+      rs = idxDbManager.executeQuery(ps);
+      long n = rs.next() ? rs.getLong(1) : 0;
+      DbManager.commitOrRollback(conn, log);
+      return Math.max(n, 0);
+    } catch (SQLException e) {
+      throw new DbException("Could not read estimated row count for " + table, e);
+    } finally {
+      DbManager.safeCloseResultSet(rs);
+      DbManager.safeCloseStatement(ps);
+      DbManager.safeRollbackAndClose(conn);
+    }
+  }
+
+  /** Refresh urls-table planner stats on a geometric cadence scoped to the whole
+   *  table (not one addArtifacts call, since the table grows across many AUs):
+   *  ANALYZE once the table has roughly doubled since the last refresh, with a
+   *  floor for the initial cold-table flip, and not at all once the table is
+   *  large enough that the seq-scan -> index-scan plan is settled -- autovacuum
+   *  owns steady state from there. */
+  private void maybeAnalyzeUrls() {
+    seedUrlEstimateIfNeeded();
+    long cur = urlTableRowEstimate.get();
+
+    boolean doAnalyze = false;
+    synchronized (urlAnalyzeLock) {
+      if (shouldAnalyzeUrls(cur, urlRowsAtLastAnalyze)) {
+        urlRowsAtLastAnalyze = cur;
+        doAnalyze = true;
+      }
+    }
+
+    if (doAnalyze) {
+      analyzeTableOutOfBand(URL_TABLE);
+    }
+  }
+
+  /**
+   * Decide whether the urls table is due for an ANALYZE, given its current
+   * estimated row count and the estimate as of the previous ANALYZE.
+   *
+   * <p>The cadence is geometric: refresh stats each time the table has
+   * <em>doubled</em> since the last ANALYZE. Two bounds shape that:
+   * <ul>
+   *   <li><b>floor</b> ({@link #URL_ANALYZE_MIN_ROWS}): a near-empty table
+   *       "doubles" after a handful of rows (2&nbsp;&times;&nbsp;0&nbsp;==&nbsp;0),
+   *       which would fire on almost every batch, so we first wait for at least
+   *       this much growth; and
+   *   <li><b>cap</b> ({@link #URL_ANALYZE_CAP_ROWS}): once the table is this
+   *       large the seq-scan&nbsp;&rarr;&nbsp;index-scan plan for the url lookup
+   *       is settled and further refreshes won't change it, so we stop and let
+   *       autovacuum own steady state.
+   * </ul>
+   *
+   * @param currentRows       current estimated urls row count
+   * @param rowsAtLastAnalyze the estimate at the time of the last ANALYZE
+   * @return whether an ANALYZE should be run now
+   */
+  static boolean shouldAnalyzeUrls(long currentRows, long rowsAtLastAnalyze) {
+    // Past the cap: plan is settled, leave stats to autovacuum.
+    if (currentRows >= URL_ANALYZE_CAP_ROWS) {
+      return false;
+    }
+    // Fire once the table reaches double its size at the last ANALYZE, but never
+    // before it has grown by at least the floor.
+    long doubledSize = rowsAtLastAnalyze * 2;
+    long flooredSize = rowsAtLastAnalyze + URL_ANALYZE_MIN_ROWS;
+    long nextAnalyzeAt = Math.max(doubledSize, flooredSize);
+    return currentRows >= nextAnalyzeAt;
   }
 
   private void addArtifact(Connection conn, long auidSeq, long namespaceSeq, long urlSeq, Artifact artifact)
       throws DbException {
 
     PreparedStatement ps = idxDbManager.prepareStatement(conn, INSERT_ARTIFACT_QUERY);
-    ArtifactIdentifier artifactId = artifact.getIdentifier();
 
     try {
-      ps.setString(1, artifactId.getUuid());
-      ps.setLong(2, namespaceSeq);
-      ps.setLong(3, auidSeq);
-      ps.setLong(4, urlSeq);
-      ps.setInt(5, artifactId.getVersion());
-      ps.setBoolean(6, artifact.isCommitted());
-      ps.setString(7, artifact.getStorageUrl());
-      ps.setLong(8, artifact.getContentLength());
-      ps.setString(9, artifact.getContentDigest());
-      ps.setLong(10, artifact.getCollectionDate());
-
+      bindArtifactInsertParams(ps, namespaceSeq, auidSeq, urlSeq, artifact);
       idxDbManager.executeUpdate(ps);
     } catch (SQLException e) {
       log.error("Error preparing SQL statement", e);
@@ -2796,6 +3062,22 @@ public class SQLArtifactIndexManagerSql {
     } finally {
       DbManager.safeCloseStatement(ps);
     }
+  }
+
+  private static void bindArtifactInsertParams(PreparedStatement ps,
+      long namespaceSeq, long auidSeq, long urlSeq, Artifact artifact)
+      throws SQLException {
+    ArtifactIdentifier artifactId = artifact.getIdentifier();
+    ps.setString(1, artifactId.getUuid());
+    ps.setLong(2, namespaceSeq);
+    ps.setLong(3, auidSeq);
+    ps.setLong(4, urlSeq);
+    ps.setInt(5, artifactId.getVersion());
+    ps.setBoolean(6, artifact.isCommitted());
+    ps.setString(7, artifact.getStorageUrl());
+    ps.setLong(8, artifact.getContentLength());
+    ps.setString(9, artifact.getContentDigest());
+    ps.setLong(10, artifact.getCollectionDate());
   }
 
   public void upsertArtifactForReindex(Artifact artifact) throws DbException {

@@ -99,8 +99,11 @@ public class SqlConstants {
   /** Name of the publication table. */
   public static final String PUBLICATION_TABLE = "publication";
 
-  /** Name of the pending AUs table. */
-  public static final String PENDING_AU_TABLE = "pending_au";
+  /** Name of the v1-compatible pending AUs table. */
+  public static final String PENDING_AU_V1_TABLE = "pending_au";
+
+  /** Name of the pending AUs table used by v2. */
+  public static final String PENDING_AU_TABLE = "pending_au_v2";
 
   /** Name of the obsolete COUNTER publication year aggregate table. */
   public static final String OBSOLETE_PUBYEAR_AGGREGATES_TABLE =
@@ -547,6 +550,16 @@ public class SqlConstants {
 
   /** The name of the unknown provider. */
   public static final String UNKNOWN_PROVIDER_NAME = "UNKNOWN PROVIDER";
+
+  /**
+   * The name of the metadata write lock table.
+   */
+  public static final String METADATA_WRITE_LOCK_TABLE = "metadata_write_lock";
+
+  /**
+   * The column for the lock identifier in the metadata write lock table.
+   */
+  public static final String LOCK_ID_COLUMN = "lock_id";
 
   /**
    * The standard type of a name that is primary.

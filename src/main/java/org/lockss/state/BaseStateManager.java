@@ -30,6 +30,7 @@ package org.lockss.state;
 
 import java.io.IOException;
 import java.util.*;
+import java.util.concurrent.CopyOnWriteArraySet;
 import javax.jms.*;
 
 import org.lockss.account.UserAccount;
@@ -53,7 +54,8 @@ public abstract class BaseStateManager extends BaseLockssDaemonManager
   protected ConfigManager configMgr;
   protected PluginManager pluginMgr;
 
-  private final Set<UserAccount.UserAccountChangedCallback> userAccountChangedCallbacks = new HashSet<>();
+  private final Set<UserAccount.UserAccountChangedCallback> userAccountChangedCallbacks =
+      new CopyOnWriteArraySet<>();
 
   @Override
   public void initService(LockssDaemon daemon) throws LockssAppException {

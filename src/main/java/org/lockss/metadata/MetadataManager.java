@@ -119,7 +119,8 @@ public class MetadataManager extends BaseLockssManager {
    * @return the number of distinct publications in the metadata database
    */
   public long getPublicationCount() {
-    if (metadataPublicationCount < 0) {
+    if ((getConfigManager().inMigrationMode() ||
+        (metadataPublicationCount < 0))) {
       try {
         metadataPublicationCount = mdManagerSql.getPublicationCount();
       } catch (DbException ex) {
@@ -1786,7 +1787,7 @@ public class MetadataManager extends BaseLockssManager {
    * 
    * @return a MetadataManagerSql with the SQL code executor.
    */
-  MetadataManagerSql getMetadataManagerSql() {
+  public MetadataManagerSql getMetadataManagerSql() {
     return mdManagerSql;
   }
 

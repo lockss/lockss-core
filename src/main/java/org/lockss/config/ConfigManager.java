@@ -42,6 +42,8 @@ import org.apache.commons.io.*;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.commons.lang3.StringEscapeUtils;
 import org.apache.oro.text.regex.*;
+import org.lockss.crawler.BaseCrawler;
+import org.lockss.crawler.CrawlManagerImpl;
 import org.springframework.context.ApplicationEvent;
 import org.springframework.context.ApplicationContext;
 import org.lockss.app.*;
@@ -488,6 +490,18 @@ public class ConfigManager implements LockssManager {
   public static final String PARAM_MIGRATION_SAME_NAT =
     MYPREFIX + "migrationSameNAT";
   public static final boolean DEFAULT_MIGRATION_SAME_NAT = true;
+
+  /** If true, during migration mode automatically configure V2's crawler
+   * to send HTTP through V1 so publisher allowlists (e.g. GLN, Atypon)
+   * continue to recognize the request source IP. */
+  public static final String PARAM_PROXY_IN_MIGRATION_MODE =
+    MYPREFIX + "proxyInMigrationMode";
+  public static final boolean DEFAULT_PROXY_IN_MIGRATION_MODE = false;
+
+  /** Port on V1 host that the migration crawl proxy listens on. */
+  public static final String PARAM_MIGRATION_PROXY_PORT =
+    MYPREFIX + "migrationProxyPort";
+  public static final int DEFAULT_MIGRATION_PROXY_PORT = 8083;
 
   public static final String CONFIG_FILE_UI_IP_ACCESS = "ui_ip_access.txt";
   public static final String CONFIG_FILE_PROXY_IP_ACCESS =
@@ -2299,7 +2313,7 @@ public class ConfigManager implements LockssManager {
 							  DEFAULT_JSSE_ENABLESNIEXTENSION)));
 
     setIfNotSet(config,
-		org.lockss.crawler.CrawlManagerImpl.PARAM_EXCLUDE_URL_PATTERN,
+		CrawlManagerImpl.PARAM_EXCLUDE_URL_PATTERN,
 		MiscParams.PARAM_EXCLUDE_URL_PATTERN);
 
     String fromParam = LockssDaemon.PARAM_BIND_ADDRS;
@@ -2417,6 +2431,42 @@ public class ConfigManager implements LockssManager {
   void setUpForMigration(Configuration config) {
     // Tell SubscriptionManager to defer instantiating subscriptions
     config.put(SubscriptionManager.PARAM_SUBSCRIPTION_DEFERRED, "true");
+
+    // Route V2 crawler HTTP through V1's host during migration so that
+    // publisher allowlists (which only know V1's IP) keep working.
+    // Only inject if the operator hasn't already explicitly configured
+    // the crawl proxy.
+    if (config.getBoolean(PARAM_PROXY_IN_MIGRATION_MODE,
+                          DEFAULT_PROXY_IN_MIGRATION_MODE)) {
+      if (config.getBoolean(BaseCrawler.PARAM_PROXY_ENABLED,
+                            BaseCrawler.DEFAULT_PROXY_ENABLED)) {
+        log.warning("Migration crawl proxy injection requested but crawler is already set to proxy through " + config.get(BaseCrawler.PARAM_PROXY_HOST) + "; skipping.");
+      } else {
+        String v1Addr = config.get(PARAM_V1_ROUTABLE_ADDR);
+        if (StringUtil.isNullString(v1Addr)) {
+          log.warning("Migration crawl proxy injection requested but "
+                      + PARAM_V1_ROUTABLE_ADDR + " is not set; skipping.");
+        } else {
+          int proxyPort = config.getInt(PARAM_MIGRATION_PROXY_PORT, DEFAULT_MIGRATION_PROXY_PORT);
+          config.put(BaseCrawler.PARAM_PROXY_ENABLED, "true");
+          config.put(BaseCrawler.PARAM_PROXY_HOST, v1Addr);
+          config.put(BaseCrawler.PARAM_PROXY_PORT, Integer.toString(proxyPort));
+
+          // Append X-Lockss-Source: publisher to existing request headers.
+          // PARAM_REQUEST_HEADERS is parsed as a ';'-separated list.
+          String hdrToAdd = "X-Lockss-Source: publisher";
+          List<String> hdrs =
+            new ArrayList<String>(config.getList(CrawlManagerImpl.PARAM_REQUEST_HEADERS));
+          hdrs.add(hdrToAdd);
+          config.put(CrawlManagerImpl.PARAM_REQUEST_HEADERS,
+                     StringUtil.separatedString(hdrs, ";"));
+
+          log.info("Migration mode: injecting crawl proxy "
+                   + v1Addr + ":" + proxyPort
+                   + " and appending header '" + hdrToAdd + "'");
+        }
+      }
+    }
   }
 
   private void copyToSysProps(Configuration config) {
@@ -2635,7 +2685,7 @@ public class ConfigManager implements LockssManager {
     // keys includes param name prefixes that aren't actual params, so
     // numDiffs is inflated by several.
     for (String key : keys) {
-      if (numDiffs <= 40 || log.isDebug3() || shouldParamBeLogged(key)) {
+      if ((numDiffs <= 100 || log.isDebug3()) && shouldParamBeLogged(key)) {
 	if (config.containsKey(key)) {
 	  String val = config.get(key);
 	  log.debug("  " +key + " = " + StringUtils.abbreviate(val, maxLogValLen));
@@ -4870,6 +4920,32 @@ public class ConfigManager implements LockssManager {
       stateMgr = theApp.getManagerByType(StateManager.class);
     }
     return stateMgr;
+  }
+
+  /**
+   * Sets the per-AU {@code isMetadataExtractionEnabled} flag on the AU's
+   * {@link AuState}. Replaces the legacy per-AU enable/disable in
+   * MetadataExtractorManager (enableAuIndexing / disableAuIndexing, removed
+   * on the feature-mdLegacyRemoval branch). The setter notifies the
+   * StateManager so the change is persisted and broadcast in the usual
+   * way.
+   *
+   * @param au       the Archival Unit whose state is to be updated.
+   * @param enabled  the new value of isMetadataExtractionEnabled.
+   * @throws IllegalStateException if no StateManager is available.
+   */
+  public void setAuMetadataExtractionEnabled(ArchivalUnit au, boolean enabled) {
+    if (au == null) {
+      throw new IllegalArgumentException("Null ArchivalUnit");
+    }
+    StateManager sm = getStateManager();
+    if (sm == null) {
+      throw new IllegalStateException(
+          "No StateManager available; cannot set metadata extraction state"
+              + " for AU '" + au.getAuId() + "'");
+    }
+    AuState aus = sm.getAuState(au);
+    aus.setMetadataExtractionEnabled(enabled);
   }
 
   /**

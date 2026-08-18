@@ -321,7 +321,14 @@ public class LocalWarcArtifactDataStore extends WarcArtifactDataStore {
 
   @Override
   public boolean removeWarc(Path filePath) {
-    return filePath == null || FileUtil.safeDeleteFile(filePath.toFile());
+    if (filePath == null) return true;
+
+    boolean result = FileUtil.safeDeleteFile(filePath.toFile());
+    if (!result) {
+      log.warn("Unable to delete WARC file [filePath: {}]", filePath);
+    }
+
+    return result;
   }
 
   @Override
