@@ -170,10 +170,10 @@ public class DispatchingArtifactIndex extends AbstractArtifactIndex {
   }
 
   @Override
-  public void reindexArtifacts(Iterable<Artifact> artifacts) throws IOException {
+  public int reindexArtifacts(Iterable<Artifact> artifacts) throws IOException {
     // FIXME: This is safe for reindex but once the Repository has started,
     //  it is not going to direct index operations to the correct index.
-    masterIndex.reindexArtifacts(artifacts);
+    return masterIndex.reindexArtifacts(artifacts);
   }
 
   @Override

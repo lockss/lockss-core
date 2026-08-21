@@ -71,6 +71,41 @@ public class SQLArtifactIndex extends AbstractArtifactIndex {
 
   public static String ARTIFACT_INDEX_TYPE = "SQL";
 
+  /**
+   * How a reindex resolves two artifacts that claim the same
+   * (namespace, AUID, URL, version) under different UUIDs.
+   *
+   * <p>The artifacts table has a unique index on {@code uuid} only, so nothing
+   * in the schema prevents such a pair from existing; see
+   * {@link SQLArtifactIndexManagerSql#resolveVersionConflict}.
+   *
+   * <p>Lives here, in repocore, rather than in the Spring configuration class
+   * that reads the parameter, because repocore cannot see
+   * {@code org.lockss.config}. Mirrors
+   * {@code RepositoryManager.CheckUnnormalizedMode}.
+   */
+  public enum VersionConflictResolution {
+    /** Keep the artifact with the earliest {@code crawl_time}. */
+    PreferEarliest,
+    /** Keep the artifact with the latest {@code crawl_time}. */
+    PreferLatest
+  }
+
+  /**
+   * Default version-conflict resolution: keep the earliest collection date,
+   * which preserves the original crawl's provenance.
+   */
+  public static final VersionConflictResolution DEFAULT_VERSION_CONFLICT_RESOLUTION =
+      VersionConflictResolution.PreferEarliest;
+
+  /**
+   * Volatile so that a configuration callback on another thread is seen by an
+   * in-progress reindex; initialized to the default so the index behaves
+   * correctly when no callback ever runs (e.g. in tests).
+   */
+  private volatile VersionConflictResolution versionConflictResolution =
+      DEFAULT_VERSION_CONFLICT_RESOLUTION;
+
   private SQLArtifactIndexManagerSql idxdb = null;
 
   private final SemaphoreMap<ArtifactIdentifier.ArtifactStem> versionLock = new SemaphoreMap<>();
@@ -89,6 +124,27 @@ public class SQLArtifactIndex extends AbstractArtifactIndex {
   @Override
   public boolean isReady() {
     return idxdb != null;
+  }
+
+  /**
+   * Sets the policy used to resolve two artifacts claiming the same
+   * (namespace, AUID, URL, version) during a reindex. Pushed in from the
+   * service's configuration callback, which repocore cannot reach itself.
+   *
+   * @param res The {@link VersionConflictResolution} to use; null selects the
+   *            default.
+   * @return This index, for chaining.
+   */
+  public SQLArtifactIndex setVersionConflictResolution(VersionConflictResolution res) {
+    versionConflictResolution =
+        (res == null) ? DEFAULT_VERSION_CONFLICT_RESOLUTION : res;
+    log.debug("Version conflict resolution set to {}", versionConflictResolution);
+    return this;
+  }
+
+  /** @return The version-conflict resolution policy in effect. */
+  public VersionConflictResolution getVersionConflictResolution() {
+    return versionConflictResolution;
   }
 
   @Override
@@ -164,15 +220,20 @@ public class SQLArtifactIndex extends AbstractArtifactIndex {
     }
 
     try {
-      idxdb.upsertArtifactForReindex(artifact);
+      idxdb.upsertArtifactForReindex(artifact, versionConflictResolution);
     } catch (DbException e) {
       throw new IOException("Could not add/update artifact to database", e);
     }
   }
 
   @Override
-  public void reindexArtifacts(Iterable<Artifact> artifacts) throws IOException {
-    // TODO: Implement idxdb.upsertArtifactsForReindex(artifacts)
+  public int reindexArtifacts(Iterable<Artifact> artifacts) throws IOException {
+    // TODO (E.3): replace this per-artifact loop with a batched
+    //  idxdb.upsertArtifactsForReindex(artifacts, versionConflictResolution).
+    //  As written, each iteration costs a connection checkout and a COMMIT --
+    //  a WAL flush per artifact under synchronous_commit=on -- plus, since
+    //  Component D, the version-conflict SELECT. The batched shape is spelled
+    //  out in the javadoc of SQLArtifactIndexManagerSql.upsertArtifactsForReindex().
 
     Artifact firstArtifact = null;
     int attempted = 0;
@@ -191,7 +252,7 @@ public class SQLArtifactIndex extends AbstractArtifactIndex {
       // artifact -- a null version NPEs on setInt(), for instance -- abandoned
       // every artifact after it in the batch.
       try {
-        idxdb.upsertArtifactForReindex(artifact);
+        idxdb.upsertArtifactForReindex(artifact, versionConflictResolution);
       } catch (DbException | RuntimeException e) {
         failed++;
         log.error("Could not reindex artifact, skipping it [uuid: {}, url: {}]",
@@ -200,15 +261,18 @@ public class SQLArtifactIndex extends AbstractArtifactIndex {
     }
 
     if (failed > 0) {
-      // Note that this log is the only record of the skipped artifacts: this
-      // method has no channel for reporting partial success to its caller, so
-      // the WARC they came from is still recorded as fully reindexed.
+      // This log names the individual artifacts; the count returned below is
+      // what the caller uses to report the batch as partially failed.
       log.error("Reindex skipped {} of {} artifacts; see the errors above",
                 failed, attempted);
     }
 
-    // FIXME: The assumption that all the artifacts are in the same namespace and AUID
-    //  (as determined by the first artifact) is only true in "bulk-mode":
+    // FIXME (E.4): The assumption that all the artifacts are in the same namespace
+    //  and AUID (as determined by the first artifact) is only true in "bulk-mode".
+    //  A temporary WARC interleaves AUs, so every AU but the first keeps a stale
+    //  cached size. The general fix is to collect the distinct (namespace, auid)
+    //  set as we go and invalidate each; the per-AU reindex path
+    //  (WarcArtifactDataStore.reindexArtifactsInAu()) is correct by construction.
     if (firstArtifact != null) {
       try {
         invalidateAuSize(firstArtifact.getNamespace(), firstArtifact.getAuid());
@@ -219,6 +283,8 @@ public class SQLArtifactIndex extends AbstractArtifactIndex {
         log.warn("Could not invalidate AU size", e);
       }
     }
+
+    return failed;
   }
 
   @Override

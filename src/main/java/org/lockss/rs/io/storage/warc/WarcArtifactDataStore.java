@@ -65,6 +65,7 @@ import org.lockss.rs.io.ArtifactContainerStats;
 import org.lockss.rs.io.index.ArtifactIndex;
 import org.lockss.rs.io.storage.ArtifactDataStore;
 import org.lockss.rs.io.storage.ArtifactDataStoreVersion;
+import org.lockss.rs.io.storage.ReindexResult;
 import org.lockss.util.*;
 import org.lockss.util.concurrent.stripedexecutor.StripedCallable;
 import org.lockss.util.concurrent.stripedexecutor.StripedExecutorService;
@@ -110,6 +111,7 @@ import java.util.concurrent.*;
 import java.util.function.BiConsumer;
 import java.util.function.Function;
 import java.util.function.Predicate;
+import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import java.util.zip.GZIPInputStream;
 import java.util.zip.GZIPOutputStream;
@@ -130,6 +132,13 @@ public abstract class WarcArtifactDataStore implements ArtifactDataStore, WARCCo
   public final static String DATASTORE_STATE_DIR = "store";
   public final static String DATASTORE_VERSION_FILE = DATASTORE_STATE_DIR + "/version";
   public final static String REINDEXED_WARCS_FILE = DATASTORE_STATE_DIR + "/reindexed-warcs";
+  /**
+   * CSV report of the WARCs a reindex pass could not read, written alongside
+   * {@link #REINDEXED_WARCS_FILE} and rotated with the same run stamp. The name
+   * must keep starting with "reindex": the installer's {@code reindex*} prefix
+   * glob depends on it.
+   */
+  public final static String REINDEX_FAILURES_FILE = DATASTORE_STATE_DIR + "/reindex-failures";
   protected static final String CONTENT_BASE_PATH_ID_FILE = "lockss-content-id.json";
   public final static String CONFIGURED_BASE_PATH_UUIDS_FILE =
       DATASTORE_STATE_DIR + "/configured-base-path-uuids";
@@ -2815,25 +2824,194 @@ public abstract class WarcArtifactDataStore implements ArtifactDataStore, WARCCo
    * * Reindex must preserve ORDER of versions of artifacts, if not exact version
    *
    * @param index The {@code ArtifactIndex} to rebuild and populate from WARCs within this WARC artifact data store.
+   * @return A {@link ReindexResult} carrying the WARCs that could not be read and
+   *         their causes, the number of artifacts indexed, and the number the index
+   *         itself skipped. The failures are reported, not retried.
    * @throws IOException
    */
   @Override
-  public void reindexArtifacts(ArtifactIndex index) throws IOException {
-    // List of WARCs that have already been indexed
-    List<Path> indexedWarcs = new ArrayList<>();
+  public ReindexResult reindexArtifacts(ArtifactIndex index) throws IOException {
+    ReindexResult result = new ReindexResult();
 
     Path reindexedWarcsPath = repo.getRepositoryStateDirPath()
         .resolve(REINDEXED_WARCS_FILE);
 
-    File reindexedWarcsFile = reindexedWarcsPath.toFile();
+    // Read set of WARCs that have already been reindexed
+    List<Path> indexedWarcs = readReindexedWarcsLedger(reindexedWarcsPath);
+
+    // Reindex all WARCs under the configured base paths; keep track of WARCs
+    // we have successfully reindexed:
+    try (CSVPrinter printer =
+             openReindexedWarcsLedger(reindexedWarcsPath, !indexedWarcs.isEmpty())) {
+
+      for (Path basePath : getBasePaths()) {
+        log.debug("Reindexing WARCs from {}", basePath);
+
+        // Search under data store base path for WARCs
+        Collection<Path> warcPaths = findWarcs(basePath);
+
+        // Find WARCs in permanent storage (exclude journal files, temp WARCs, and processed WARCs)
+        Stream<Path> permanentWarcs = warcPaths
+            .stream()
+            .filter(path -> !isTmpStorage(path))
+            .filter(path -> !path.endsWith("lockss-repo" + WARCConstants.DOT_WARC_FILE_EXTENSION))
+            .filter(path -> !isWarcJournalPath(path))
+            .filter(path -> !indexedWarcs.contains(path));
+
+        // Find WARCS in temporary storage
+        Stream<Path> temporaryWarcs = warcPaths
+            .stream()
+            .filter(this::isTmpStorage)
+            .filter(path -> !path.getFileName().toString().endsWith(DOT_METADATA_WARC_FILE_EXTENSION))
+            .filter(path -> !indexedWarcs.contains(path));
+
+        // It's absolutely necessary that permanent WARCs come first; DON'T CHANGE THIS!
+        Stream.concat(permanentWarcs, temporaryWarcs).forEach((warcPath) ->
+            reindexOneWarc(index, warcPath, printer, indexedWarcs, result));
+      }
+    }
+
+    // Write the failure report, rotate it and the ledger under one run stamp, and
+    // log the summary. Deliberately after the printer is closed: the old code
+    // renamed the ledger while its writer was still open.
+    finishReindexRun(result);
+
+    return result;
+  }
+
+  /**
+   * Reindexes the artifacts of a single AU, from the WARCs in that AU's
+   * directories under this data store's base paths.
+   * <p>
+   * This is the recovery path for an AU whose index rows were lost -- e.g. by the
+   * pre-{@code 516d8358} {@code DispatchingArtifactIndex.finishBulkStore()}, which
+   * dropped the AU's volatile index if the copy to the master index failed. It is
+   * safe to re-run: the artifact UUID comes from the WARC record itself, so the
+   * same records upsert the same rows.
+   *
+   * @param index     The {@link ArtifactIndex} to reindex the AU's artifacts into.
+   * @param namespace A {@link String} containing the namespace of the AU.
+   * @param auid      A {@link String} containing the AUID of the AU.
+   * @return A {@link ReindexResult}. If the AU has no directory under any base path
+   *         it is unrecoverable: that is logged at ERROR and recorded in the result's
+   *         missing-AU list, never silently skipped.
+   * @throws IOException
+   */
+  public ReindexResult reindexArtifactsInAu(ArtifactIndex index, String namespace, String auid)
+      throws IOException {
+    validateNamespace(namespace);
+
+    ReindexResult result = new ReindexResult();
+
+    // An AU may have a directory under any or all of the base paths -- nothing
+    // shards by AUID -- so every base path is checked. Same walk as auWarcSize().
+    List<Path> auPaths = List.of(getBasePaths()).stream()
+        .map(basePath -> generateAUPath(basePath, namespace, auid))
+        .filter(auPath -> auPath.toFile().isDirectory())
+        .collect(Collectors.toList());
+
+    if (auPaths.isEmpty()) {
+      // Unrecoverable: there is nothing on disk to reindex from. Reported rather
+      // than skipped. Most likely causes are the wrong namespace, or the base path
+      // holding this AU not being currently configured.
+      log.error("No AU directory under any base path; cannot reindex " +
+                "[namespace: {}, auid: {}, basePaths: {}]",
+                namespace, auid, Arrays.toString(getBasePaths()));
+      result.addMissingAu(auid);
+      return result;
+    }
+
+    // Note: this deliberately does NOT scan <basePath>/tmp/warcs. Temp WARCs live
+    // outside the AU directories and interleave records from many AUs, so a per-AU
+    // directory walk cannot see them. That is correct for this recovery case:
+    // finishBulkStore only runs after waitForCommitTasks() has copied everything to
+    // permanent AU WARCs, so a bulk-stored AU's content is all in AU dirs. Broader
+    // coverage would want one filtered pass over the temp WARCs for the whole AUID
+    // set, not a pass per AUID.
+    List<Path> warcPaths = auPaths.stream()
+        .map(this::findWarcsOrEmpty)
+        .flatMap(Collection::stream)
+        .filter(path -> !isWarcJournalPath(path))
+        .collect(Collectors.toList());
+
+    if (warcPaths.isEmpty()) {
+      log.warn("AU directories exist but hold no WARCs [namespace: {}, auid: {}, auPaths: {}]",
+               namespace, auid, auPaths);
+      return result;
+    }
+
+    Path reindexedWarcsPath = repo.getRepositoryStateDirPath()
+        .resolve(REINDEXED_WARCS_FILE);
+
+    boolean ledgerHasRecords = !readReindexedWarcsLedger(reindexedWarcsPath).isEmpty();
+
+    // Resume granularity differs between the two reindex paths, and this is where
+    // that shows: the full pass resumes per WARC by consulting this ledger, while
+    // the targeted pass resumes per AU via auids-to-reindex.done. So it appends
+    // here but never skips. An AU interrupted mid-way is re-read in full, which is
+    // safe because the artifact UUID comes from the WARC record, making the upsert
+    // idempotent.
+    //
+    // Skipping on a ledger entry would be wrong here in any case: a WARC can be
+    // truthfully listed as reindexed and still have no index rows now, because the
+    // finishBulk bug destroyed them afterwards. The ledger records that a WARC was
+    // read, not that the index still reflects it -- and re-reading it is exactly
+    // what dropping the auids-to-reindex file asks for.
+    //
+    // Note that the targeted pass never writes the index/reindexing token (only
+    // reindexArtifacts() and the base-path-change branch in updateIndexIfNeeded()
+    // do), so a targeted run that dies before finishReindexRun() leaves an
+    // unrotated ledger behind with no token beside it. The reindex-artifacts script
+    // will delete it if reinvoked.
+    try (CSVPrinter printer = openReindexedWarcsLedger(reindexedWarcsPath, ledgerHasRecords)) {
+      for (Path warcPath : warcPaths) {
+        reindexOneWarc(index, warcPath, printer, new ArrayList<>(), result);
+      }
+    }
+
+    log.info("Reindexed AU [namespace: {}, auid: {}, auPaths: {}, result: {}]",
+             namespace, auid, auPaths, result);
+
+    return result;
+  }
+
+  /**
+   * Reindexes one WARC, recording the outcome in the ledger and the result.
+   */
+  private void reindexOneWarc(ArtifactIndex index, Path warcPath, CSVPrinter printer,
+                              List<Path> indexedWarcs, ReindexResult result) {
+    log.info("Reindexing artifacts from {}", warcPath);
+    try {
+      long start = Instant.now().getEpochSecond();
+      long numIndexed = indexArtifactsFromWarc(index, warcPath, result);
+      long end = Instant.now().getEpochSecond();
+
+      // Add WARC to set of WARCs succcessfully reindexed
+      indexedWarcs.add(warcPath);
+      result.addWarcSucceeded(numIndexed);
+      printer.printRecord(start, end, numIndexed, warcPath);
+      printer.flush();
+    } catch (Exception e) {
+      log.error("Error reindexing artifacts from WARC [warc: {}]", warcPath, e);
+      result.addWarcFailure(warcPath, e);
+    }
+  }
+
+  /**
+   * Reads the paths of the WARCs a previous reindex pass recorded as done,
+   * creating the ledger if it does not exist.
+   */
+  private static List<Path> readReindexedWarcsLedger(Path ledgerPath) throws IOException {
+    List<Path> indexedWarcs = new ArrayList<>();
 
     CSVFormat csvFormat = CSVFormat.DEFAULT.builder()
         .setHeader(REINDEXED_WARCS_CSV_HEADER)
         .setSkipHeaderRecord(true)
         .get();
 
-    // Read set of WARCs have already been reindexed
-    try (FileReader reader = new FileReader(reindexedWarcsFile)) {
+    File ledgerFile = ledgerPath.toFile();
+
+    try (FileReader reader = new FileReader(ledgerFile)) {
       Iterable<CSVRecord> csvRecords = csvFormat.parse(reader);
 
       // Add indexed WARC path to list
@@ -2846,82 +3024,162 @@ public abstract class WarcArtifactDataStore implements ArtifactDataStore, WARCCo
       });
     } catch (FileNotFoundException e) {
       log.debug("List of previously reindexed WARCs file not found; starting a new one");
-      FileUtils.touch(reindexedWarcsFile);
+      FileUtils.touch(ledgerFile);
     }
 
-    // Reindex all WARCs under the configured base paths; keep track of WARCs
-    // we have successfully reindexed:
-    try (BufferedWriter reindexedWarcsOutputStream =
-             Files.newBufferedWriter(reindexedWarcsPath, StandardOpenOption.APPEND, StandardOpenOption.CREATE)) {
+    return indexedWarcs;
+  }
 
-      csvFormat = CSVFormat.DEFAULT.builder()
-          .setHeader(REINDEXED_WARCS_CSV_HEADER)
-          .setSkipHeaderRecord(!indexedWarcs.isEmpty())
-          .get();
+  /**
+   * Opens the reindexed-WARCs ledger for append. Closing the returned
+   * {@link CSVPrinter} closes the underlying writer.
+   */
+  private static CSVPrinter openReindexedWarcsLedger(Path ledgerPath, boolean hasExistingRecords)
+      throws IOException {
+    FileUtils.forceMkdirParent(ledgerPath.toFile());
 
-      try (CSVPrinter printer = new CSVPrinter(reindexedWarcsOutputStream, csvFormat)) {
+    CSVFormat csvFormat = CSVFormat.DEFAULT.builder()
+        .setHeader(REINDEXED_WARCS_CSV_HEADER)
+        .setSkipHeaderRecord(hasExistingRecords)
+        .get();
 
-        for (Path basePath : getBasePaths()) {
-          log.debug("Reindexing WARCs from {}", basePath);
+    return new CSVPrinter(
+        Files.newBufferedWriter(ledgerPath, StandardOpenOption.APPEND, StandardOpenOption.CREATE),
+        csvFormat);
+  }
 
-          // Search under data store base path for WARCs
-          Collection<Path> warcPaths = findWarcs(basePath);
+  /**
+   * Ends a reindex pass: writes {@link #REINDEX_FAILURES_FILE}, rotates it and
+   * {@link #REINDEXED_WARCS_FILE} under a single run stamp so the two halves of a
+   * run's record stay paired, and logs the summary.
+   * <p>
+   * Called by {@link #reindexArtifacts(ArtifactIndex)} at the end of a whole-store
+   * pass, and by {@code BaseLockssRepository} at the end of a targeted per-AU pass
+   * over a whole AUID list.
+   *
+   * @return the run stamp used, or {@code null} if there was nothing to rotate.
+   */
+  public String finishReindexRun(ReindexResult result) throws IOException {
+    Path stateDir = repo.getRepositoryStateDirPath();
+    Path reindexedWarcsPath = stateDir.resolve(REINDEXED_WARCS_FILE);
+    Path failuresPath = stateDir.resolve(REINDEX_FAILURES_FILE);
 
-          // Find WARCs in permanent storage (exclude journal files, temp WARCs, and processed WARCs)
-          Stream<Path> permanentWarcs = warcPaths
-              .stream()
-              .filter(path -> !isTmpStorage(path))
-              .filter(path -> !path.endsWith("lockss-repo" + WARCConstants.DOT_WARC_FILE_EXTENSION))
-              .filter(path -> !isWarcJournalPath(path))
-              .filter(path -> !indexedWarcs.contains(path));
+    // Always written, so that a clean run leaves an (empty) report rather than a
+    // stale one from an earlier pass.
+    writeReindexFailureReport(failuresPath, result);
 
-          // Find WARCS in temporary storage
-          Stream<Path> temporaryWarcs = warcPaths
-              .stream()
-              .filter(this::isTmpStorage)
-              .filter(path -> !path.getFileName().toString().endsWith(DOT_METADATA_WARC_FILE_EXTENSION))
-              .filter(path -> !indexedWarcs.contains(path));
+    String runStamp = rotateWithRunStamp(reindexedWarcsPath, failuresPath);
 
-          Stream.concat(permanentWarcs, temporaryWarcs).forEach((warcPath) -> {
-            log.info("Reindexing artifacts from {}", warcPath);
-            try {
-              long start = Instant.now().getEpochSecond();
-              long numIndexed = indexArtifactsFromWarc(index, warcPath);
-              long end = Instant.now().getEpochSecond();
+    Path reportPath = runStamp == null ?
+        failuresPath : stampedPath(failuresPath, runStamp);
 
-              // Add WARC to set of WARCs succcessfully reindexed
-              indexedWarcs.add(warcPath);
-              printer.printRecord(start, end, numIndexed, warcPath);
-              printer.flush();
-            } catch (Exception e) {
-              log.error("Error reindexing artifacts from WARC [warc: {}]", warcPath, e);
-            }
-          });
-        }
+    if (result.hasFailures()) {
+      int failedAus = result.getMissingAus().size() + result.getAuFailures().size();
+      log.error("Reindex finished with {} of {} WARCs failed{}; see {}",
+                result.getWarcsFailedCount(), result.getWarcsAttempted(),
+                failedAus == 0 ? "" : " and " + failedAus + " AU(s) failed",
+                reportPath);
+    } else {
+      log.info("Reindex finished: {} of {} WARCs, {} artifacts indexed",
+               result.getWarcsSucceeded(), result.getWarcsAttempted(),
+               result.getArtifactsIndexed());
+    }
+
+    if (result.getArtifactsSkipped() > 0) {
+      log.error("Reindex skipped {} artifacts the index would not accept; see the errors above",
+                result.getArtifactsSkipped());
+    }
+
+    return runStamp;
+  }
+
+  /**
+   * Writes (or overwrites) the CSV report of the WARCs this run could not read.
+   */
+  private static void writeReindexFailureReport(Path failuresPath, ReindexResult result)
+      throws IOException {
+    FileUtils.forceMkdirParent(failuresPath.toFile());
+
+    CSVFormat csvFormat = CSVFormat.DEFAULT.builder()
+        .setHeader(REINDEX_FAILURES_CSV_HEADER)
+        .get();
+
+    try (CSVPrinter printer = new CSVPrinter(
+             Files.newBufferedWriter(failuresPath,
+                                     StandardOpenOption.CREATE,
+                                     StandardOpenOption.TRUNCATE_EXISTING),
+             csvFormat)) {
+
+      for (ReindexResult.WarcFailure failure : result.getWarcFailures()) {
+        printer.printRecord(failure.getWarcFile(), failure.getError());
       }
 
-      // Rename reindexed-warcs file with a date suffix for posterity
-      addDateSuffix(reindexedWarcsPath);
+      for (String auid : result.getMissingAus()) {
+        printer.printRecord("(missing AU: " + auid + ")",
+                            "No AU directory under any configured base path");
+      }
+
+      for (ReindexResult.AuFailure failure : result.getAuFailures()) {
+        printer.printRecord("(AU: " + failure.getAuid() + ")", failure.getError());
+      }
     }
   }
 
-  private static final DateTimeFormatter DATE_SUFFIX =
-    DateTimeFormatter.BASIC_ISO_DATE.withZone(ZoneOffset.UTC);
+  private static final DateTimeFormatter RUN_STAMP_FORMAT =
+      DateTimeFormatter.ofPattern("yyyyMMdd'T'HHmmss").withZone(ZoneOffset.UTC);
+
+  /** Maximum uniquifier tried before giving up; effectively unreachable. */
+  private static final int MAX_RUN_STAMP_ATTEMPTS = 10000;
 
   /**
-   * Adds a date suffix to a file path.
+   * Renames each of the given files that exists, appending a timestamp suffix
+   * shared by all of them, so the files a single run produced stay paired.
+   * <p>
+   * The suffix is chosen so that it collides with no existing target of <em>any</em>
+   * of the given paths; only then is anything renamed.
+   *
+   * @return the stamp used, or {@code null} if none of the files existed.
    */
-  // Q: Move to FileUtil?
-  private static void addDateSuffix(Path filePath) throws IOException {
-    String withDateSuffix = filePath.getFileName() + "." + DATE_SUFFIX.format(Instant.now());
-    Path withDateSuffixPath = filePath.resolveSibling(withDateSuffix);
+  public static String rotateWithRunStamp(Path... filePaths) throws IOException {
+    List<Path> present = Arrays.stream(filePaths)
+        .filter(Objects::nonNull)
+        .filter(path -> path.toFile().exists())
+        .collect(Collectors.toList());
 
-    if (!filePath.toFile().renameTo(withDateSuffixPath.toFile())) {
-      throw new IOException("Error renaming file " + filePath + " to " + withDateSuffixPath);
+    if (present.isEmpty()) {
+      return null;
     }
+
+    String base = RUN_STAMP_FORMAT.format(Instant.ofEpochMilli(TimeBase.nowMs()));
+    String stamp = base;
+
+    for (int i = 1; anyStampedTargetExists(present, stamp); i++) {
+      if (i > MAX_RUN_STAMP_ATTEMPTS) {
+        throw new IOException("Could not find an unused suffix for " + base);
+      }
+      stamp = base + "-" + i;
+    }
+
+    for (Path path : present) {
+      Path target = stampedPath(path, stamp);
+      if (!path.toFile().renameTo(target.toFile())) {
+        throw new IOException("Error renaming file " + path + " to " + target);
+      }
+    }
+
+    return stamp;
+  }
+
+  private static boolean anyStampedTargetExists(List<Path> paths, String stamp) {
+    return paths.stream().anyMatch(path -> stampedPath(path, stamp).toFile().exists());
+  }
+
+  private static Path stampedPath(Path filePath, String stamp) {
+    return filePath.resolveSibling(filePath.getFileName() + "." + stamp);
   }
 
   private static final String[] REINDEXED_WARCS_CSV_HEADER = {"start", "end", "num_indexed", "warc_file"};
+  private static final String[] REINDEX_FAILURES_CSV_HEADER = {"warc_file", "error"};
   private static final int BATCH_SIZE = 1000;
   private static final String HEADER_KEY_JOURNAL_TYPE = "X-Lockss-Repository-Journal-Type";
   private static final String DOT_METADATA_WARC_FILE_EXTENSION = ".metadata" + DOT_WARC_FILE_EXTENSION;
@@ -2933,9 +3191,27 @@ public abstract class WarcArtifactDataStore implements ArtifactDataStore, WARCCo
    * @param warcFile The {@link Path} to a WARC file containing artifacts to index.
    * @return A {@code long} containing the number of artifacts that were indexed. This may be less than the number of
    * artifacts contained in the file WARC file if artifacts were previously indexed or were marked as deleted.
+   * Only used for tests.
    * @throws IOException
    */
   public long indexArtifactsFromWarc(ArtifactIndex index, Path warcFile) throws IOException {
+    return indexArtifactsFromWarc(index, warcFile, new ReindexResult());
+  }
+
+  /**
+   * Iterates over the WARC records in a WARC file and indexes the artifact that the record represents.
+   *
+   * @param index    {@link ArtifactIndex} to index the artifact into.
+   * @param warcFile The {@link Path} to a WARC file containing artifacts to index.
+   * @param result   The {@link ReindexResult} of the enclosing pass, into which the
+   *                 artifacts the index skipped are accumulated. The count of
+   *                 artifacts indexed is the return value, not accumulated here.
+   * @return A {@code long} containing the number of artifacts that were indexed. This may be less than the number of
+   * artifacts contained in the file WARC file if artifacts were previously indexed or were marked as deleted.
+   * @throws IOException
+   */
+  public long indexArtifactsFromWarc(ArtifactIndex index, Path warcFile, ReindexResult result)
+      throws IOException {
     boolean isWarcInTemp = isTmpStorage(warcFile);
     boolean isCompressed = isCompressedWarcFile(warcFile);
 
@@ -2998,7 +3274,6 @@ public abstract class WarcArtifactDataStore implements ArtifactDataStore, WARCCo
           if (ad == null) continue;
 
           ArtifactIdentifier id = ad.getIdentifier();
-          Artifact indexedArtifact = index.getArtifact(id.getUuid());
 
           WarcArtifactStateEntry artifactState = journal.get(ad.getIdentifier().getUuid());
           boolean isCopied = artifactState != null && artifactState.isCopied();
@@ -3075,8 +3350,32 @@ public abstract class WarcArtifactDataStore implements ArtifactDataStore, WARCCo
           default:
             artifact.setCommitted(artifactState.isCommitted());
           }
-          // Add to batch of artifacts to index
-          if (shouldAddToBatch && !artifact.equals(indexedArtifact)) {
+          // Add to batch of artifacts to index.
+          //
+          // E.6: this used to be guarded by !artifact.equals(index.getArtifact(uuid)),
+          // skipping a record whose own index row already matched it exactly. That
+          // guard was written when a reindex meant rebuilding from an empty index,
+          // where the lookup almost always returned null -- so it was nearly free and
+          // nearly never fired. Targeted reindex (Component B) inverted both: it runs
+          // against a fully populated index, so the lookup cost one index round trip
+          // per record against a write path that batches 1000, and the skip became
+          // routine.
+          //
+          // It was also wrong. The lookup is BY UUID, so it only answers whether THIS
+          // artifact's own row is current; it cannot see a DIFFERENT uuid occupying the
+          // same (namespace, auid, url, version). Version-conflict resolution runs from
+          // upsertArtifactForReindex(), i.e. only for artifacts that reach this batch,
+          // so a skipped record is never arbitrated. Two artifacts duplicating a tuple
+          // -- the SQLArtifactIndex race: a crawl allocates a version that exists but
+          // has not yet reached the master index -- each have an accurate row, so both
+          // were skipped and the duplicate survived every pass, deterministically.
+          // That is precisely what Component D exists to collapse.
+          //
+          // Re-presenting an unchanged artifact is a no-op at the storage layer: the
+          // upsert is idempotent, and D.2/D.4's ON CONFLICT guard decides whether the
+          // row actually changes. The cost is one write per record where some records
+          // previously performed none, which is what the deferred E.3 batching is for.
+          if (shouldAddToBatch) {
               batch.add(artifact);
           }
         } catch (Exception e) {
@@ -3115,22 +3414,24 @@ public abstract class WarcArtifactDataStore implements ArtifactDataStore, WARCCo
         // one. ">=" rather than "==" because the flush no longer happens on
         // every path that adds to the batch.
         if (batch.size() >= BATCH_SIZE) {
-          index.reindexArtifacts(batch);
-          artifactsIndexed += batch.size();
+          int skipped = index.reindexArtifacts(batch);
+          artifactsIndexed += batch.size() - skipped;
+          result.addArtifactsSkipped(skipped);
           batch.clear();
         }
       } // end of main loop over records
       } catch (Exception e) {
         // Keep the artifacts parsed before the failure rather than dropping
         // them along with the file.
-        artifactsIndexed += flushReindexBatchQuietly(index, batch, warcFile);
+        artifactsIndexed += flushReindexBatchQuietly(index, batch, warcFile, result);
         throw e;
       }
 
       // Index any remaining artifacts (is a no-op if empty)
       if (!batch.isEmpty()) {
-        index.reindexArtifacts(batch);
-        artifactsIndexed += batch.size();
+        int skipped = index.reindexArtifacts(batch);
+        artifactsIndexed += batch.size() - skipped;
+        result.addArtifactsSkipped(skipped);
         batch.clear();
       }
     } catch (IOException e) {
@@ -3157,7 +3458,7 @@ public abstract class WarcArtifactDataStore implements ArtifactDataStore, WARCCo
    *         not be indexed.
    */
   private int flushReindexBatchQuietly(ArtifactIndex index, List<Artifact> batch,
-                                       Path warcFile) {
+                                       Path warcFile, ReindexResult result) {
     if (batch.isEmpty()) {
       return 0;
     }
@@ -3165,7 +3466,9 @@ public abstract class WarcArtifactDataStore implements ArtifactDataStore, WARCCo
     int n = batch.size();
 
     try {
-      index.reindexArtifacts(batch);
+      int skipped = index.reindexArtifacts(batch);
+      n -= skipped;
+      result.addArtifactsSkipped(skipped);
     } catch (Exception e) {
       log.error("Could not index the {} artifacts parsed from {} before the failure",
                 n, warcFile, e);

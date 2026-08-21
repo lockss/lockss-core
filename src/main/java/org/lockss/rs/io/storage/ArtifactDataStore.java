@@ -162,8 +162,11 @@ public interface ArtifactDataStore
      * Re-indexes all artifacts in this data store into the given {@link ArtifactIndex}.
      *
      * @param index The {@link ArtifactIndex} to re-index artifacts into.
+     * @return A {@link ReindexResult} describing what was indexed and what failed.
+     *         A pass that returns normally has finished; failures it carries are
+     *         reported, not retried.
      */
-    void reindexArtifacts(ArtifactIndex index) throws IOException;
+    ReindexResult reindexArtifacts(ArtifactIndex index) throws IOException;
 
     /**
      * Returns the size in bytes of storage used by this AU. E.g., sum of the sizes of all WARCs in the AU, in
