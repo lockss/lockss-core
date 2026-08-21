@@ -609,7 +609,8 @@ public class TestLocalWarcArtifactDataStore extends AbstractWarcArtifactDataStor
     File baseDir = new File("/tmp/lockss");
     File stateDir = new File("/tmp/lockss/state");
     File indexStateDir = new File("/tmp/lockss/state/index");
-    File reindexState = new File("/tmp/lockss/state/index/reindex");
+    File reindexState =
+        stateDir.toPath().resolve(BaseLockssRepository.REINDEXING_STATE_FILE).toFile();
 
     LocalWarcArtifactDataStore ds = new LocalWarcArtifactDataStore(baseDir);
     SolrArtifactIndex idx = makeEmbeddedSolr();

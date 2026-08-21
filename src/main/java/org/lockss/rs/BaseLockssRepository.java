@@ -51,6 +51,7 @@ import org.lockss.rs.io.index.ArtifactIndex;
 import org.lockss.rs.io.index.ArtifactIndexVersion;
 import org.lockss.rs.io.storage.ArtifactDataStore;
 import org.lockss.rs.io.storage.ArtifactDataStoreVersion;
+import org.lockss.rs.io.storage.ReindexResult;
 import org.lockss.rs.io.storage.warc.WarcArtifactDataStore;
 import org.lockss.rs.io.storage.warc.WarcArtifactDataUtil;
 import org.lockss.util.BuildInfo;
@@ -71,12 +72,19 @@ import org.lockss.util.time.TimeBase;
 import org.lockss.util.time.TimeUtil;
 
 import java.io.BufferedInputStream;
+import java.io.BufferedReader;
+import java.io.BufferedWriter;
 import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
+import java.nio.file.Files;
 import java.nio.file.Path;
+import java.nio.file.StandardOpenOption;
+import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
@@ -169,9 +177,38 @@ public class BaseLockssRepository implements LockssRepository, JmsFactorySource 
     repoStateDir = dir;
   }
 
-  public final static String REINDEXING_STATE_FILE = "index/reindexing";
+  public final static String REINDEXING_STATE_FILE = "index/reindex";
 
-  public void reindexArtifacts() throws IOException {
+  /**
+   * List of AUIDs to reindex individually, one bare AUID per line. Lines starting
+   * with '#' are comments; blank lines are ignored. Written by the installer's
+   * {@code extract-reindex-auids} script and consumed at startup.
+   */
+  public final static String AUIDS_TO_REINDEX_FILE = "index/auids-to-reindex";
+
+  /**
+   * AUIDs from {@link #AUIDS_TO_REINDEX_FILE} that have been reindexed. Appended to
+   * and flushed after each AU, so a crash part way through the list resumes rather
+   * than restarting.
+   */
+  public final static String AUIDS_TO_REINDEX_DONE_FILE = "index/auids-to-reindex.done";
+
+  /**
+   * Namespace the targeted reindex list is interpreted in. The list carries bare
+   * AUIDs with no namespace column, matching the "lockss, &lt;auid&gt;" in the
+   * migration errors it is generated from.
+   */
+  public final static String TARGETED_REINDEX_NAMESPACE = "lockss";
+
+  /**
+   * Reindexes every WARC under every configured base path.
+   *
+   * @return the {@link ReindexResult} of the pass, so callers can tell a clean
+   *         run from one that finished with failures. {@code reindexArtifacts()}
+   *         deletes the reindexing token either way (E.7 reports failures rather
+   *         than retrying them), so the result is the only signal available.
+   */
+  public ReindexResult reindexArtifacts() throws IOException {
     log.info("Reindexing artifacts");
 
     // (Re)enter reindexing state
@@ -183,12 +220,156 @@ public class BaseLockssRepository implements LockssRepository, JmsFactorySource 
 
     // Reindex artifacts in the data store to index
     long reindexStart = TimeBase.nowMs();
-    store.reindexArtifacts(index);
+    ReindexResult result = store.reindexArtifacts(index);
     log.info("Finished reindex in {}",
         TimeUtil.timeIntervalToString(TimeBase.msSince(reindexStart)));
 
-    // Exit reindexing state
+    if (result != null && result.hasFailures()) {
+      log.error("Reindex completed with failures: {} of {} WARCs could not be read; " +
+                "see the reindex-failures report in {}",
+                result.getWarcsFailedCount(), result.getWarcsAttempted(),
+                getRepositoryStateDirPath()
+                    .resolve(WarcArtifactDataStore.DATASTORE_STATE_DIR));
+    }
+
+    // Exit reindexing state. Deliberately on the normal return path only: if the
+    // reindex threw, the token must survive so the pass resumes at next startup.
     FileUtil.safeDeleteFile(reindexingStateFile);
+
+    return result;
+  }
+
+  /**
+   * Reindexes the AUs named in {@link #AUIDS_TO_REINDEX_FILE}, if that file exists.
+   * <p>
+   * This is the recovery path for AUs whose index rows were lost by the
+   * pre-{@code 516d8358} {@code finishBulkStore()} bug. It is a startup check only,
+   * like every other repository state signal; there is no polling.
+   * <p>
+   * Each AU that succeeds is appended to {@link #AUIDS_TO_REINDEX_DONE_FILE} and
+   * flushed immediately, so a crash part way through the list resumes rather than
+   * restarting. An AUID that fails stays out of the .done file and is logged at
+   * ERROR. Once every entry has been <em>attempted</em> -- not necessarily
+   * succeeded -- both files are rotated with the run stamp rather than deleted, so
+   * that failures are not retried forever; regenerating the list is an explicit
+   * operator action.
+   *
+   * @return A {@link ReindexResult} aggregating every AU of the list, or
+   *         {@code null} if there was no list to process.
+   */
+  protected ReindexResult reindexArtifactsInListedAus() throws IOException {
+    Path listPath = getRepositoryStateDirPath().resolve(AUIDS_TO_REINDEX_FILE);
+
+    if (!listPath.toFile().exists()) {
+      return null;
+    }
+
+    if (!(store instanceof WarcArtifactDataStore wads)) {
+      log.error("Targeted reindex list found but the data store does not support " +
+                "per-AU reindex; ignoring [file: {}, store: {}]",
+                listPath, store.getClass().getName());
+      return null;
+    }
+
+    List<String> auids = readAuidsToReindex(listPath);
+
+    if (auids.isEmpty()) {
+      log.info("Targeted reindex list is empty; nothing to do [file: {}]", listPath);
+    }
+
+    Path donePath = getRepositoryStateDirPath().resolve(AUIDS_TO_REINDEX_DONE_FILE);
+    Set<String> done = new LinkedHashSet<>(readAuidsToReindex(donePath));
+
+    ReindexResult aggregate = new ReindexResult();
+    int ausProcessed = 0;
+    int ausSkipped = 0;
+    int ausFailed = 0;
+
+    long start = TimeBase.nowMs();
+
+    FileUtils.forceMkdirParent(donePath.toFile());
+
+    try (BufferedWriter doneWriter =
+             Files.newBufferedWriter(donePath, StandardOpenOption.CREATE,
+                                     StandardOpenOption.APPEND)) {
+
+      for (String auid : auids) {
+        // Covers both a previous run's .done entries and a duplicated line in
+        // this run's input.
+        if (done.contains(auid)) {
+          log.debug("Already reindexed, skipping [auid: {}]", auid);
+          ausSkipped++;
+          continue;
+        }
+
+        try {
+          ReindexResult auResult =
+              wads.reindexArtifactsInAu(index, TARGETED_REINDEX_NAMESPACE, auid);
+
+          aggregate.add(auResult);
+
+          if (auResult.isSuccessful()) {
+            done.add(auid);
+            doneWriter.write(auid);
+            doneWriter.newLine();
+            doneWriter.flush();
+            ausProcessed++;
+          } else {
+            ausFailed++;
+            log.error("Could not fully reindex AU; leaving it out of {} [auid: {}, result: {}]",
+                      AUIDS_TO_REINDEX_DONE_FILE, auid, auResult);
+          }
+        } catch (Exception e) {
+          ausFailed++;
+          aggregate.addAuFailure(auid, e);
+          log.error("Could not reindex AU [auid: {}]", auid, e);
+        }
+      }
+    }
+
+    // Every entry has been attempted: rotate the ledger and failure report under
+    // one run stamp, then the list and its .done file under another, rather than
+    // deleting any of them.
+    wads.finishReindexRun(aggregate);
+    WarcArtifactDataStore.rotateWithRunStamp(listPath, donePath);
+
+    log.info("Targeted reindex finished in {}: {} AUs reindexed, {} already done, " +
+             "{} failed, {} artifacts indexed",
+             TimeUtil.timeIntervalToString(TimeBase.msSince(start)),
+             ausProcessed, ausSkipped, ausFailed, aggregate.getArtifactsIndexed());
+
+    if (ausFailed > 0) {
+      log.error("Targeted reindex could not reindex {} of {} AUs; see the errors above",
+                ausFailed, auids.size());
+    }
+
+    return aggregate;
+  }
+
+  /**
+   * Reads a file of one bare AUID per line. Lines starting with '#' are comments,
+   * blank lines are ignored and whitespace is trimmed. A missing file reads as an
+   * empty list.
+   */
+  private static List<String> readAuidsToReindex(Path path) throws IOException {
+    List<String> auids = new ArrayList<>();
+
+    if (!path.toFile().exists()) {
+      return auids;
+    }
+
+    try (BufferedReader reader = Files.newBufferedReader(path)) {
+      String line;
+      while ((line = reader.readLine()) != null) {
+        String auid = line.trim();
+        if (auid.isEmpty() || auid.startsWith("#")) {
+          continue;
+        }
+        auids.add(auid);
+      }
+    }
+
+    return auids;
   }
 
   public ScheduledExecutorService getScheduledExecutorService() {
@@ -240,7 +421,10 @@ public class BaseLockssRepository implements LockssRepository, JmsFactorySource 
     return ArtifactDataStoreVersion.UNKNOWN;
   }
 
-  private void updateIndexIfNeeded() throws IOException {
+  // Protected rather than private so that the startup sequencing between a full
+  // rebuild and the targeted per-AU pass can be tested without standing up a
+  // LockssDaemon.
+  protected void updateIndexIfNeeded() throws IOException {
     ArtifactIndexVersion onDiskVersion = getLastRecordedArtifactIndexVersion();
     ArtifactIndexVersion targetVersion = index.getArtifactIndexTargetVersion();
 
@@ -297,7 +481,35 @@ public class BaseLockssRepository implements LockssRepository, JmsFactorySource 
     }
 
     if (indexChanged || shouldStartOrResumeReindex() || isReindexWanted() || contentPathListChanged) {
-      reindexArtifacts();
+      ReindexResult fullResult = reindexArtifacts();
+
+      // A full rebuild walks findWarcs() over every base path, which is a superset
+      // of the targeted AU directories (<basePath>/ns/<ns>/au-<md5>/), so a CLEAN
+      // full pass satisfies the targeted list outright. Rotate the list under a run
+      // stamp -- the same ending the targeted pass gives it -- rather than leaving
+      // it behind to arm a redundant pass on the next startup.
+      //
+      // A pass that finished with failures is different: E.7 reports failures but
+      // still returns normally and deletes the token, so the listed AUs may not have
+      // been covered. There the list is kept for a later startup.
+      Path listPath = getRepositoryStateDirPath().resolve(AUIDS_TO_REINDEX_FILE);
+
+      if (listPath.toFile().exists()) {
+        if (fullResult == null || fullResult.hasFailures()) {
+          log.warn("A full reindex ran this startup but did not finish cleanly; " +
+                   "leaving {} for a later startup [result: {}]",
+                   AUIDS_TO_REINDEX_FILE, fullResult);
+        } else {
+          WarcArtifactDataStore.rotateWithRunStamp(listPath,
+              getRepositoryStateDirPath().resolve(AUIDS_TO_REINDEX_DONE_FILE));
+          log.info("A full reindex superseded the targeted list; rotated {}",
+                   AUIDS_TO_REINDEX_FILE);
+        }
+      }
+    } else {
+      // Sequenced after the full-rebuild branches so a whole-store reindex and a
+      // targeted one can never interleave.
+      reindexArtifactsInListedAus();
     }
   }
 

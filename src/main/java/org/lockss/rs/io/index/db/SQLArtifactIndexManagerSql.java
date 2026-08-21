@@ -731,9 +731,158 @@ public class SQLArtifactIndexManagerSql {
       + "," + ARTIFACT_CRAWL_TIME_COLUMN
       + " ) VALUES (?,?,?,?,?,?,?,?,?,?)";
 
-  private static final String UPSERT_ARTIFACT_FOR_REINDEX_QUERY = INSERT_ARTIFACT_QUERY
+  // Component D.2: the reindex upsert's SAME-uuid arbitration.
+  //
+  // This is the other half of Component D's conflict handling, and the split is
+  // deliberate: FIND_ARTIFACT_VERSION_CONFLICTS_QUERY / resolveVersionConflict
+  // below decide which rows on this tuple survive (which ON CONFLICT (uuid)
+  // cannot see, there being no unique index on the tuple); this ON CONFLICT
+  // clause is the only thing that ever WRITES the incoming artifact's own row.
+  //
+  // Uses EXCLUDED, like UPSERT_ARTIFACT_QUERY, so it binds the same 10
+  // parameters as INSERT_ARTIFACT_QUERY (see bindArtifactInsertParams).
+  // crawl_time joins the SET so that a winning incoming record is applied
+  // whole.
+  //
+  // The WHERE guard:
+  //
+  //   NOT (COALESCE(artifacts.committed, FALSE) AND NOT COALESCE(EXCLUDED.committed, FALSE))
+  //     never downgrade committed true -> false. Reindex walks permanent WARCs
+  //     before temporary ones (WarcArtifactDataStore.reindexArtifacts), and a
+  //     temp-WARC record whose journal entry is missing or corrupt takes the
+  //     UNKNOWN branch and is presented as committed=false with a *temporary*
+  //     storage URL. Without this guard that record clobbers the already
+  //     correct committed row with a temp URL -- precisely on the damaged
+  //     installs this recovery path exists for. It matches the philosophy
+  //     already stated in WarcArtifactDataStore: an artifact coming back is
+  //     preferable to an artifact disappearing.
+  //
+  //     committed is nullable (BOOLEAN with no NOT NULL, see
+  //     SQLArtifactIndexDbManagerSql's CREATE_ARTIFACT_TABLE_QUERY), so both
+  //     references are COALESCEd: a NULL would make the whole predicate NULL
+  //     and silently skip *every* update.
+  //
+  //   EXCLUDED.crawl_time <= artifacts.crawl_time   (>= for PreferLatest)
+  //     only a strictly worse collection date, under the configured policy,
+  //     blocks the update -- consistent with the different-uuid path, which the
+  //     same conflictPolicy governs. The comparison is non-strict on purpose:
+  //     for the same artifact both records carry the same collectionDate, so a
+  //     strict comparison would refuse EVERY same-artifact update, including the
+  //     committed upgrade. Which of the equal-date updates actually fire is
+  //     decided by the D.4 term below, not here.
+  //     crawl_time is NOT NULL, so no COALESCE is needed here.
+  //
+  // Component D.4: the equal-date term.
+  //
+  //   (   EXCLUDED.crawl_time <> artifacts.crawl_time
+  //    OR EXCLUDED.digest IS DISTINCT FROM artifacts.digest
+  //    OR (COALESCE(EXCLUDED.committed, FALSE)
+  //        AND NOT COALESCE(artifacts.committed, FALSE)) )
+  //
+  // WarcArtifactDataStore.CopyArtifactTask copies a record into a permanent
+  // WARC, then updates the INDEX (setStorageUrl + updateStorageUrl), and only
+  // THEN writes the journal entry saying COPIED. A crash between those last two
+  // steps leaves the index holding the permanent storage URL while the temp
+  // WARC's journal does not say COPIED. On restart the isCopied skip in
+  // reindexArtifacts does not fire, so the temp-WARC record is re-presented
+  // with the SAME uuid, the SAME crawl_time and the SAME digest -- and the
+  // non-strict crawl_time comparison above let it through, reverting
+  // storage_url to the TEMPORARY WARC. That is the artifact becoming
+  // unreadable as soon as the temp WARC is reclaimed.
+  //
+  // Operator decision: when the collection dates are equal, the incoming record
+  // overwrites the existing row only if the digests differ. Equal date plus
+  // equal digest means "the same bytes presented from somewhere else", and this
+  // layer has no way to tell a better somewhere-else from a worse one, so it
+  // keeps what it has.
+  //
+  // The committed disjunct is not optional. Without it, equal date + equal
+  // digest + committed false -> true would be blocked too, silently breaking
+  // the committed upgrade that testReindexCommittedUpgradeStillAllowed pins.
+  // Both committed references are COALESCEd for the same reason as above.
+  //
+  // digest is VARCHAR(1024) NOT NULL in CREATE_ARTIFACT_TABLE_QUERY, so
+  // "<>" would do; IS DISTINCT FROM is used anyway because it is null-safe and
+  // therefore cannot silently turn the whole predicate NULL if the column's
+  // nullability ever changes.
+  //
+  // Known trade, recorded deliberately: an artifact whose stored storage_url is
+  // stale for a reason OTHER than this crash window -- a relocated repository,
+  // say -- is no longer repaired by reindex when the record is presented with
+  // the same date and the same digest. The digest is the only discriminator
+  // available here, and the ambiguity it cannot resolve is exactly the bug.
+  private static final String UPSERT_ARTIFACT_FOR_REINDEX_QUERY_PREFIX =
+      INSERT_ARTIFACT_QUERY
       + " ON CONFLICT (" + ARTIFACT_UUID_COLUMN + ") DO UPDATE SET "
-      + ARTIFACT_COMMITTED_COLUMN + " = ? , " + ARTIFACT_STORAGE_URL_COLUMN + " = ?";
+      + ARTIFACT_COMMITTED_COLUMN + " = EXCLUDED." + ARTIFACT_COMMITTED_COLUMN
+      + ", " + ARTIFACT_STORAGE_URL_COLUMN + " = EXCLUDED." + ARTIFACT_STORAGE_URL_COLUMN
+      + ", " + ARTIFACT_CRAWL_TIME_COLUMN + " = EXCLUDED." + ARTIFACT_CRAWL_TIME_COLUMN
+      + " WHERE NOT (COALESCE(" + ARTIFACT_TABLE + "." + ARTIFACT_COMMITTED_COLUMN + ", FALSE)"
+      + "            AND NOT COALESCE(EXCLUDED." + ARTIFACT_COMMITTED_COLUMN + ", FALSE))"
+      + "       AND (EXCLUDED." + ARTIFACT_CRAWL_TIME_COLUMN + " <> " + ARTIFACT_TABLE + "." + ARTIFACT_CRAWL_TIME_COLUMN
+      + "            OR EXCLUDED." + ARTIFACT_DIGEST_COLUMN + " IS DISTINCT FROM " + ARTIFACT_TABLE + "." + ARTIFACT_DIGEST_COLUMN
+      + "            OR (COALESCE(EXCLUDED." + ARTIFACT_COMMITTED_COLUMN + ", FALSE)"
+      + "                AND NOT COALESCE(" + ARTIFACT_TABLE + "." + ARTIFACT_COMMITTED_COLUMN + ", FALSE)))"
+      + "       AND EXCLUDED." + ARTIFACT_CRAWL_TIME_COLUMN + " ";
+
+  /** Reindex upsert under {@code PreferEarliest}: a strictly later incoming
+   *  collection date does not overwrite the existing row. */
+  private static final String UPSERT_ARTIFACT_FOR_REINDEX_PREFER_EARLIEST_QUERY =
+      UPSERT_ARTIFACT_FOR_REINDEX_QUERY_PREFIX
+      + "<= " + ARTIFACT_TABLE + "." + ARTIFACT_CRAWL_TIME_COLUMN;
+
+  /** Reindex upsert under {@code PreferLatest}: a strictly earlier incoming
+   *  collection date does not overwrite the existing row. */
+  private static final String UPSERT_ARTIFACT_FOR_REINDEX_PREFER_LATEST_QUERY =
+      UPSERT_ARTIFACT_FOR_REINDEX_QUERY_PREFIX
+      + ">= " + ARTIFACT_TABLE + "." + ARTIFACT_CRAWL_TIME_COLUMN;
+
+  /**
+   * The reindex upsert for a given version-conflict policy.
+   */
+  private static String upsertArtifactForReindexQuery(
+      SQLArtifactIndex.VersionConflictResolution conflictPolicy) {
+    switch (conflictPolicy) {
+      case PreferLatest:
+        return UPSERT_ARTIFACT_FOR_REINDEX_PREFER_LATEST_QUERY;
+      case PreferEarliest:
+      default:
+        return UPSERT_ARTIFACT_FOR_REINDEX_PREFER_EARLIEST_QUERY;
+    }
+  }
+
+  // Component D: finds every artifact already claiming the (namespace, auid,
+  // url, version) an incoming reindexed artifact claims -- including, since
+  // D.3, the incoming artifact's own row.
+  //
+  // The ON CONFLICT clause above targets artifact_uuid because that is the only
+  // unique index on the artifacts table (idx4_artifacts); there is no unique
+  // index on this tuple in any schema version -- see the v5 migration's
+  // COUNT_VERSION_COLLISIONS_QUERY comment in SQLArtifactIndexDbManagerSql.
+  // So when post-migration crawling stored a new UUID at a tuple a migrated
+  // artifact also claims, the upsert cannot see the collision and simply
+  // inserts a second row, which reads then resolve arbitrarily via LIMIT 1.
+  // Detecting that needs its own SELECT, in the same transaction as the insert.
+  //
+  // The result may legitimately hold more than one row: the schema has always
+  // permitted duplicates on this tuple, so an already-damaged index may carry
+  // several.
+  //
+  // This SELECT only informs the Java arbitration and never mutates
+  // anything, and the guarded ON CONFLICT clause above is the only thing that
+  // ever writes the own row. resolveVersionConflict never deletes the own row
+  // in the branch where the incoming artifact wins, precisely so that the
+  // guard is not pre-empted.
+  private static final String FIND_ARTIFACT_VERSION_CONFLICTS_QUERY = "SELECT "
+      + ARTIFACT_UUID_COLUMN
+      + ", " + ARTIFACT_CRAWL_TIME_COLUMN
+      + ", COALESCE(" + ARTIFACT_COMMITTED_COLUMN + ", FALSE) AS "
+      + ARTIFACT_COMMITTED_COLUMN
+      + " FROM " + ARTIFACT_TABLE
+      + " WHERE " + NAMESPACE_SEQ_COLUMN + " = ?"
+      + " AND " + AUID_SEQ_COLUMN + " = ?"
+      + " AND " + URL_SEQ_COLUMN + " = ?"
+      + " AND " + ARTIFACT_VERSION_COLUMN + " = ?";
 
   // Idempotent variant of INSERT_ARTIFACT_QUERY used by the bulk addArtifacts()
   // path. Because that path now commits per batch, a retried finishBulkStore
@@ -2997,16 +3146,36 @@ public class SQLArtifactIndexManagerSql {
     ps.setLong(10, artifact.getCollectionDate());
   }
 
+  /**
+   * Upserts an artifact on the reindex path, using the default
+   * version-conflict resolution policy. Only used by tests.
+   */
   public void upsertArtifactForReindex(Artifact artifact) throws DbException {
+    upsertArtifactForReindex(artifact,
+        SQLArtifactIndex.DEFAULT_VERSION_CONFLICT_RESOLUTION);
+  }
+
+  /**
+   * Upserts an artifact on the reindex path.
+   *
+   * @param artifact       The {@link Artifact} to upsert.
+   * @param conflictPolicy How to resolve another artifact already claiming
+   *                       this artifact's (namespace, AUID, URL, version).
+   */
+  public void upsertArtifactForReindex(Artifact artifact,
+      SQLArtifactIndex.VersionConflictResolution conflictPolicy)
+      throws DbException {
     log.debug2("artifact = {}", artifact);
 
     Connection conn = null;
 
     try {
       conn = getConnection();
-      upsertArtifactForReindex(conn, artifact);
+      upsertArtifactForReindex(conn, artifact, conflictPolicy);
 
-      // Commit the transaction.
+      // Commit the transaction. The conflict resolution above and the upsert
+      // are in this one transaction, so a failure cannot leave the loser
+      // deleted and the winner uninserted.
       DbManager.commitOrRollback(conn, log);
     } finally {
       DbManager.safeRollbackAndClose(conn);
@@ -3043,6 +3212,16 @@ public class SQLArtifactIndexManagerSql {
    * single-use. Only the batch that failed pays the per-artifact cost.
    */
   public void upsertArtifactsForReindex(Iterable<Artifact> artifacts) throws DbException {
+    upsertArtifactsForReindex(artifacts,
+        SQLArtifactIndex.DEFAULT_VERSION_CONFLICT_RESOLUTION);
+  }
+
+  /**
+   * @see #upsertArtifactsForReindex(Iterable)
+   */
+  public void upsertArtifactsForReindex(Iterable<Artifact> artifacts,
+      SQLArtifactIndex.VersionConflictResolution conflictPolicy)
+      throws DbException {
     int attempted = 0;
     int failed = 0;
 
@@ -3050,7 +3229,7 @@ public class SQLArtifactIndexManagerSql {
       attempted++;
 
       try {
-        upsertArtifactForReindex(artifact);
+        upsertArtifactForReindex(artifact, conflictPolicy);
       } catch (DbException | RuntimeException e) {
         failed++;
         log.error("Could not reindex artifact, skipping it [uuid: {}, url: {}]",
@@ -3064,37 +3243,363 @@ public class SQLArtifactIndexManagerSql {
     }
   }
 
-  private void upsertArtifactForReindex(Connection conn, Artifact artifact) throws DbException {
+  private void upsertArtifactForReindex(Connection conn, Artifact artifact,
+      SQLArtifactIndex.VersionConflictResolution conflictPolicy)
+      throws DbException {
     long namespaceSeq = findOrCreateNamespaceSeq(conn, artifact.getNamespace());
     long auidSeq = findOrCreateAuidSeq(conn, artifact.getAuid());
     long urlSeq = findOrCreateUrlSeq(conn, artifact.getUri());
-    upsertArtifactForReindex(conn, auidSeq, namespaceSeq, urlSeq, artifact);
+    upsertArtifactForReindex(conn, auidSeq, namespaceSeq, urlSeq, artifact,
+        conflictPolicy);
   }
 
-  private void upsertArtifactForReindex(Connection conn, long auidSeq, long namespaceSeq, long urlSeq, Artifact artifact)
+  private void upsertArtifactForReindex(Connection conn, long auidSeq, long namespaceSeq, long urlSeq, Artifact artifact,
+      SQLArtifactIndex.VersionConflictResolution conflictPolicy)
       throws DbException {
 
-    PreparedStatement ps = idxDbManager.prepareStatement(conn, UPSERT_ARTIFACT_FOR_REINDEX_QUERY);
-    ArtifactIdentifier artifactId = artifact.getIdentifier();
+    // Arbitrate against any other artifact already claiming this
+    // artifact's (namespace, AUID, URL, version), i.e. rows under a DIFFERENT
+    // uuid. Skips the insert when the incumbent wins.
+    if (!resolveVersionConflict(conn, namespaceSeq, auidSeq, urlSeq, artifact,
+                                conflictPolicy)) {
+      return;
+    }
+
+    // The SAME-uuid case is arbitrated by the statement's own
+    // guarded ON CONFLICT clause -- never downgrading committed true -> false,
+    // and never applying a record with a strictly worse collection date under
+    // the policy. The two compose: resolveVersionConflict has already left the
+    // own row as the only row on the tuple, so whichever way the guard goes --
+    // update in place or leave the row alone -- exactly one row remains.
+    PreparedStatement ps = idxDbManager.prepareStatement(conn,
+        upsertArtifactForReindexQuery(conflictPolicy));
 
     try {
-      ps.setString(1, artifactId.getUuid());
-      ps.setLong(2, namespaceSeq);
-      ps.setLong(3, auidSeq);
-      ps.setLong(4, urlSeq);
-      ps.setInt(5, artifactId.getVersion());
-      ps.setBoolean(6, artifact.isCommitted());
-      ps.setString(7, artifact.getStorageUrl());
-      ps.setLong(8, artifact.getContentLength());
-      ps.setString(9, artifact.getContentDigest());
-      ps.setLong(10, artifact.getCollectionDate());
-      ps.setBoolean(11, artifact.isCommitted());
-      ps.setString(12, artifact.getStorageUrl());
+      bindArtifactInsertParams(ps, namespaceSeq, auidSeq, urlSeq, artifact);
 
       idxDbManager.executeUpdate(ps);
     } catch (SQLException e) {
       log.error("Error preparing SQL statement", e);
       throw new DbException("Error preparing SQL statement", e);
+    } finally {
+      DbManager.safeCloseStatement(ps);
+    }
+  }
+
+  /**
+   * One row of {@link #FIND_ARTIFACT_VERSION_CONFLICTS_QUERY}: an artifact
+   * already claiming the tuple an incoming reindexed artifact claims.
+   */
+  private static final class VersionConflict {
+    final String uuid;
+    final long crawlTime;
+    final boolean committed;
+
+    VersionConflict(String uuid, long crawlTime, boolean committed) {
+      this.uuid = uuid;
+      this.crawlTime = crawlTime;
+      this.committed = committed;
+    }
+  }
+
+  /**
+   * Resolves, on the reindex path, the case of two or more artifacts claiming
+   * the same {@code (namespace, AUID, URL, version)} under different UUIDs.
+   *
+   * <p>Nothing in the schema prevents this: the artifacts table's only unique
+   * index is on {@code uuid}, so
+   * {@code UPSERT_ARTIFACT_FOR_REINDEX_QUERY}'s {@code ON CONFLICT (uuid)}
+   * never fires for it and the reindex would otherwise insert a second row that
+   * reads then resolve arbitrarily. The typical origin is a V2 migration
+   * followed by a re-crawl that stored a fresh UUID at a URL and version the
+   * migrated artifact already held.
+   *
+   * <h3>Committedness dominates the collection-date policy (Component D.3)</h3>
+   *
+   * <p>A committed candidate always beats an uncommitted one, whatever
+   * {@code conflictPolicy} and whatever the collection dates. Only between two
+   * candidates of the <em>same</em> committed class does {@code crawl_time}
+   * decide. An uncommitted artifact therefore never displaces a committed one.
+   *
+   * <p>That is right because an uncommitted row is transient by construction --
+   * the artifact in the temporary WARC will either be committed, at which point
+   * it is a legitimate competitor, or the temporary WARC will be
+   * garbage-collected. Overwriting a committed artifact on the strength of one
+   * would trade a permanent loss for a situation that resolves itself.
+   *
+   * <p><b>Committedness selects the winner; it does not exempt the losers.</b>
+   * A losing uncommitted row is deleted like any other loser, because two rows
+   * on one tuple are exactly the non-determinism Component D exists to remove:
+   * an {@code includeUncommitted} read would resolve between them arbitrarily
+   * via {@code LIMIT 1}.
+   *
+   * <p>When an uncommitted incoming artifact loses to a committed row, the
+   * insert is <em>skipped</em>, not merely overridden. That is load-bearing:
+   * reindex walks permanent WARCs before temporary ones
+   * ({@code WarcArtifactDataStore.reindexArtifacts}), so the uncommitted
+   * temp-WARC record -- under a different uuid, since the temp and permanent
+   * copies of a repaired artifact need not share one -- arrives after the
+   * committed permanent record. Inserting it would re-create the duplicate that
+   * was just removed, and Component D.2's {@code ON CONFLICT} guard could not
+   * prevent it: that guard only ever sees the same-uuid path.
+   *
+   * <p>The incoming artifact's <em>effective</em> committed state is
+   * {@code artifact.isCommitted() || (its own row exists and is committed)}.
+   * Once an artifact is known committed, a later presentation that says
+   * otherwise -- the temp-WARC {@code UNKNOWN} branch in
+   * {@code WarcArtifactDataStore}, which reports {@code committed=false} when
+   * a journal entry is missing -- must not downgrade it. This is the same
+   * principle Component D.2 encodes in the {@code ON CONFLICT} guard; only the
+   * committed flag of the own row is merged this way. The own row's stored
+   * {@code crawl_time} deliberately does <em>not</em> participate in the
+   * arbitration: on a reindex the WARC record is the source of truth for the
+   * collection date, and the stored value may be exactly the corrupt migration
+   * stamp being repaired. A consequence worth stating: a committed own row can
+   * be deleted here when the <em>presented</em> crawl time loses to a committed
+   * competitor, even though the own row's stored crawl time would have won.
+   *
+   * <h3>Convergence</h3>
+   *
+   * After this call exactly one row remains on the tuple</b>. Every losing
+   * row is deleted, not just one, because an index damaged before this code
+   * existed may hold several; and when the incumbent wins, the incoming
+   * artifact's own row is deleted too if a previous run left one behind.
+   * Without that an install already holding both artifacts would never converge
+   * under {@code PreferLatest}, since the losing artifact's insert is merely
+   * skipped. The single exception is the incoming artifact's own row when the
+   * incoming artifact <em>wins</em>: it is left for the guarded
+   * {@code ON CONFLICT} clause to update in place.
+   *
+   * <p>Equal crawl times within a class keep the
+   * existing row, so re-running a recovery does not churn the index. Because
+   * the arbitration reads only the stored rows and the presented artifact, and
+   * because it is deterministic, reindexing the same AU twice leaves the same
+   * single row both times.
+   *
+   * <p>Takes an explicit {@link Connection} rather than opening its own, both
+   * so that the resolution and the insert it arbitrates share one transaction
+   * and so that the deferred batched reindex path (E.3) can call it unchanged.
+   *
+   * @param conn           The {@link Connection} of the enclosing transaction.
+   * @param namespaceSeq   The namespace sequence of the incoming artifact.
+   * @param auidSeq        The AUID sequence of the incoming artifact.
+   * @param urlSeq         The URL sequence of the incoming artifact.
+   * @param artifact       The incoming {@link Artifact}.
+   * @param conflictPolicy How to choose between the artifacts.
+   * @return {@code true} if the incoming artifact should be inserted or
+   *         upserted, {@code false} if an existing artifact won and the insert
+   *         must be skipped.
+   * @throws DbException if the database cannot be queried or updated.
+   */
+  boolean resolveVersionConflict(Connection conn, long namespaceSeq,
+      long auidSeq, long urlSeq, Artifact artifact,
+      SQLArtifactIndex.VersionConflictResolution conflictPolicy)
+      throws DbException {
+
+    ArtifactIdentifier artifactId = artifact.getIdentifier();
+    String incomingUuid = artifactId.getUuid();
+    long incomingCrawlTime = artifact.getCollectionDate();
+
+    List<VersionConflict> rows = findVersionConflicts(conn, namespaceSeq,
+        auidSeq, urlSeq, artifactId.getVersion());
+
+    // Partition on uuid: the incoming artifact's own row (0 or 1 rows, since
+    // uuid is uniquely indexed) and the competitors under other uuids.
+    VersionConflict own = null;
+    List<VersionConflict> others = new ArrayList<>(rows.size());
+
+    for (VersionConflict row : rows) {
+      if (row.uuid.equals(incomingUuid)) {
+        own = row;
+      } else {
+        others.add(row);
+      }
+    }
+
+    if (others.isEmpty()) {
+      // The common case by far: nothing else claims this tuple. The own row,
+      // if there is one, is the guarded ON CONFLICT clause's business (D.2).
+      return true;
+    }
+
+    // D.3: the incoming artifact is committed if it is presented as committed
+    // OR is already recorded as committed. A presentation that says otherwise
+    // must not downgrade what the index already knows.
+    boolean incomingCommitted =
+        artifact.isCommitted() || (own != null && own.committed);
+
+    // D.3: committedness dominates the collection-date policy, so the winner's
+    // committed class is settled before any crawl time is compared. It is the
+    // committed class iff any candidate at all is committed.
+    boolean winnerCommitted = incomingCommitted;
+    for (VersionConflict other : others) {
+      winnerCommitted |= other.committed;
+    }
+
+    // Pick the competitor the policy likes best from within that class; the
+    // incoming artifact is then compared against that one. Ties among existing
+    // rows are broken arbitrarily but deterministically for a given result
+    // order -- they are already indistinguishable to every read.
+    VersionConflict best = null;
+    int classSize = 0;
+
+    for (VersionConflict other : others) {
+      if (other.committed != winnerCommitted) {
+        continue;
+      }
+      classSize++;
+      if (best == null || prefers(conflictPolicy, other.crawlTime, best.crawlTime)) {
+        best = other;
+      }
+    }
+
+    // The incoming artifact wins if it is the only candidate in the winner's
+    // class (i.e. it is committed and no competitor is), or if it is in that
+    // class and the policy strictly prefers its collection date.
+    boolean incomingWins = best == null
+        || (incomingCommitted == winnerCommitted
+            && prefers(conflictPolicy, incomingCrawlTime, best.crawlTime));
+
+    if (incomingWins) {
+      // Every other row loses, whatever its committed class: exactly one row
+      // must be left on the tuple. The own row is the one exception, and is
+      // never deleted here -- the guarded ON CONFLICT clause (D.2) owns it,
+      // and deleting it would both pre-empt that guard and turn an update into
+      // an insert.
+      for (VersionConflict loser : others) {
+        deleteArtifactRow(conn, loser.uuid);
+      }
+
+      log.info("Version conflict on ({}, {}, {}, ver {}) resolved by {}: "
+              + "keeping incoming [uuid: {}, crawlTime: {}, committed: {}{}], "
+              + "deleting {} existing row(s) "
+              + "(winning committed class: {}, {} competitor(s) in it, "
+              + "best of them: {})",
+          artifact.getNamespace(), artifact.getAuid(), artifact.getUri(),
+          artifactId.getVersion(), conflictPolicy,
+          incomingUuid, incomingCrawlTime, incomingCommitted,
+          own == null ? ", no existing row"
+                      : ", own row committed: " + own.committed,
+          others.size(), winnerCommitted, classSize,
+          best == null ? "none" : best.uuid + "/" + best.crawlTime);
+
+      return true;
+    }
+
+    // The incumbent wins. Every other row loses, including the incoming
+    // artifact's own row if a previous run left one behind, so that exactly one
+    // row is left on the tuple this way too.
+    //
+    // Returning false here is load-bearing beyond "do not overwrite": it stops
+    // the insert. Reindex walks permanent WARCs before temporary ones
+    // (WarcArtifactDataStore.reindexArtifacts), so an uncommitted temp-WARC
+    // record under a DIFFERENT uuid arrives after the committed permanent
+    // record. Inserting it would re-create the very duplicate just deleted, and
+    // D.2's ON CONFLICT guard could not stop it -- that guard only ever sees
+    // the same-uuid path.
+    for (VersionConflict loser : others) {
+      if (!loser.uuid.equals(best.uuid)) {
+        deleteArtifactRow(conn, loser.uuid);
+      }
+    }
+
+    if (own != null) {
+      deleteArtifactRow(conn, incomingUuid);
+    }
+
+    log.info("Version conflict on ({}, {}, {}, ver {}) resolved by {}: "
+            + "keeping existing [uuid: {}, crawlTime: {}, committed: {}], "
+            + "skipping incoming [uuid: {}, crawlTime: {}, committed: {}] "
+            + "(own row {}, winning committed class: {})",
+        artifact.getNamespace(), artifact.getAuid(), artifact.getUri(),
+        artifactId.getVersion(), conflictPolicy,
+        best.uuid, best.crawlTime, best.committed,
+        incomingUuid, incomingCrawlTime, incomingCommitted,
+        own == null ? "absent" : "deleted", winnerCommitted);
+
+    return false;
+  }
+
+  /**
+   * Whether {@code candidate} is strictly preferred over {@code incumbent}
+   * under the given policy. Strict, so equal crawl times keep the incumbent.
+   */
+  private static boolean prefers(
+      SQLArtifactIndex.VersionConflictResolution conflictPolicy,
+      long candidate, long incumbent) {
+    switch (conflictPolicy) {
+      case PreferLatest:
+        return candidate > incumbent;
+      case PreferEarliest:
+      default:
+        return candidate < incumbent;
+    }
+  }
+
+  /**
+   * Finds every artifact claiming the given (namespace, AUID, URL, version),
+   * including the incoming artifact's own row -- {@link
+   * #resolveVersionConflict} partitions them, because it needs the own row's
+   * committed flag. See {@link #FIND_ARTIFACT_VERSION_CONFLICTS_QUERY}.
+   */
+  private List<VersionConflict> findVersionConflicts(Connection conn,
+      long namespaceSeq, long auidSeq, long urlSeq, int version)
+      throws DbException {
+
+    List<VersionConflict> result = new ArrayList<>();
+    PreparedStatement ps = null;
+    ResultSet resultSet = null;
+
+    try {
+      ps = idxDbManager.prepareStatement(conn, FIND_ARTIFACT_VERSION_CONFLICTS_QUERY);
+      ps.setLong(1, namespaceSeq);
+      ps.setLong(2, auidSeq);
+      ps.setLong(3, urlSeq);
+      ps.setInt(4, version);
+
+      resultSet = idxDbManager.executeQuery(ps);
+
+      while (resultSet.next()) {
+        // committed is COALESCEd to FALSE by the query, so no wasNull() check
+        // is needed here.
+        result.add(new VersionConflict(
+            resultSet.getString(ARTIFACT_UUID_COLUMN),
+            resultSet.getLong(ARTIFACT_CRAWL_TIME_COLUMN),
+            resultSet.getBoolean(ARTIFACT_COMMITTED_COLUMN)));
+      }
+    } catch (SQLException sqle) {
+      String errorMessage = "Cannot find conflicting artifact versions";
+      log.error(errorMessage, sqle);
+      log.error("SQL = '{}'.", FIND_ARTIFACT_VERSION_CONFLICTS_QUERY);
+      throw new DbException(errorMessage, sqle);
+    } finally {
+      DbManager.safeCloseResultSet(resultSet);
+      DbManager.safeCloseStatement(ps);
+    }
+
+    return result;
+  }
+
+  /**
+   * Deletes a single artifact row on the given connection, without the
+   * orphaned-namespace/AUID/URL sweep {@link #deleteArtifact(Connection,
+   * String)} performs: the winner of a version conflict holds the same
+   * namespace, AUID and URL sequences as the loser, so none of them can be
+   * orphaned by this delete.
+   */
+  private void deleteArtifactRow(Connection conn, String uuid) throws DbException {
+    PreparedStatement ps = null;
+
+    try {
+      ps = idxDbManager.prepareStatement(conn, DELETE_ARTIFACT_QUERY);
+      ps.setString(1, uuid);
+      idxDbManager.executeUpdate(ps);
+    } catch (SQLException sqle) {
+      String errorMessage = "Cannot delete artifact";
+      log.error(errorMessage, sqle);
+      log.error("SQL = '{}'.", DELETE_ARTIFACT_QUERY);
+      log.error("uuid = {}", uuid);
+      throw new DbException(errorMessage, sqle);
     } finally {
       DbManager.safeCloseStatement(ps);
     }
@@ -3118,8 +3623,14 @@ public class SQLArtifactIndexManagerSql {
       DbManager.commitOrRollback(conn, log);
     } finally {
       DbManager.safeRollbackAndClose(conn);
-      return rowsUpdated;
     }
+
+    // E.2: this return was inside the finally block, which discarded any
+    // DbException thrown above and returned 0 -- indistinguishable from "no
+    // rows matched". updateStorageUrl() is on the commit path
+    // (CopyArtifactTask), so a swallowed failure left an artifact pointing at
+    // a temporary WARC while the copy was reported as done.
+    return rowsUpdated;
   }
 
   private int updateStorageUrl(Connection conn, String uuid, String storageUrl) throws DbException {
@@ -3165,8 +3676,12 @@ public class SQLArtifactIndexManagerSql {
       DbManager.commitOrRollback(conn, log);
     } finally {
       DbManager.safeRollbackAndClose(conn);
-      return rowsDeleted;
     }
+
+    // E.2: see the note in updateStorageUrl(). A DbException here used to be
+    // discarded, and the caller saw the same 0 it sees for "artifact not
+    // present".
+    return rowsDeleted;
   }
 
   private int deleteArtifact(Connection conn, String uuid) throws DbException {
