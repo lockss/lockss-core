@@ -3147,15 +3147,6 @@ public class SQLArtifactIndexManagerSql {
   }
 
   /**
-   * Upserts an artifact on the reindex path, using the default
-   * version-conflict resolution policy. Only used by tests.
-   */
-  public void upsertArtifactForReindex(Artifact artifact) throws DbException {
-    upsertArtifactForReindex(artifact,
-        SQLArtifactIndex.DEFAULT_VERSION_CONFLICT_RESOLUTION);
-  }
-
-  /**
    * Upserts an artifact on the reindex path.
    *
    * @param artifact       The {@link Artifact} to upsert.
@@ -3183,63 +3174,176 @@ public class SQLArtifactIndexManagerSql {
   }
 
   /**
-   * Upserts each of the given artifacts in its own transaction, skipping any
-   * that fail.
-   *
-   * <p>Per-artifact transactions rather than one transaction over the whole
-   * iterable: a single bad artifact used to lose the entire AU's reindex,
-   * however large, since there was neither batching nor isolation. They are
-   * also what makes the skip below safe -- a server-side error aborts the
-   * transaction it is in, so a failed artifact must not leave the next one
-   * sharing a poisoned connection.
-   *
-   * <p><b>TODO: batch this before making it the reindex path.</b> It has no
-   * callers today; the TODO in {@code SQLArtifactIndex.reindexArtifacts()}
-   * proposes wiring it up in place of that method's per-artifact loop, and as
-   * written it would be no faster than the loop it replaced. Per-artifact
-   * transactions cost a pool checkout and a COMMIT each, and the COMMIT is the
-   * expensive half: with {@code synchronous_commit=on} that is a WAL flush per
-   * artifact -- 1000 fsyncs per 1000 artifacts where a batched version does
-   * one.
-   *
-   * <p>The shape that keeps both throughput and isolation is the one
-   * {@code addArtifacts()} already uses, plus a failure path: hold one
-   * connection, commit every {@code ARTIFACT_INSERT_BATCH_SIZE} artifacts,
-   * and when a batch fails roll it back, take a fresh connection (a failed
-   * commit closes the old one) and re-drive that batch's artifacts
-   * individually, skipping the ones that actually fail. Buffer each batch in a
-   * {@code List} so the replay does not re-iterate the input, which may be
-   * single-use. Only the batch that failed pays the per-artifact cost.
+   * Outcome of a batched reindex-upsert pass over an iterable of artifacts.
    */
-  public void upsertArtifactsForReindex(Iterable<Artifact> artifacts) throws DbException {
-    upsertArtifactsForReindex(artifacts,
-        SQLArtifactIndex.DEFAULT_VERSION_CONFLICT_RESOLUTION);
+  public static final class ReindexUpsertOutcome {
+    private final int attempted;
+    private final int failed;
+    private final Artifact firstArtifact;
+
+    ReindexUpsertOutcome(int attempted, int failed, Artifact firstArtifact) {
+      this.attempted = attempted;
+      this.failed = failed;
+      this.firstArtifact = firstArtifact;
+    }
+
+    /** @return How many artifacts were attempted. */
+    public int getAttempted() {
+      return attempted;
+    }
+
+    /** @return How many artifacts failed and were skipped. */
+    public int getFailed() {
+      return failed;
+    }
+
+    /**
+     * @return The first artifact seen, or {@code null} if the input iterable
+     *         was empty.
+     */
+    public Artifact getFirstArtifact() {
+      return firstArtifact;
+    }
   }
 
   /**
-   * @see #upsertArtifactsForReindex(Iterable)
+   * Upserts each of the given artifacts on the reindex path, batching commits
+   * for throughput while preserving per-artifact isolation: no single bad
+   * artifact can abandon the rest of the (possibly very large) input.
+   *
+   * <p>Per-artifact transactions cost a pool checkout and a COMMIT each, and
+   * the COMMIT is the expensive half: with {@code synchronous_commit=on} that
+   * is a WAL flush per artifact -- 1000 fsyncs per 1000 artifacts where a
+   * batched version does one. This is the shape {@code addArtifacts()}
+   * already uses, plus a failure path.
+   *
+   * <p>Algorithm: buffer artifacts into lists of at most
+   * {@code ARTIFACT_INSERT_BATCH_SIZE}. For each buffered batch, first try an
+   * <b>optimistic</b> pass on a single held connection: upsert every artifact
+   * in the batch without an intervening commit, then commit once. If any
+   * artifact in the optimistic pass throws, the whole transaction is presumed
+   * aborted (a statement error aborts the entire PostgreSQL transaction until
+   * rolled back), so nothing is salvaged: the connection is closed and a
+   * fresh one is opened, and the <b>same</b> buffered batch is replayed one
+   * artifact at a time, each in its own transaction, skipping (and counting)
+   * failures exactly as the pre-batching per-artifact loop did. Only the
+   * batch that actually failed pays the per-artifact commit cost.
+   *
+   * <p>The iterable is walked exactly once, since it may be single-use.
+   *
+   * @param artifacts      The artifacts to upsert, walked once.
+   * @param conflictPolicy How to resolve another artifact already claiming
+   *                       an incoming artifact's (namespace, AUID, URL, version).
+   * @return An outcome recording how many artifacts were attempted, how many
+   *         failed, and the first artifact seen (for AU-size invalidation).
    */
-  public void upsertArtifactsForReindex(Iterable<Artifact> artifacts,
+  public ReindexUpsertOutcome upsertArtifactsForReindex(Iterable<Artifact> artifacts,
       SQLArtifactIndex.VersionConflictResolution conflictPolicy)
       throws DbException {
     int attempted = 0;
-    int failed = 0;
+    Artifact firstArtifact = null;
+    int[] failedHolder = new int[1];
 
-    for (Artifact artifact : artifacts) {
-      attempted++;
+    Connection conn = null;
+    List<Artifact> batch = new ArrayList<>(ARTIFACT_INSERT_BATCH_SIZE);
 
-      try {
-        upsertArtifactForReindex(artifact, conflictPolicy);
-      } catch (DbException | RuntimeException e) {
-        failed++;
-        log.error("Could not reindex artifact, skipping it [uuid: {}, url: {}]",
-                  artifact.getUuid(), artifact.getUri(), e);
+    try {
+      conn = getConnection();
+
+      for (Artifact artifact : artifacts) {
+        attempted++;
+
+        if (firstArtifact == null) {
+          firstArtifact = artifact;
+        }
+
+        batch.add(artifact);
+
+        if (batch.size() == ARTIFACT_INSERT_BATCH_SIZE) {
+          conn = flushReindexBatch(conn, batch, conflictPolicy, failedHolder);
+          batch.clear();
+        }
       }
+
+      if (!batch.isEmpty()) {
+        conn = flushReindexBatch(conn, batch, conflictPolicy, failedHolder);
+        batch.clear();
+      }
+    } finally {
+      DbManager.safeRollbackAndClose(conn);
     }
+
+    int failed = failedHolder[0];
 
     if (failed > 0) {
       log.error("Reindex skipped {} of {} artifacts; see the errors above",
                 failed, attempted);
+    }
+
+    return new ReindexUpsertOutcome(attempted, failed, firstArtifact);
+  }
+
+  /**
+   * Flushes one buffered reindex batch: an optimistic single-commit attempt
+   * over the whole batch on {@code conn}, falling back to an isolated
+   * per-artifact replay (on a fresh connection) if the optimistic attempt
+   * throws. See {@link #upsertArtifactsForReindex(Iterable, SQLArtifactIndex.VersionConflictResolution)}.
+   *
+   * @param conn          The connection to use for the optimistic attempt.
+   *                      Consumed: on return, the caller must use the
+   *                      returned connection instead.
+   * @param batch         The buffered batch to upsert. Not mutated.
+   * @param conflictPolicy The version-conflict resolution policy.
+   * @param failedHolder  One-element array; incremented by the number of
+   *                      artifacts in this batch that failed and were
+   *                      skipped.
+   * @return The connection to use for subsequent work -- {@code conn} itself
+   *         on optimistic success, or a fresh connection after a replay.
+   */
+  private Connection flushReindexBatch(Connection conn, List<Artifact> batch,
+      SQLArtifactIndex.VersionConflictResolution conflictPolicy, int[] failedHolder)
+      throws DbException {
+    try {
+      for (Artifact artifact : batch) {
+        upsertArtifactForReindex(conn, artifact, conflictPolicy);
+      }
+
+      // Every artifact in the batch upserted cleanly: commit once for the
+      // whole batch (a single WAL flush under synchronous_commit=on).
+      DbManager.commitOrRollback(conn, log);
+      return conn;
+    } catch (DbException | RuntimeException e) {
+      // The optimistic attempt failed somewhere in the batch. A server-side
+      // error aborts the whole PostgreSQL transaction until rolled back, so
+      // nothing here can be salvaged: close this connection (redundant, and
+      // harmless, if commitOrRollback already did so on a commit failure) and
+      // replay the SAME batch one artifact at a time on a fresh connection,
+      // isolating each artifact in its own transaction exactly as the
+      // pre-batching per-artifact loop did.
+      DbManager.safeRollbackAndClose(conn);
+
+      Connection freshConn = getConnection();
+
+      for (Artifact artifact : batch) {
+        try {
+          upsertArtifactForReindex(freshConn, artifact, conflictPolicy);
+          DbManager.commitOrRollback(freshConn, log);
+        } catch (DbException | RuntimeException e2) {
+          failedHolder[0]++;
+          log.error("Could not reindex artifact, skipping it [uuid: {}, url: {}]",
+                    artifact.getUuid(), artifact.getUri(), e2);
+
+          // The failed artifact may have left the connection's transaction
+          // aborted (if upsertArtifactForReindex itself threw) or already
+          // closed (if commitOrRollback's own failure path closed it).
+          // Either way, get a connection known to be usable for the next
+          // artifact in the replay.
+          DbManager.safeRollbackAndClose(freshConn);
+          freshConn = getConnection();
+        }
+      }
+
+      return freshConn;
     }
   }
 

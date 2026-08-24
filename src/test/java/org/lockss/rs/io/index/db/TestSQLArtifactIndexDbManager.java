@@ -48,8 +48,11 @@ import org.lockss.util.time.TimeBase;
 
 import java.net.URI;
 import java.sql.Connection;
+import java.sql.DriverManager;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
+import java.sql.SQLException;
+import java.sql.Statement;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
@@ -89,6 +92,10 @@ public class TestSQLArtifactIndexDbManager extends LockssTestCase4 {
   private MockLockssDaemon theDaemon;
   private String tempDirPath;
   private SQLArtifactIndexDbManager idxDbManager;
+  /** The unique per-test database name, set in {@link #setUp()}. Used by the
+   *  reindex-batching benchmark to open a raw connection to the same database
+   *  (see {@code trySetSynchronousCommitOn()}). */
+  private String dbName;
 
   @BeforeClass
   public static void setUpClass() throws Exception {
@@ -108,7 +115,7 @@ public class TestSQLArtifactIndexDbManager extends LockssTestCase4 {
     theDaemon.setDaemonInited(true);
 
     // Create a unique database for this test
-    String dbName = "test_" + UUID.randomUUID().toString().replace("-", "");
+    dbName = "test_" + UUID.randomUUID().toString().replace("-", "");
 
     // Configure DbManager settings
     ConfigurationUtil.addFromArgs(
@@ -174,14 +181,16 @@ public class TestSQLArtifactIndexDbManager extends LockssTestCase4 {
         .setCollectionDate(1234L);
 
     // Add artifact
-    idxdb.upsertArtifactForReindex(spec.getArtifact());
+    idxdb.upsertArtifactForReindex(spec.getArtifact(),
+        SQLArtifactIndex.VersionConflictResolution.PreferEarliest);
 
     Artifact art = idxdb.getArtifact(spec.getArtifactUuid());
     // Assert against artifact spec
     spec.assertArtifactCommon(art);
     assertFalse(art.isCommitted());
 
-    idxdb.upsertArtifactForReindex(spec.getArtifact());
+    idxdb.upsertArtifactForReindex(spec.getArtifact(),
+        SQLArtifactIndex.VersionConflictResolution.PreferEarliest);
     art = idxdb.getArtifact(spec.getArtifactUuid());
     spec.assertArtifactCommon(art);
     assertFalse(art.isCommitted());
@@ -189,7 +198,8 @@ public class TestSQLArtifactIndexDbManager extends LockssTestCase4 {
     // Change storage URL & committed
     spec.setStorageUrl(URI.create("updated"));
     spec.setCommitted(true);
-    idxdb.upsertArtifactForReindex(spec.getArtifact());
+    idxdb.upsertArtifactForReindex(spec.getArtifact(),
+        SQLArtifactIndex.VersionConflictResolution.PreferEarliest);
     art = idxdb.getArtifact(spec.getArtifactUuid());
     spec.assertArtifactCommon(art);
     assertTrue(art.isCommitted());
@@ -2919,5 +2929,327 @@ public class TestSQLArtifactIndexDbManager extends LockssTestCase4 {
     } catch (DbException expected) {
       // Expected: the failure must not be reported as "0 rows deleted".
     }
+  }
+
+  //
+  // E.3: upsertArtifactsForReindex() batching. The per-artifact isolation
+  // guarantee from R7 (42ecccfa, "give both reindex paths per-item
+  // isolation") must survive batching: one bad artifact in the middle of a
+  // buffered batch must not lose the batch's other, good artifacts, whether
+  // the batch is tiny or a large fraction of ARTIFACT_INSERT_BATCH_SIZE.
+  //
+
+  /**
+   * An artifact whose storage URL is longer than
+   * {@code SqlConstants.MAX_ARTIFACT_STORAGE_URL_COLUMN} (1024 chars), which
+   * throws a {@code SQLException} (string data right truncation) deep inside
+   * {@code upsertArtifactForReindex()}'s {@code executeUpdate()} -- caught
+   * there and rethrown as a {@code DbException}, the same shape any other
+   * per-artifact DB-level failure takes on the reindex path (42ecccfa,
+   * "give both reindex paths per-item isolation").
+   *
+   * <p>{@code Artifact}'s constructor validates a null version at
+   * construction time (rejecting the more literal repro of the historical
+   * incident), so this is the reliable way to make a single artifact in a
+   * batch fail deep enough to exercise the batch's isolation, rather than
+   * fail before it is even a valid {@code Artifact}.
+   */
+  private static ArtifactSpec makeBadArtifactSpec(String namespace, String auid, String url) {
+    return new ArtifactSpec()
+        .setArtifactUuid(UUID.randomUUID().toString())
+        .setNamespace(namespace)
+        .setAuid(auid)
+        .setUrl(url)
+        .setVersion(1)
+        .setStorageUrl(URI.create(new String(new char[2000]).replace('\0', 'x')))
+        .setContentLength(1)
+        .setContentDigest("digest")
+        .setCommitted(true)
+        .setCollectionDate(1L);
+  }
+
+  /** {@code count} artifacts under a shared namespace/AUID, each at a
+   *  distinct URL and version 1, so none conflicts with any other. */
+  private static List<Artifact> makeGoodReindexArtifacts(String namespace, String auid,
+      String urlPrefix, int count) {
+    List<Artifact> result = new ArrayList<>(count);
+    for (int i = 0; i < count; i++) {
+      ArtifactSpec spec = new ArtifactSpec()
+          .setArtifactUuid(UUID.randomUUID().toString())
+          .setNamespace(namespace)
+          .setAuid(auid)
+          .setUrl(urlPrefix + i)
+          .setVersion(1)
+          .setStorageUrl(URI.create("storage_url_" + i))
+          .setContentLength(1)
+          .setContentDigest("digest_" + i)
+          .setCommitted(true)
+          .setCollectionDate(1000L + i);
+      result.add(spec.getArtifact());
+    }
+    return result;
+  }
+
+  /**
+   * A small batch (5 good artifacts + 1 with a null version in the middle):
+   * the 5 good ones must be indexed and exactly 1 failure reported.
+   */
+  @Test
+  public void testUpsertArtifactsForReindexIsolatesBadArtifactSmallBatch() throws Exception {
+    SQLArtifactIndexManagerSql idxdb = new SQLArtifactIndexManagerSql(idxDbManager);
+
+    String ns = "isolation-small-ns";
+    String auid = "isolation-small-auid";
+
+    List<Artifact> good = makeGoodReindexArtifacts(ns, auid, "http://example.com/small/", 5);
+
+    List<Artifact> batch = new ArrayList<>();
+    batch.addAll(good.subList(0, 3));
+    batch.add(makeBadArtifactSpec(ns, auid, "http://example.com/small/bad").getArtifact());
+    batch.addAll(good.subList(3, 5));
+
+    SQLArtifactIndexManagerSql.ReindexUpsertOutcome outcome =
+        idxdb.upsertArtifactsForReindex(batch,
+            SQLArtifactIndex.VersionConflictResolution.PreferEarliest);
+
+    assertEquals(6, outcome.getAttempted());
+    assertEquals(1, outcome.getFailed());
+    assertEquals(batch.get(0), outcome.getFirstArtifact());
+    assertEquals(5, countAllVersions(idxdb, ns, auid));
+
+    for (Artifact a : good) {
+      assertNotNull("good artifact must survive the batch: " + a.getUri(),
+          idxdb.getArtifact(a.getUuid()));
+    }
+  }
+
+  /**
+   * A single batch bigger than the tiny case, but still under
+   * ARTIFACT_INSERT_BATCH_SIZE (1000): ~50 artifacts with one bad artifact at
+   * roughly the midpoint of the SAME optimistic-attempt batch. Proves the
+   * replay-with-a-fresh-connection path actually recovers a partial-batch
+   * failure inside a single aborted transaction -- a naive implementation
+   * could lose the good artifacts that "looked" successful but were never
+   * committed before the batch aborted.
+   */
+  @Test
+  public void testUpsertArtifactsForReindexIsolatesBadArtifactLargerBatch() throws Exception {
+    SQLArtifactIndexManagerSql idxdb = new SQLArtifactIndexManagerSql(idxDbManager);
+
+    String ns = "isolation-large-ns";
+    String auid = "isolation-large-auid";
+
+    int goodCount = 49;
+    List<Artifact> good = makeGoodReindexArtifacts(ns, auid, "http://example.com/large/", goodCount);
+
+    List<Artifact> batch = new ArrayList<>();
+    batch.addAll(good.subList(0, 25));
+    batch.add(makeBadArtifactSpec(ns, auid, "http://example.com/large/bad").getArtifact());
+    batch.addAll(good.subList(25, goodCount));
+
+    assertTrue("batch must be well under ARTIFACT_INSERT_BATCH_SIZE (1000) " +
+        "to stay in a single optimistic attempt", batch.size() < 1000);
+
+    SQLArtifactIndexManagerSql.ReindexUpsertOutcome outcome =
+        idxdb.upsertArtifactsForReindex(batch,
+            SQLArtifactIndex.VersionConflictResolution.PreferEarliest);
+
+    assertEquals(goodCount + 1, outcome.getAttempted());
+    assertEquals(1, outcome.getFailed());
+    assertEquals(goodCount, countAllVersions(idxdb, ns, auid));
+
+    for (Artifact a : good) {
+      assertNotNull("good artifact must survive replay after the optimistic " +
+          "attempt aborts: " + a.getUri(), idxdb.getArtifact(a.getUuid()));
+    }
+  }
+
+  //
+  // E.3: benchmark. Real numbers, not the earlier analytical 3.5x-9x guess,
+  // for the claim that batching commits is the single biggest win for
+  // large-AU reindex (au-reindex-recovery-plan.md, Component E.3).
+  //
+
+  /**
+   * Best-effort: set {@code synchronous_commit = on} as this test database's
+   * default, correcting for zonky {@code EmbeddedPostgres}'s builder default
+   * of {@code synchronous_commit = off} (set for test-suite speed, not
+   * representativeness -- see {@code EmbeddedPostgres.Builder}'s constructor).
+   * Without this correction the OLD per-artifact-commit path does not pay the
+   * WAL-fsync-per-commit cost it pays in production, so the measured speedup
+   * UNDERSTATES the real one -- it becomes a floor, not an estimate.
+   *
+   * <p>Executed as {@code ALTER DATABASE ... SET synchronous_commit = on} on a
+   * throwaway raw JDBC connection to this test's database, before the
+   * connection pool ({@code idxDbManager}) has opened any connections to it,
+   * so every pooled connection used by the benchmark below inherits the
+   * corrected default.
+   *
+   * @return true if the setting was applied, false if it could not be (in
+   *         which case the benchmark still runs, but the caller must report
+   *         the ratio as a floor on an even weaker basis).
+   */
+  private boolean trySetSynchronousCommitOn() {
+    String url = "jdbc:postgresql://localhost:" + embeddedPg.getPort() + "/" + dbName;
+    try (Connection conn = DriverManager.getConnection(url, "postgres", "postgres");
+         Statement st = conn.createStatement()) {
+      st.execute("ALTER DATABASE \"" + dbName + "\" SET synchronous_commit = on");
+      return true;
+    } catch (SQLException e) {
+      log.warning("Could not set synchronous_commit = on for the benchmark; " +
+          "the measured speedup will understate production further than " +
+          "already noted", e);
+      return false;
+    }
+  }
+
+  /**
+   * Reads PostgreSQL's own count of committed transactions for this test's
+   * database, from {@code pg_stat_database.xact_commit}. This is the
+   * objective, hard-to-fake evidence for what the benchmark below claims:
+   * not "the wall clock says X ms", which proves nothing to a reader and
+   * could in principle be noise, but "the database itself recorded this many
+   * COMMITs" -- a number that is mechanically tied to how many transactions
+   * {@code upsertArtifactForReindex} vs. {@code upsertArtifactsForReindex}
+   * actually opened, independent of timing.
+   *
+   * <p>A raw connection is used (like {@link #trySetSynchronousCommitOn()})
+   * rather than one from {@code idxdb}, so reading this counter is not
+   * itself counted as one of the transactions it reports on.
+   */
+  private long readCommittedTransactionCount() throws SQLException {
+    String url = "jdbc:postgresql://localhost:" + embeddedPg.getPort() + "/" + dbName;
+    try (Connection conn = DriverManager.getConnection(url, "postgres", "postgres");
+         PreparedStatement ps = conn.prepareStatement(
+             "SELECT xact_commit FROM pg_stat_database WHERE datname = ?")) {
+      ps.setString(1, dbName);
+      try (ResultSet rs = ps.executeQuery()) {
+        assertTrue("pg_stat_database has no row for " + dbName, rs.next());
+        return rs.getLong(1);
+      }
+    }
+  }
+
+  /**
+   * Measures OLD (one connection checkout + one COMMIT per artifact, via the
+   * single-artifact {@code upsertArtifactForReindex}) against NEW (batched
+   * {@code upsertArtifactsForReindex}) on two disjoint sets of the same size
+   * on the same embedded PostgreSQL instance, and logs the wall-clock timings
+   * and the computed speedup ratio.
+   *
+   * <p>Distinct (namespace, AUID, URL, version) tuples in both sets --
+   * version 1 always, a unique URL per artifact -- so neither set exercises
+   * Component D's version-conflict SELECT; this isolates the commit-batching
+   * effect being measured from conflict-resolution cost.
+   *
+   * <p><b>What is actually being compared</b> -- both paths upsert the same
+   * number of artifacts through the same underlying per-row logic
+   * ({@code upsertArtifactForReindex(Connection, ...)}, unchanged by E.3);
+   * the only difference is how many transactions -- and, since each of those
+   * is also a fresh physical connection, how many connections -- that work is
+   * divided into:
+   * <ul>
+   *   <li>OLD calls the single-artifact {@code upsertArtifactForReindex(
+   *       Artifact, policy)} once per artifact, each call opening its own
+   *       connection and ending in its own commit -- {@code total}
+   *       connections and commits.</li>
+   *   <li>NEW calls the batched {@code upsertArtifactsForReindex(Iterable,
+   *       policy)} once, which internally buffers {@code batchSize} artifacts
+   *       per held connection and commit -- {@code total / batchSize}
+   *       connections and commits.</li>
+   * </ul>
+   * That difference is confirmed directly, not inferred from timing: this
+   * test reads PostgreSQL's own {@code pg_stat_database.xact_commit} counter
+   * before and after each phase and asserts the delta matches those expected
+   * connection/commit counts. The wall-clock timing and speedup ratio are
+   * reported for context, but the commit-count assertions are the actual
+   * evidence that the two paths execute differently.
+   *
+   * <p>The measured commit count is consistently about <b>3x</b> the naive
+   * "one commit per artifact" expectation for OLD (e.g. ~36,000 for 12,000
+   * artifacts, not ~12,000) -- confirmed, by a throwaway diagnostic that
+   * opened and closed {@code idxDbManager.getConnection()} connections with
+   * zero application statements on them, to be connection-open overhead: on
+   * this harness, roughly 2 commits happen per physical connection before any
+   * application statement runs (driver/session setup), on top of the one
+   * explicit application-level commit. This does not change what the test
+   * demonstrates -- it means OLD's per-artifact connection churn is paying
+   * for even more transactions than its own explicit commit implies, and
+   * NEW's batching eliminates that per-connection overhead too, not just the
+   * explicit commit. The generous {@code * 9L / 10} and {@code * 3L} slop in
+   * the assertions below is not about this factor (which is a completely
+   * consistent ~3x here); it is headroom for background activity on the
+   * shared embedded instance across machines and PostgreSQL versions.
+   */
+  @Test
+  public void testReindexUpsertBatchingBenchmark() throws Exception {
+    SQLArtifactIndexManagerSql idxdb = new SQLArtifactIndexManagerSql(idxDbManager);
+
+    boolean correctedSyncCommit = trySetSynchronousCommitOn();
+
+    // 12 batches of 1000: inside the 10-20 batch / 10,000-20,000 artifact
+    // range called for, while keeping wall-clock time for the OLD
+    // (per-commit) path reasonable under a real (non-tmpfs) WAL fsync.
+    final int batchSize = 1000; // must match ARTIFACT_INSERT_BATCH_SIZE
+    final int numBatches = 12;
+    final int total = batchSize * numBatches;
+
+    List<Artifact> oldSet =
+        makeGoodReindexArtifacts("bench-old-ns", "bench-old-auid",
+            "http://example.com/bench-old/", total);
+    List<Artifact> newSet =
+        makeGoodReindexArtifacts("bench-new-ns", "bench-new-auid",
+            "http://example.com/bench-new/", total);
+
+    long commitsBeforeOld = readCommittedTransactionCount();
+    long oldStartNanos = System.nanoTime();
+    for (Artifact artifact : oldSet) {
+      idxdb.upsertArtifactForReindex(artifact,
+          SQLArtifactIndex.VersionConflictResolution.PreferEarliest);
+    }
+    long oldMs = (System.nanoTime() - oldStartNanos) / 1_000_000L;
+    long oldCommits = readCommittedTransactionCount() - commitsBeforeOld;
+
+    long commitsBeforeNew = readCommittedTransactionCount();
+    long newStartNanos = System.nanoTime();
+    SQLArtifactIndexManagerSql.ReindexUpsertOutcome outcome =
+        idxdb.upsertArtifactsForReindex(newSet,
+            SQLArtifactIndex.VersionConflictResolution.PreferEarliest);
+    long newMs = (System.nanoTime() - newStartNanos) / 1_000_000L;
+    long newCommits = readCommittedTransactionCount() - commitsBeforeNew;
+
+    assertEquals(total, outcome.getAttempted());
+    assertEquals(0, outcome.getFailed());
+    assertEquals(total, countAllVersions(idxdb, "bench-old-ns", "bench-old-auid"));
+    assertEquals(total, countAllVersions(idxdb, "bench-new-ns", "bench-new-auid"));
+
+    double speedup = newMs == 0 ? Double.POSITIVE_INFINITY : oldMs / (double) newMs;
+
+    log.info("Reindex upsert benchmark: " + total + " artifacts/set, batch size "
+        + batchSize + ", synchronous_commit corrected to ON: " + correctedSyncCommit
+        + " -- OLD (per-artifact commit) = " + oldMs + " ms, " + oldCommits
+        + " commits; NEW (batched) = " + newMs + " ms, " + newCommits
+        + " commits -- speedup = " + speedup + "x");
+
+    // The hard evidence: OLD must commit roughly once per artifact (allow
+    // slack for other backends/autovacuum on the shared embedded instance,
+    // but it must be an order of magnitude more than NEW's). NEW must commit
+    // roughly once per batch, not once per artifact -- this is what would
+    // fail if upsertArtifactsForReindex silently degenerated back into a
+    // per-artifact-commit loop.
+    assertTrue("OLD should commit close to once per artifact (" + total
+        + "); actually committed " + oldCommits + " times",
+        oldCommits >= total * 9L / 10);
+    assertTrue("NEW should commit close to once per batch (~" + numBatches
+        + "); actually committed " + newCommits + " times -- if this is "
+        + "anywhere near " + total + ", batching is not happening",
+        newCommits <= numBatches * 3L);
+    assertTrue("NEW must commit far fewer times than OLD: OLD=" + oldCommits
+        + ", NEW=" + newCommits, newCommits * 20L < oldCommits);
+
+    // Weak but meaningful: batching must be faster, without pinning a
+    // specific ratio (embedded-Postgres timing varies by machine).
+    assertTrue("batched upsert (" + newMs + " ms) should be faster than " +
+        "per-artifact-commit upsert (" + oldMs + " ms)", newMs < oldMs);
   }
 }

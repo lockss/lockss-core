@@ -228,63 +228,32 @@ public class SQLArtifactIndex extends AbstractArtifactIndex {
 
   @Override
   public int reindexArtifacts(Iterable<Artifact> artifacts) throws IOException {
-    // TODO (E.3): replace this per-artifact loop with a batched
-    //  idxdb.upsertArtifactsForReindex(artifacts, versionConflictResolution).
-    //  As written, each iteration costs a connection checkout and a COMMIT --
-    //  a WAL flush per artifact under synchronous_commit=on -- plus, since
-    //  Component D, the version-conflict SELECT. The batched shape is spelled
-    //  out in the javadoc of SQLArtifactIndexManagerSql.upsertArtifactsForReindex().
+    try {
+      SQLArtifactIndexManagerSql.ReindexUpsertOutcome outcome =
+          idxdb.upsertArtifactsForReindex(artifacts, versionConflictResolution);
 
-    Artifact firstArtifact = null;
-    int attempted = 0;
-    int failed = 0;
-
-    for (Artifact artifact : artifacts) {
-      if (firstArtifact == null) {
-        firstArtifact = artifact;
+      // FIXME (E.4): The assumption that all the artifacts are in the same namespace
+      //  and AUID (as determined by the first artifact) is only true in "bulk-mode".
+      //  A temporary WARC interleaves AUs, so every AU but the first keeps a stale
+      //  cached size. The general fix is to collect the distinct (namespace, auid)
+      //  set as we go and invalidate each; the per-AU reindex path
+      //  (WarcArtifactDataStore.reindexArtifactsInAu()) is correct by construction.
+      if (outcome.getFirstArtifact() != null) {
+        try {
+          invalidateAuSize(outcome.getFirstArtifact().getNamespace(),
+                            outcome.getFirstArtifact().getAuid());
+        } catch (DbException e) {
+          // Warn and carry on, as indexArtifacts() does. A stale AU-size cache
+          // entry is cosmetic and self-correcting; it must never fail a reindex
+          // whose artifacts are already committed.
+          log.warn("Could not invalidate AU size", e);
+        }
       }
 
-      attempted++;
-
-      // Per-item isolation: each upsert is its own connection and its own
-      // transaction, so a failure here has already been rolled back and leaves
-      // nothing for the next artifact to trip over. Before this, the first bad
-      // artifact -- a null version NPEs on setInt(), for instance -- abandoned
-      // every artifact after it in the batch.
-      try {
-        idxdb.upsertArtifactForReindex(artifact, versionConflictResolution);
-      } catch (DbException | RuntimeException e) {
-        failed++;
-        log.error("Could not reindex artifact, skipping it [uuid: {}, url: {}]",
-                  artifact.getUuid(), artifact.getUri(), e);
-      }
+      return outcome.getFailed();
+    } catch (DbException e) {
+      throw new IOException("Could not reindex artifacts", e);
     }
-
-    if (failed > 0) {
-      // This log names the individual artifacts; the count returned below is
-      // what the caller uses to report the batch as partially failed.
-      log.error("Reindex skipped {} of {} artifacts; see the errors above",
-                failed, attempted);
-    }
-
-    // FIXME (E.4): The assumption that all the artifacts are in the same namespace
-    //  and AUID (as determined by the first artifact) is only true in "bulk-mode".
-    //  A temporary WARC interleaves AUs, so every AU but the first keeps a stale
-    //  cached size. The general fix is to collect the distinct (namespace, auid)
-    //  set as we go and invalidate each; the per-AU reindex path
-    //  (WarcArtifactDataStore.reindexArtifactsInAu()) is correct by construction.
-    if (firstArtifact != null) {
-      try {
-        invalidateAuSize(firstArtifact.getNamespace(), firstArtifact.getAuid());
-      } catch (DbException e) {
-        // Warn and carry on, as indexArtifacts() does. A stale AU-size cache
-        // entry is cosmetic and self-correcting; it must never fail a reindex
-        // whose artifacts are already committed.
-        log.warn("Could not invalidate AU size", e);
-      }
-    }
-
-    return failed;
   }
 
   @Override
