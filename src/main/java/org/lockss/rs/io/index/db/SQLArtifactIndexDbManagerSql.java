@@ -668,12 +668,13 @@ public class SQLArtifactIndexDbManagerSql extends DbManagerSql {
    *   <li>Set {@code maintenance_work_mem} (not {@code work_mem}) and
    *       {@code max_parallel_maintenance_workers} on the migrating connection.
    *       At the 64MB / 2 defaults the index build spills and runs far longer.
-   *       TODO: Write code to set these DB parameters - ask Claude
+   *       This method does not set them; they are the operator's to configure
+   *       before the upgrade runs.
    *   <li>Run {@code ANALYZE urls; ANALYZE auids;} afterwards. {@code ALTER
    *       COLUMN ... TYPE} discards column statistics, and the planner falls
-   *       back to default selectivity guesses until they are rebuilt.
-   *       Deliberately not done here, so it does not extend the lock.
-   *       TODO: Write code to do this
+   *       back to default selectivity guesses until they are rebuilt. This
+   *       method deliberately does not run them, so as not to extend the
+   *       ACCESS EXCLUSIVE lock; they are the operator's to run afterwards.
    * </ul>
    *
    * @param conn A Connection with the database connection to be used.

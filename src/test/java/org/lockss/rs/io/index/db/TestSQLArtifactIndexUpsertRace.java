@@ -52,6 +52,7 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
 
 import static org.lockss.config.db.SqlConstants.URL_DIGEST_EXPRESSION;
 import static org.lockss.config.db.SqlConstants.URL_DIGEST_PARAM_EXPRESSION;
@@ -439,5 +440,119 @@ public class TestSQLArtifactIndexUpsertRace extends LockssTestCase4 {
 
     assertEquals("the distinct colliding URL was not stored", 1L,
         countRows("urls"));
+  }
+
+  /**
+   * The tests above pin the SQL semantics. This one drives the actual method,
+   * because that is what callers use and what the retry loop used to live in.
+   * <p>
+   * Two callers ask for the same new URL on their own connections. The second
+   * one's {@code ON CONFLICT ... DO NOTHING} blocks on the first's uncommitted
+   * row, and once the first commits the second must fall back to the SELECT and
+   * return the winner's identifier. The implementation this replaced could not:
+   * the duplicate key aborted the loser's transaction, so its retry SELECT
+   * failed with "current transaction is aborted" instead of finding the row.
+   */
+  @Test
+  public void testConcurrentFindOrCreateUrlSeqAgreeOnOneRow() throws Exception {
+    SQLArtifactIndexManagerSql idxdb =
+        new SQLArtifactIndexManagerSql(idxDbManager);
+
+    Connection winner = openConnection();
+    Connection loser = openConnection();
+
+    try {
+      Long winnerSeq = idxdb.findOrCreateUrlSeq(winner, URL);
+      assertNotNull("the first caller must create the URL", winnerSeq);
+
+      // Not committed yet, so the second caller has to wait on the first.
+      Future<Long> loserSeq =
+          executor.submit(() -> idxdb.findOrCreateUrlSeq(loser, URL));
+
+      try {
+        Long premature = loserSeq.get(2, TimeUnit.SECONDS);
+        fail("the second caller returned " + premature + " while the first"
+            + " caller's insert was still uncommitted");
+      } catch (TimeoutException expected) {
+        // Blocked on the uncommitted index entry, which is the point.
+      }
+
+      winner.commit();
+
+      assertEquals("both callers must agree on one url_seq",
+          winnerSeq, loserSeq.get(30, TimeUnit.SECONDS));
+
+      loser.commit();
+    } finally {
+      safeClose(winner);
+      safeClose(loser);
+    }
+
+    assertEquals("the race must not create a second row", 1L, countRows("urls"));
+  }
+
+  /**
+   * The same for the namespace and AUID lookups, which use
+   * {@code ON CONFLICT ... DO UPDATE} and so always return a row rather than
+   * needing the URL path's fallback SELECT. Both callers must still end up with
+   * one row and the same identifier.
+   */
+  @Test
+  public void testConcurrentFindOrCreateNamespaceAndAuidSeqAgreeOnOneRow()
+      throws Exception {
+    SQLArtifactIndexManagerSql idxdb =
+        new SQLArtifactIndexManagerSql(idxDbManager);
+
+    String auid = "the-auid";
+
+    Connection winner = openConnection();
+    Connection loser = openConnection();
+
+    try {
+      Long winnerNs = idxdb.findOrCreateNamespaceSeq(winner, NS);
+      Long winnerAuid = idxdb.findOrCreateAuidSeq(winner, auid);
+      assertNotNull(winnerNs);
+      assertNotNull(winnerAuid);
+
+      Future<Long> loserNs =
+          executor.submit(() -> idxdb.findOrCreateNamespaceSeq(loser, NS));
+
+      try {
+        loserNs.get(2, TimeUnit.SECONDS);
+        fail("the second caller returned while the first caller's insert was"
+            + " still uncommitted");
+      } catch (TimeoutException expected) {
+        // Expected.
+      }
+
+      winner.commit();
+
+      assertEquals("both callers must agree on one namespace_seq",
+          winnerNs, loserNs.get(30, TimeUnit.SECONDS));
+      assertEquals("both callers must agree on one auid_seq",
+          winnerAuid, idxdb.findOrCreateAuidSeq(loser, auid));
+
+      loser.commit();
+    } finally {
+      safeClose(winner);
+      safeClose(loser);
+    }
+
+    assertEquals("the race must not create a second namespace row", 1L,
+        countRows("namespaces"));
+    assertEquals("the race must not create a second auid row", 1L,
+        countRows("auids"));
+  }
+
+  /** Rolls back and closes, ignoring a connection that is already gone. */
+  private void safeClose(Connection conn) {
+    try {
+      if (conn != null && !conn.isClosed()) {
+        conn.rollback();
+        conn.close();
+      }
+    } catch (SQLException sqle) {
+      log.warn("Could not close the test connection", sqle);
+    }
   }
 }
