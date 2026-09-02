@@ -436,7 +436,6 @@ public class TestSQLArtifactIndexDbCollation extends LockssTestCase4 {
 
     List<String> lines = java.nio.file.Files.readAllLines(report.toPath());
 
-    // TODO: Use a CSV parser library to check header and row contents
     assertEquals("expected a header and one line per colliding artifact, got:\n"
         + String.join("\n", lines), 3, lines.size());
     assertTrue("the header must name the columns; was: " + lines.get(0),
