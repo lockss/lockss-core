@@ -83,6 +83,7 @@ import org.springframework.web.util.UriUtils;
 import java.io.*;
 import java.net.URI;
 import java.net.URISyntaxException;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.time.Instant;
@@ -3271,6 +3272,197 @@ public abstract class AbstractWarcArtifactDataStoreTest<WADS extends WarcArtifac
           mapper.readValue(record.getPayloadContent(), WarcArtifactStateEntry.class);
 
       assertEquals(expected, actual, "Did not read expected entry from journal");
+    }
+  }
+
+  /**
+   * Test that a storage URL written into a {@link WarcArtifactStateEntry} survives the
+   * round trip through the journal WARC.
+   */
+  @Test
+  public void testWriteJournalEntryForArtifactWithStorageUrl() throws Exception {
+    File warcFile = FileUtil.createTempFile("test", null);
+    File journalFile = WarcArtifactDataStore.getJournalPath(warcFile.toPath()).toFile();
+
+    ArtifactSpec spec = new ArtifactSpec()
+        .setArtifactUuid("artifact-id")
+        .setUrl("https://www.lockss.org/")
+        .setStorageUrl(warcFile.toURI())
+        .generateContent();
+
+    String storageUrl = spec.getArtifact().getStorageUrl();
+
+    store.writeJournalEntryForArtifact(spec.getArtifact(),
+        new WarcArtifactStateEntry(spec.getArtifactIdentifier(), WarcArtifactState.COPIED, storageUrl));
+
+    Map<String, WarcArtifactStateEntry> journal =
+        store.readJournalFromWarc(journalFile.toPath(), WarcArtifactStateEntry.class,
+            record -> synthJournalEntry(record));
+
+    WarcArtifactStateEntry entry = journal.get(spec.getArtifactUuid());
+    assertNotNull(entry);
+    assertEquals(WarcArtifactState.COPIED, entry.getArtifactState());
+    assertEquals(storageUrl, entry.getStorageUrl(),
+        "Storage URL did not survive the journal round trip");
+
+    // Assert the serialized form actually carries the field
+    assertTrue(readFirstJournalPayload(journalFile.toPath()).contains("\"storageUrl\""));
+  }
+
+  /**
+   * Test that an entry with no storage URL serializes to the pre-existing on-disk form,
+   * i.e., without a storageUrl key.
+   */
+  @Test
+  public void testJournalEntryOmitsNullStorageUrl() throws Exception {
+    File warcFile = FileUtil.createTempFile("test", null);
+    Path journalFile = WarcArtifactDataStore.getJournalPath(warcFile.toPath());
+
+    ArtifactSpec spec = new ArtifactSpec()
+        .setArtifactUuid("artifact-id")
+        .setUrl("https://www.lockss.org/")
+        .setStorageUrl(warcFile.toURI())
+        .generateContent();
+
+    store.writeJournalEntryForArtifact(spec.getArtifact(),
+        new WarcArtifactStateEntry(spec.getArtifactIdentifier(), WarcArtifactState.DELETED));
+
+    assertFalse(readFirstJournalPayload(journalFile).contains("storageUrl"));
+
+    Map<String, WarcArtifactStateEntry> journal =
+        store.readJournalFromWarc(journalFile, WarcArtifactStateEntry.class,
+            record -> synthJournalEntry(record));
+
+    WarcArtifactStateEntry entry = journal.get(spec.getArtifactUuid());
+    assertNotNull(entry);
+    assertNull(entry.getStorageUrl());
+  }
+
+  /**
+   * Test that the {@code UNCOMMITTED} journal entry written by
+   * {@link WarcArtifactDataStore#addArtifactData(ArtifactData)} records the artifact's
+   * storage URL.
+   */
+  @Test
+  public void testAddArtifactDataRecordsStorageUrlInJournal() throws Exception {
+    ArtifactSpec spec = ArtifactSpec.forNsAuUrl(NS1, AUID1, URL1);
+    spec.setArtifactUuid(UUID.randomUUID().toString());
+    spec.generateContent();
+
+    Artifact artifact = store.addArtifactData(spec.getArtifactData());
+    assertNotNull(artifact);
+    assertNotNull(artifact.getStorageUrl());
+
+    Path warcFile = WarcArtifactDataStore.getPathFromStorageUrl(URI.create(artifact.getStorageUrl()));
+
+    Map<String, WarcArtifactStateEntry> journal =
+        store.getJournalForWarc(warcFile, WarcArtifactStateEntry.class,
+            record -> synthJournalEntry(record));
+
+    WarcArtifactStateEntry entry = journal.get(artifact.getUuid());
+    assertNotNull(entry);
+    assertEquals(WarcArtifactState.UNCOMMITTED, entry.getArtifactState());
+    assertEquals(artifact.getStorageUrl(), entry.getStorageUrl());
+  }
+
+  /**
+   * Test that the {@code COPIED} journal entry written to the permanent WARC's journal
+   * records the artifact's storage URL in permanent storage.
+   */
+  @Test
+  public void testCommitArtifactDataRecordsStorageUrlInJournal() throws Exception {
+    ArtifactSpec spec = ArtifactSpec.forNsAuUrl(NS1, AUID1, URL1);
+    spec.setArtifactUuid(UUID.randomUUID().toString());
+    spec.generateContent();
+
+    Artifact artifact = store.addArtifactData(spec.getArtifactData());
+    assertNotNull(artifact);
+
+    Future<Artifact> future = store.commitArtifactData(artifact);
+    assertNotNull(future);
+
+    Artifact committed = future.get(10, TimeUnit.SECONDS);
+    assertNotNull(committed);
+    assertNotNull(committed.getStorageUrl());
+
+    Path permWarc = WarcArtifactDataStore.getPathFromStorageUrl(URI.create(committed.getStorageUrl()));
+    assertFalse(store.isTmpStorage(permWarc));
+
+    Map<String, WarcArtifactStateEntry> journal =
+        store.getJournalForWarc(permWarc, WarcArtifactStateEntry.class,
+            record -> synthJournalEntry(record));
+
+    WarcArtifactStateEntry entry = journal.get(committed.getUuid());
+    assertNotNull(entry);
+    assertEquals(WarcArtifactState.COPIED, entry.getArtifactState());
+    assertEquals(committed.getStorageUrl(), entry.getStorageUrl());
+  }
+
+  /**
+   * Test that journal entries written before the storage URL field existed are still
+   * read without error, with a null storage URL.
+   */
+  @Test
+  public void testReadJournalEntryWrittenWithoutStorageUrl() throws Exception {
+    File warcFile = FileUtil.createTempFile("test", null);
+    Path journalFile = WarcArtifactDataStore.getJournalPath(warcFile.toPath());
+
+    String artifactUuid = "legacy-artifact-id";
+    long entryDate = 1234567890L;
+
+    // The exact on-disk payload written by the pre-storage-URL code
+    String legacyJson = "{\"artifactUuid\":\"" + artifactUuid + "\"" +
+        ",\"entryDate\":" + entryDate +
+        ",\"entry\":\"COPIED\",\"artifactState\":\"COPIED\"}";
+
+    writeRawJournalRecord(journalFile, artifactUuid, legacyJson);
+
+    Map<String, WarcArtifactStateEntry> journal =
+        store.readJournalFromWarc(journalFile, WarcArtifactStateEntry.class,
+            record -> synthJournalEntry(record));
+
+    WarcArtifactStateEntry entry = journal.get(artifactUuid);
+
+    // Assert the entry was parsed, not synthesized from a deserialization failure
+    assertNotNull(entry);
+    assertEquals(WarcArtifactState.COPIED, entry.getArtifactState());
+    assertEquals(entryDate, entry.getEntryDate());
+    assertTrue(entry.isCopied());
+    assertNull(entry.getStorageUrl(), "Old journal entry should have a null storage URL");
+  }
+
+  /**
+   * Appends a journal WARC metadata record with the given JSON payload, bypassing
+   * {@link WarcArtifactStateEntry} serialization so that legacy payloads can be written
+   * verbatim.
+   */
+  private void writeRawJournalRecord(Path journalFile, String artifactUuid, String json)
+      throws IOException {
+    byte[] jsonBytes = json.getBytes(StandardCharsets.UTF_8);
+
+    WARCRecordInfo record = new WARCRecordInfo();
+    record.setContentStream(new ByteArrayInputStream(jsonBytes));
+    record.setRecordId(URI.create(UUID.randomUUID().toString()));
+    record.setCreate14DigitDate(DateTimeFormatter.ISO_INSTANT.format(Instant.now().atZone(ZoneOffset.UTC)));
+    record.setType(WARCConstants.WARCRecordType.metadata);
+    record.setContentLength(jsonBytes.length);
+    record.setMimetype("application/json");
+    record.addExtraHeader(WARCConstants.HEADER_KEY_REFERS_TO, artifactUuid);
+    record.addExtraHeader("X-Lockss-Repository-Journal-Type", "WarcArtifactStateEntry");
+
+    try (OutputStream output = store.initWarcAndGetAppendableOutputStream(journalFile)) {
+      WarcArtifactDataStore.writeWarcRecord(record, output);
+    }
+  }
+
+  /**
+   * Returns the JSON payload of the first metadata record in a journal WARC.
+   */
+  private String readFirstJournalPayload(Path journalFile) throws IOException {
+    try (InputStream fin = store.getInputStreamAndSeek(journalFile, 0)) {
+      WarcReader reader = WarcReaderFactory.getReader(fin);
+      WarcRecord record = reader.getNextRecord();
+      return new String(record.getPayloadContent().readAllBytes(), StandardCharsets.UTF_8);
     }
   }
 

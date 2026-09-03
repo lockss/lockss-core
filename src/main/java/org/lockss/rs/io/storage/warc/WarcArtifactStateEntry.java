@@ -35,6 +35,8 @@ package org.lockss.rs.io.storage.warc;
 import org.apache.commons.lang3.builder.ToStringBuilder;
 import org.apache.commons.lang3.builder.ToStringStyle;
 import com.fasterxml.jackson.annotation.JsonAutoDetect;
+import com.fasterxml.jackson.annotation.JsonInclude;
+import com.fasterxml.jackson.annotation.JsonProperty;
 import org.lockss.util.rest.repo.model.ArtifactIdentifier;
 import org.lockss.util.time.TimeBase;
 
@@ -50,6 +52,15 @@ public class WarcArtifactStateEntry implements WarcJournal.WarcJournalEntry {
   private WarcArtifactState state;
 
   /**
+   * Storage URL of the artifact at the time this entry was written; i.e., the location of
+   * the artifact's WARC record in the WARC file this journal belongs to. Journal entries
+   * written before this field was introduced deserialize with a {@code null} storage URL.
+   */
+  @JsonProperty("storageUrl")
+  @JsonInclude(JsonInclude.Include.NON_NULL)
+  private String storageUrl;
+
+  /**
    * Constructor. Necessary for JSON serialization.
    */
   public WarcArtifactStateEntry() {
@@ -63,9 +74,18 @@ public class WarcArtifactStateEntry implements WarcJournal.WarcJournalEntry {
    * @param state The {@link WarcArtifactState} of this artifact.
    */
   public WarcArtifactStateEntry(ArtifactIdentifier artifactId, WarcArtifactState state) {
-    this.artifactUuid = artifactId.getUuid();
-    this.entryDate = TimeBase.nowMs();
-    this.state = state;
+    this(artifactId, state, null);
+  }
+
+  /**
+   * Constructor.
+   *
+   * @param artifactId An {@link ArtifactIdentifier} for this journal entry.
+   * @param state The {@link WarcArtifactState} of this artifact.
+   * @param storageUrl The storage URL of this artifact, or {@code null} if not known.
+   */
+  public WarcArtifactStateEntry(ArtifactIdentifier artifactId, WarcArtifactState state, String storageUrl) {
+    this(artifactId.getUuid(), state, storageUrl);
   }
 
   /**
@@ -75,9 +95,21 @@ public class WarcArtifactStateEntry implements WarcJournal.WarcJournalEntry {
    * @param state The {@link WarcArtifactState} of this artifact.
    */
   public WarcArtifactStateEntry(String artifactUuid, WarcArtifactState state) {
+    this(artifactUuid, state, null);
+  }
+
+  /**
+   * Constructor.
+   *
+   * @param artifactUuid The artifact ID string for this journal entry.
+   * @param state The {@link WarcArtifactState} of this artifact.
+   * @param storageUrl The storage URL of this artifact, or {@code null} if not known.
+   */
+  public WarcArtifactStateEntry(String artifactUuid, WarcArtifactState state, String storageUrl) {
     this.artifactUuid = artifactUuid;
     this.entryDate = TimeBase.nowMs();
     this.state = state;
+    this.storageUrl = storageUrl;
   }
 
   /**
@@ -137,6 +169,27 @@ public class WarcArtifactStateEntry implements WarcJournal.WarcJournalEntry {
   }
 
   /**
+   * Returns the storage URL of the artifact as of this journal entry.
+   *
+   * @return A {@link String} containing the storage URL, or {@code null} if this entry was
+   * written before storage URLs were recorded in the journal.
+   */
+  public String getStorageUrl() {
+    return this.storageUrl;
+  }
+
+  /**
+   * Sets the storage URL of the artifact in this entry.
+   *
+   * @param storageUrl A {@link String} containing the storage URL of the artifact.
+   * @return This {@link WarcArtifactStateEntry} object.
+   */
+  public WarcArtifactStateEntry setStorageUrl(String storageUrl) {
+    this.storageUrl = storageUrl;
+    return this;
+  }
+
+  /**
    * Returns a {@code boolean} indicating whether the state in this entry is {@code COMMITTED}.
    */
   public boolean isCommitted() {
@@ -163,12 +216,13 @@ public class WarcArtifactStateEntry implements WarcJournal.WarcJournalEntry {
     if (this == o) return true;
     if (o == null || getClass() != o.getClass()) return false;
     WarcArtifactStateEntry that = (WarcArtifactStateEntry) o;
-    return entryDate == that.entryDate && Objects.equals(artifactUuid, that.artifactUuid) && state == that.state;
+    return entryDate == that.entryDate && Objects.equals(artifactUuid, that.artifactUuid) && state == that.state
+        && Objects.equals(storageUrl, that.storageUrl);
   }
 
   @Override
   public int hashCode() {
-    return Objects.hash(artifactUuid, entryDate, state);
+    return Objects.hash(artifactUuid, entryDate, state, storageUrl);
   }
 
   @Override
@@ -177,6 +231,7 @@ public class WarcArtifactStateEntry implements WarcJournal.WarcJournalEntry {
       .append("artifactUuid", artifactUuid)
       .append("entryDate", entryDate)
       .append("state", state)
+      .append("storageUrl", storageUrl)
       .toString();
   }
 }

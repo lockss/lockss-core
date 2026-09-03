@@ -1880,7 +1880,7 @@ public abstract class WarcArtifactDataStore implements ArtifactDataStore, WARCCo
 
       // Mark artifact as uncommitted in the journal
       writeJournalEntryForArtifact(artifact,
-          new WarcArtifactStateEntry(artifactId, WarcArtifactState.UNCOMMITTED));
+          new WarcArtifactStateEntry(artifactId, WarcArtifactState.UNCOMMITTED, artifact.getStorageUrl()));
 
       // *******************
       // Return the artifact
@@ -2102,7 +2102,8 @@ public abstract class WarcArtifactDataStore implements ArtifactDataStore, WARCCo
 
           // Mark artifact as committed in the journal
           writeJournalEntryForArtifact(artifact,
-              new WarcArtifactStateEntry(artifact.getIdentifier(), WarcArtifactState.PENDING_COPY));
+              new WarcArtifactStateEntry(artifact.getIdentifier(), WarcArtifactState.PENDING_COPY,
+                  artifact.getStorageUrl()));
 
           // Submit the task to copy the artifact data from temporary to permanent storage
           CopyArtifactTask task = new CopyArtifactTask(artifact);
@@ -2363,7 +2364,8 @@ public abstract class WarcArtifactDataStore implements ArtifactDataStore, WARCCo
 
         // Mark the artifact as "copied to permanent storage"
         writeJournalEntryForArtifact(artifact,
-            new WarcArtifactStateEntry(artifact.getIdentifier(), WarcArtifactState.COPIED));
+            new WarcArtifactStateEntry(artifact.getIdentifier(), WarcArtifactState.COPIED,
+                artifact.getStorageUrl()));
 
         // ******************
         // Update storage URL
@@ -2390,7 +2392,8 @@ public abstract class WarcArtifactDataStore implements ArtifactDataStore, WARCCo
 
           // Mark the artifact as "copied to permanent storage"
           writeJournalEntryForArtifact(artifact,
-              new WarcArtifactStateEntry(artifact.getIdentifier(), WarcArtifactState.COPIED));
+              new WarcArtifactStateEntry(artifact.getIdentifier(), WarcArtifactState.COPIED,
+                  artifact.getStorageUrl()));
 
           log.trace("CopyArtifactTask done: " + getStripe());
 
@@ -2469,7 +2472,8 @@ public abstract class WarcArtifactDataStore implements ArtifactDataStore, WARCCo
 
       //// Mark the artifact as deleted in the journal
       writeJournalEntryForArtifact(artifact,
-          new WarcArtifactStateEntry(artifact.getIdentifier(), WarcArtifactState.DELETED));
+          new WarcArtifactStateEntry(artifact.getIdentifier(), WarcArtifactState.DELETED,
+              artifact.getStorageUrl()));
 
       //// Update temporary WARC file stats if UNCOMMITTED
       if (getWarcArtifactState(artifact, false) == WarcArtifactState.UNCOMMITTED) {
