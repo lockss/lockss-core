@@ -43,6 +43,8 @@ import org.lockss.util.lang.Ready;
 import org.lockss.util.rest.repo.model.VersionsEnum;
 import org.lockss.util.time.Deadline;
 
+import org.apache.commons.collections4.IterableUtils;
+
 import java.io.IOException;
 import java.util.UUID;
 import java.util.concurrent.TimeoutException;
@@ -212,6 +214,24 @@ public interface ArtifactIndex extends LockssRepositorySubsystem, StorageInfoSou
      * @throws IOException
      */
     Iterable<String> getAuIds(String namespace) throws IOException;
+
+    /**
+     * Returns the number of Archival Unit IDs (AUIDs) in a namespace.
+     * <p>
+     * Callers that only need the number should use this rather than counting
+     * {@link #getAuIds(String)}, which has to produce every AUID first. The
+     * default does exactly that, so implementations that cannot answer the
+     * question any faster are unaffected; those backed by a database override
+     * it with a query that counts without materialising anything.
+     *
+     * @param namespace
+     *          A {@code String} containing the namespace.
+     * @return A long with the number of AUIDs in the namespace.
+     * @throws IOException
+     */
+    default long getAuIdCount(String namespace) throws IOException {
+      return IterableUtils.size(getAuIds(namespace));
+    }
 
     /**
      * Returns the artifacts of the latest committed version of all URLs, from a specified Archival Unit and namespace.

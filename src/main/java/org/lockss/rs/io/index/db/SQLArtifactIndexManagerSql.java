@@ -942,6 +942,20 @@ public class SQLArtifactIndexManagerSql {
       + " AND ns." + NAMESPACE_COLUMN + " = ?"
       + ")";
 
+  // Counts the AUIDs in a namespace without materialising them.
+  //
+  // Deliberately not "SELECT COUNT(*) FROM auids WHERE EXISTS (...)", the
+  // counting analogue of GET_AUIDS_BY_NAMESPACE_QUERY above: that form tests
+  // every row of auids against artifacts, whereas this one starts from the
+  // namespace and is covered by idx6_artifacts
+  // (namespace_seq, auid_seq, url_seq). auids carries no namespace column, so
+  // the namespace association has to come from artifacts in either form.
+  private static final String COUNT_AUIDS_BY_NAMESPACE_QUERY =
+      "SELECT COUNT(DISTINCT a." + AUID_SEQ_COLUMN + ")"
+      + " FROM " + ARTIFACT_TABLE + " a," + NAMESPACE_TABLE + " ns"
+      + " WHERE a." + NAMESPACE_SEQ_COLUMN + " = ns." + NAMESPACE_SEQ_COLUMN
+      + " AND ns." + NAMESPACE_COLUMN + " = ?";
+
   private static final String UPDATE_ARTIFACT_COMMITTED_QUERY = "UPDATE " + ARTIFACT_TABLE
       + " SET " + ARTIFACT_COMMITTED_COLUMN + " = ?"
       + " WHERE " + ARTIFACT_UUID_COLUMN + " = ?";
@@ -1436,6 +1450,59 @@ public class SQLArtifactIndexManagerSql {
       return findAuids(conn, namespace);
     } finally {
       DbManager.safeRollbackAndClose(conn);
+    }
+  }
+
+  /**
+   * Counts the Archival Units that have artifacts in a namespace.
+   * <p>
+   * This exists because callers that only want the number were paying for the
+   * whole list: {@link #findAuids(String)} materialises every AUID string, and
+   * over the REST repository client that meant paging all of them across the
+   * network only to call size() on the result.
+   *
+   * @param namespace A String with the namespace.
+   * @return a long with the number of AUIDs in the namespace.
+   * @throws DbException if any problem occurred accessing the database.
+   */
+  public long countAuids(String namespace) throws DbException {
+    log.debug2("namespace = {}", namespace);
+
+    Connection conn = null;
+
+    try {
+      conn = idxDbManager.getConnection();
+      return countAuids(conn, namespace);
+    } finally {
+      DbManager.safeRollbackAndClose(conn);
+    }
+  }
+
+  private long countAuids(Connection conn, String namespace) throws DbException {
+    PreparedStatement ps = null;
+    ResultSet resultSet = null;
+    String errorMessage = "Cannot count AUIDs in namespace";
+
+    try {
+      ps = idxDbManager.prepareStatement(conn, COUNT_AUIDS_BY_NAMESPACE_QUERY);
+      ps.setString(1, namespace);
+
+      resultSet = idxDbManager.executeQuery(ps);
+
+      // COUNT always returns a row, but a namespace that does not exist simply
+      // matches nothing and counts zero.
+      long result = resultSet.next() ? resultSet.getLong(1) : 0L;
+
+      log.debug2("result = {}", result);
+      return result;
+    } catch (SQLException sqle) {
+      log.error(errorMessage, sqle);
+      log.error("SQL = '{}'.", COUNT_AUIDS_BY_NAMESPACE_QUERY);
+      log.error("namespace = {}", namespace);
+      throw new DbException(errorMessage, sqle);
+    } finally {
+      DbManager.safeCloseResultSet(resultSet);
+      DbManager.safeCloseStatement(ps);
     }
   }
 

@@ -366,6 +366,15 @@ public class SQLArtifactIndex extends AbstractArtifactIndex {
   }
 
   @Override
+  public long getAuIdCount(String namespace) throws IOException {
+    try {
+      return idxdb.countAuids(namespace);
+    } catch (DbException e) {
+      throw new IOException("Database error counting AUIDs", e);
+    }
+  }
+
+  @Override
   public Iterable<Artifact> getArtifacts(String namespace, String auid, boolean includeUncommitted)
       throws IOException {
     try {
