@@ -29,6 +29,7 @@ import org.lockss.rs.LocalLockssRepository;
 import org.lockss.test.*;
 import org.lockss.util.*;
 import org.lockss.util.os.PlatformUtil;
+import org.lockss.util.rest.RestUtil;
 import org.lockss.util.rest.repo.LockssRepository;
 import org.lockss.util.rest.repo.RestLockssRepository;
 import org.lockss.util.rest.repo.model.Artifact;
@@ -36,6 +37,7 @@ import org.lockss.util.rest.repo.model.ArtifactData;
 import org.lockss.util.rest.repo.model.VersionsEnum;
 import org.lockss.util.test.FileTestUtil;
 import org.lockss.util.time.TimerUtil;
+import org.springframework.web.client.RestTemplate;
 
 import java.io.IOException;
 import java.io.InputStream;
@@ -202,11 +204,6 @@ public class TestRepositoryManager extends LockssTestCase4 {
     assertClass(RestLockssRepository.class, repo);
   }
 
-  // Would like to test that timeouts properly get set in the
-  // RestTemplate.  Unfortunately they're not't accessible in
-  // RestTemplate so this test currently serves only to log them (at
-  // debug2) as they're being set.  (Even that was helpful, so leaving
-  // it in place.)
   @Test
   public void testSetRestTimeout() throws Exception {
     assertNull(mgr.getV2Repository());
@@ -218,6 +215,56 @@ public class TestRepositoryManager extends LockssTestCase4 {
     assertEquals("ns_1", mgr.getV2Repository().getNamespace());
     LockssRepository repo = mgr.getV2Repository().getRepository();
     assertClass(RestLockssRepository.class, repo);
+
+    RestTemplate template = ((RestLockssRepository)repo).getRestTemplate();
+    assertEquals(111, RestUtil.getReadTimeout(template));
+    // Calls that don't respond until they've done their work get the long
+    // read timeout, which defaults to more than the general one
+    assertEquals(RepositoryManager.DEFAULT_LONG_READ_TIMEOUT,
+                 RestUtil.getLongReadTimeout(template));
+  }
+
+  @Test
+  public void testSetRestLongTimeout() throws Exception {
+    assertNull(mgr.getV2Repository());
+    ConfigurationUtil.addFromArgs(RepositoryManager.PARAM_V2_REPOSITORY,
+				  "rest:ns_1:http://foo.bar/endpoint");
+    ConfigurationUtil.addFromArgs(RepositoryManager.PARAM_READ_TIMEOUT, "10s",
+                                  RepositoryManager.PARAM_LONG_READ_TIMEOUT, "5m");
+    RestLockssRepository repo =
+        (RestLockssRepository)mgr.getV2Repository().getRepository();
+
+    assertEquals(10 * Constants.SECOND,
+                 RestUtil.getReadTimeout(repo.getRestTemplate()));
+    assertEquals(5 * Constants.MINUTE,
+                 RestUtil.getLongReadTimeout(repo.getRestTemplate()));
+
+    // Changing either timeout installs a new RestTemplate
+    ConfigurationUtil.addFromArgs(RepositoryManager.PARAM_LONG_READ_TIMEOUT, "20m");
+
+    assertEquals(10 * Constants.SECOND,
+                 RestUtil.getReadTimeout(repo.getRestTemplate()));
+    assertEquals(20 * Constants.MINUTE,
+                 RestUtil.getLongReadTimeout(repo.getRestTemplate()));
+  }
+
+  /** The default read timeout must be finite: a hung repository service should
+   * fail a single call rather than block the calling thread indefinitely. */
+  @Test
+  public void testDefaultRestTimeouts() throws Exception {
+    ConfigurationUtil.addFromArgs(RepositoryManager.PARAM_V2_REPOSITORY,
+				  "rest:ns_1:http://foo.bar/endpoint");
+    RestLockssRepository repo =
+        (RestLockssRepository)mgr.getV2Repository().getRepository();
+
+    assertTrue(RepositoryManager.DEFAULT_READ_TIMEOUT > 0);
+    assertTrue(RepositoryManager.DEFAULT_LONG_READ_TIMEOUT >
+               RepositoryManager.DEFAULT_READ_TIMEOUT);
+
+    assertEquals(RepositoryManager.DEFAULT_READ_TIMEOUT,
+                 RestUtil.getReadTimeout(repo.getRestTemplate()));
+    assertEquals(RepositoryManager.DEFAULT_LONG_READ_TIMEOUT,
+                 RestUtil.getLongReadTimeout(repo.getRestTemplate()));
   }
 
   @Test

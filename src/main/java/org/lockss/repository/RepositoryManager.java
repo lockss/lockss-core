@@ -135,13 +135,31 @@ public class RepositoryManager
   public static final boolean DEFAULT_USE_MULTIPART_ENDPOINT =
       RestLockssRepository.DEFAULT_USE_MULTIPART_ENDPOINT;
 
+  /** Timeout for establishing a connection to the repository service */
   public static final String PARAM_CONNECT_TIMEOUT =
       REPOSITORY_CLIENT_PREFIX + "connectTimeout";
-  public static final long DEFAULT_CONNECT_TIMEOUT = 30 * Constants.SECOND;
+  public static final long DEFAULT_CONNECT_TIMEOUT =
+      RestUtil.DEFAULT_CONNECT_TIMEOUT;
 
+  /** Socket timeout for calls to the repository service.  This is an
+   * inactivity timeout, so it doesn't limit the time spent transferring a
+   * large response, only the time the service may be silent.  It is better for
+   * a single call to fail than for the thread that made it to block
+   * indefinitely.  Calls that legitimately produce no response for a long time
+   * use {@link #PARAM_LONG_READ_TIMEOUT} instead. */
   public static final String PARAM_READ_TIMEOUT =
       REPOSITORY_CLIENT_PREFIX + "readTimeout";
-  public static final long DEFAULT_READ_TIMEOUT = 1 * Constants.HOUR;
+  public static final long DEFAULT_READ_TIMEOUT = RestUtil.DEFAULT_READ_TIMEOUT;
+
+  /** Socket timeout for calls to the repository service that don't respond
+   * until they have finished doing their work: createArtifact, which stores
+   * and compresses the artifact before responding; the import of an archive;
+   * and finishing a bulk store, which waits for the AU to be copied to
+   * permanent storage and indexed. */
+  public static final String PARAM_LONG_READ_TIMEOUT =
+      REPOSITORY_CLIENT_PREFIX + "longReadTimeout";
+  public static final long DEFAULT_LONG_READ_TIMEOUT =
+      RestUtil.DEFAULT_LONG_READ_TIMEOUT;
 
   public static final String PARAM_POOL_MAX_CONNECTIONS =
       REPOSITORY_CLIENT_POOL_PREFIX + "maxConnections";
@@ -201,6 +219,7 @@ public class RepositoryManager
   private boolean useMultipartEndpoint = DEFAULT_USE_MULTIPART_ENDPOINT;
   private long connectTimeout = DEFAULT_CONNECT_TIMEOUT;
   private long readTimeout = DEFAULT_READ_TIMEOUT;
+  private long longReadTimeout = DEFAULT_LONG_READ_TIMEOUT;
   private int maxConnections = DEFAULT_POOL_MAX_CONNECTIONS;
   private int maxConnectionsPerRoute = DEFAULT_POOL_MAX_CONNECTIONS_PER_ROUTE;
   private long sizeThreshold = DEFAULT_RESPONSE_SIZE_THRESHOLD;
@@ -269,6 +288,7 @@ public class RepositoryManager
 
       connectTimeout = config.getTimeInterval(PARAM_CONNECT_TIMEOUT, DEFAULT_CONNECT_TIMEOUT);
       readTimeout = config.getTimeInterval(PARAM_READ_TIMEOUT, DEFAULT_READ_TIMEOUT);
+      longReadTimeout = config.getTimeInterval(PARAM_LONG_READ_TIMEOUT, DEFAULT_LONG_READ_TIMEOUT);
       maxConnections = config.getInt(PARAM_POOL_MAX_CONNECTIONS, DEFAULT_POOL_MAX_CONNECTIONS);
       maxConnectionsPerRoute = config.getInt(PARAM_POOL_MAX_CONNECTIONS_PER_ROUTE, DEFAULT_POOL_MAX_CONNECTIONS_PER_ROUTE);
       sizeThreshold = config.getSize(PARAM_RESPONSE_SIZE_THRESHOLD, DEFAULT_RESPONSE_SIZE_THRESHOLD);
@@ -471,15 +491,17 @@ public class RepositoryManager
 	  }
 	}
 
-        log.debug("Making RestLockssRepository, connectTimeout: {}, readTimeout: {}, maxConnections: {}, " +
-                "maxConnectionsPerRoute: {} ,sizeThreshold: {}",
+        log.debug("Making RestLockssRepository, connectTimeout: {}, readTimeout: {}, longReadTimeout: {}, " +
+                "maxConnections: {}, maxConnectionsPerRoute: {} ,sizeThreshold: {}",
                   StringUtil.timeIntervalToString(connectTimeout), StringUtil.timeIntervalToString(readTimeout),
+                  StringUtil.timeIntervalToString(longReadTimeout),
                   maxConnections, maxConnectionsPerRoute, StringUtil.sizeToString(sizeThreshold));
 
         LockssRestTemplateSettings settings =
             new LockssRestTemplateSettingsBuilder()
                 .setConnectTimeout(connectTimeout)
                 .setReadTimeout(readTimeout)
+                .setLongReadTimeout(longReadTimeout)
                 .setMaxConnections(maxConnections)
                 .setMaxConnectionsPerRoute(maxConnectionsPerRoute)
                 .setDfosSizeThreshold(sizeThreshold)
@@ -520,19 +542,22 @@ public class RepositoryManager
 	configureArtifactCache(repoClient, config);
         repoClient.setUseMultipartEndpoint(useMultipartEndpoint);
         if (changedKeys.contains(PARAM_READ_TIMEOUT) ||
+            changedKeys.contains(PARAM_LONG_READ_TIMEOUT) ||
             changedKeys.contains(PARAM_CONNECT_TIMEOUT) ||
             changedKeys.contains(PARAM_POOL_MAX_CONNECTIONS) ||
             changedKeys.contains(PARAM_POOL_MAX_CONNECTIONS_PER_ROUTE) ||
             changedKeys.contains(PARAM_RESPONSE_SIZE_THRESHOLD)) {
-          log.debug("Resetting RestTemplate params. connectTimeout: {}, readTimeout: {}, sizeThreshold: {}"
-              + "maxConnections: {}, maxConnectionsPerRoute: {}",
+          log.debug("Resetting RestTemplate params. connectTimeout: {}, readTimeout: {}, longReadTimeout: {}, "
+              + "sizeThreshold: {}, maxConnections: {}, maxConnectionsPerRoute: {}",
                     StringUtil.timeIntervalToString(connectTimeout), StringUtil.timeIntervalToString(readTimeout),
+                    StringUtil.timeIntervalToString(longReadTimeout),
                     StringUtil.sizeToString(sizeThreshold), maxConnections, maxConnectionsPerRoute);
 
           LockssRestTemplateSettings settings =
               new LockssRestTemplateSettingsBuilder()
                   .setConnectTimeout(connectTimeout)
                   .setReadTimeout(readTimeout)
+                  .setLongReadTimeout(longReadTimeout)
                   .setMaxConnections(maxConnections)
                   .setMaxConnectionsPerRoute(maxConnectionsPerRoute)
                   .setDfosSizeThreshold(sizeThreshold)
