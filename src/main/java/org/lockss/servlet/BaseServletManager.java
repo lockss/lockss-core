@@ -64,11 +64,6 @@ import org.mortbay.jetty.servlet.*;
 public abstract class BaseServletManager
   extends JettyManager implements ServletManager {
 
-  static {
-    // Suppress the Jetty version from being advertised in the response header
-    System.setProperty("org.mortbay.http.Version.paranoid", "true");
-  }
-
   private static Logger log = Logger.getLogger();
 
   // Suffixes of config keys below org.lockss.<servlet>.  Config is
