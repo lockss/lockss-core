@@ -36,6 +36,8 @@ import org.apache.commons.io.FileUtils;
 import org.apache.solr.client.solrj.embedded.EmbeddedSolrServer;
 import org.apache.solr.core.CoreContainer;
 import org.archive.format.warc.WARCConstants;
+import org.archive.io.ArchiveReader;
+import org.archive.io.ArchiveRecord;
 import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 import org.lockss.log.L4JLogger;
@@ -47,9 +49,12 @@ import org.lockss.rs.io.index.solr.TestSolrArtifactIndex;
 import org.lockss.util.ListUtil;
 import org.lockss.util.PatternIntMap;
 import org.lockss.util.io.FileUtil;
+import org.lockss.util.rest.repo.LockssNoSuchArtifactIdException;
 import org.lockss.util.rest.repo.model.Artifact;
 import org.lockss.util.rest.repo.model.ArtifactData;
 import org.lockss.util.rest.repo.model.ArtifactIdentifier;
+import org.lockss.util.rest.repo.model.NamespacedAuid;
+import org.lockss.util.concurrent.stripedexecutor.StripedRunnable;
 import org.lockss.util.rest.repo.util.ArtifactSpec;
 import org.lockss.util.time.TimeBase;
 import org.mockito.ArgumentMatchers;
@@ -63,7 +68,13 @@ import java.nio.file.NoSuchFileException;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.*;
+import java.util.List;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
+import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.TimeUnit;
 import java.util.function.Predicate;
 
 import static org.mockito.Mockito.*;
@@ -777,5 +788,488 @@ public class TestLocalWarcArtifactDataStore extends AbstractWarcArtifactDataStor
     // Negative length should throw IllegalArgumentException
     assertThrows(IllegalArgumentException.class,
         () -> store.truncateWarc(warcFile.toPath(), -1));
+  }
+
+  // *******************************************************************************************************************
+  // * ASYNCHRONOUS TEMPORARY WARC RELOAD
+  // *******************************************************************************************************************
+
+  /**
+   * A data store whose background temporary WARC reload can be held open, to model the
+   * window between {@link WarcArtifactDataStore#start()} returning and the reload
+   * finishing. Reloading a temporary WARC whose journal is missing means reading the whole
+   * WARC body, which takes minutes on a multi-gigabyte artifact; the latch stands in for
+   * that read.
+   */
+  private static class LatchedReloadStore extends LocalWarcArtifactDataStore {
+    /** Counted down when the background reload starts. */
+    final CountDownLatch reloadStarted = new CountDownLatch(1);
+
+    /** Blocks the background reload until the test opens it. */
+    final CountDownLatch reloadGate = new CountDownLatch(1);
+
+    /** Times the reload found an artifact in PENDING_COPY and considered requeuing its copy. */
+    final AtomicInteger requeueDecisions = new AtomicInteger();
+
+    /** Times the reload actually queued a copy task. */
+    final AtomicInteger requeuedCopies = new AtomicInteger();
+
+    LatchedReloadStore(Path[] basePaths) throws IOException {
+      super(basePaths);
+    }
+
+    @Override
+    protected boolean requeueCopy(Artifact artifact) {
+      requeueDecisions.incrementAndGet();
+      boolean queued = super.requeueCopy(artifact);
+
+      if (queued) {
+        requeuedCopies.incrementAndGet();
+      }
+
+      return queued;
+    }
+
+    @Override
+    protected void reloadTemporaryWarcs(ArtifactIndex index, Path tmpWarcBasePath, List<Path> tmpWarcs) {
+      reloadStarted.countDown();
+
+      try {
+        if (!reloadGate.await(60, TimeUnit.SECONDS)) {
+          throw new IllegalStateException("Test did not open the reload gate");
+        }
+      } catch (InterruptedException e) {
+        Thread.currentThread().interrupt();
+        return;
+      }
+
+      super.reloadTemporaryWarcs(index, tmpWarcBasePath, tmpWarcs);
+    }
+  }
+
+  private ScheduledExecutorService reloadTestExecutor;
+
+  /**
+   * Builds a data store over the base paths of {@code other} whose background temporary
+   * WARC reload is held until the test opens its gate.
+   */
+  private LatchedReloadStore makeLatchedReloadStore(ArtifactIndex index, LocalWarcArtifactDataStore other)
+      throws IOException {
+
+    LatchedReloadStore ds = new LatchedReloadStore(other.getBasePaths());
+
+    if (reloadTestExecutor == null) {
+      reloadTestExecutor = Executors.newSingleThreadScheduledExecutor();
+    }
+
+    BaseLockssRepository repo = mock(BaseLockssRepository.class);
+    when(repo.getArtifactIndex()).thenReturn(index);
+    when(repo.getScheduledExecutorService()).thenReturn(reloadTestExecutor);
+    ds.setLockssRepository(repo);
+
+    return ds;
+  }
+
+  /**
+   * Adds a single uncommitted artifact and returns its spec. The artifact's temporary WARC
+   * is what a restarted data store has to reload.
+   */
+  private ArtifactSpec addUncommittedArtifact() throws Exception {
+    ArtifactSpec spec = ArtifactSpec.forNsAuUrl(NS1, AUID1, URL1);
+    spec.setArtifactUuid(UUID.randomUUID().toString());
+    spec.generateContent();
+
+    ArtifactData ad = spec.getArtifactData();
+    ad.setStorageUrl(new URI("test://artifacts.warc"));
+
+    Artifact storedRef = store.addArtifactData(ad);
+    assertNotNull(storedRef);
+    spec.setStorageUrl(URI.create(storedRef.getStorageUrl()));
+
+    return spec;
+  }
+
+  private void stopQuietly(LocalWarcArtifactDataStore ds) {
+    try {
+      ds.stop();
+    } catch (Exception e) {
+      log.warn("Could not stop data store", e);
+    }
+
+    if (reloadTestExecutor != null) {
+      reloadTestExecutor.shutdownNow();
+      reloadTestExecutor = null;
+    }
+  }
+
+  /**
+   * {@link WarcArtifactDataStore#start()} must not wait for the temporary WARCs of a
+   * previous run to be reloaded.
+   */
+  @Test
+  public void testStartDoesNotBlockOnTemporaryWarcReload() throws Exception {
+    teardownDataStore();
+
+    ArtifactIndex index = new VolatileArtifactIndex();
+    index.init();
+
+    store = makeWarcArtifactDataStore(index);
+    addUncommittedArtifact();
+
+    LatchedReloadStore reloadedStore = makeLatchedReloadStore(index, store);
+
+    try {
+      reloadedStore.init();
+      reloadedStore.start();
+
+      // start() returned. The reload is provably still running: it has entered
+      // reloadTemporaryWarcs() and is sitting on the gate, which is still closed.
+      assertTrue(reloadedStore.reloadStarted.await(30, TimeUnit.SECONDS),
+          "Background reload never started");
+      assertFalse(reloadedStore.awaitReloadComplete(100, TimeUnit.MILLISECONDS),
+          "start() waited for the temporary WARC reload to finish");
+
+      // The data store is nonetheless started and serving
+      assertEquals(WarcArtifactDataStore.DataStoreState.RUNNING, reloadedStore.getDataStoreState());
+      assertTrue(reloadedStore.isReady());
+
+      // Letting the reload finish leaves nothing pending
+      reloadedStore.reloadGate.countDown();
+      assertTrue(reloadedStore.awaitReloadComplete(60, TimeUnit.SECONDS),
+          "Background reload did not finish");
+    } finally {
+      reloadedStore.reloadGate.countDown();
+      stopQuietly(reloadedStore);
+    }
+  }
+
+  /**
+   * A read of an artifact whose temporary WARC the background reload has not reached is
+   * served by referencing the file directly, and the reload afterwards still puts the WARC
+   * in the pool with the right state.
+   */
+  @Test
+  public void testGetArtifactDataFromTemporaryWarcPendingReload() throws Exception {
+    teardownDataStore();
+
+    ArtifactIndex index = new VolatileArtifactIndex();
+    index.init();
+
+    store = makeWarcArtifactDataStore(index);
+    ArtifactSpec spec = addUncommittedArtifact();
+
+    Path tmpWarcPath = WarcArtifactDataStore.getPathFromStorageUrl(spec.getStorageUrl());
+    assertTrue(isFile(tmpWarcPath));
+
+    LatchedReloadStore reloadedStore = makeLatchedReloadStore(index, store);
+
+    try {
+      reloadedStore.init();
+      reloadedStore.start();
+      assertTrue(reloadedStore.reloadStarted.await(30, TimeUnit.SECONDS));
+
+      // The WARC is awaiting reload, so it is not in the pool yet
+      assertTrue(reloadedStore.isPendingReload(tmpWarcPath));
+      assertNull(reloadedStore.tmpWarcPool.getWarcFile(tmpWarcPath));
+
+      Artifact indexed = index.getArtifact(spec.getArtifactUuid());
+      assertNotNull(indexed);
+
+      // Read it anyway: this is the case that used to fail with "expired and was GCed"
+      try (ArtifactData ad = reloadedStore.getArtifactData(indexed)) {
+        assertNotNull(ad);
+        spec.assertArtifactData(ad);
+      }
+
+      // The read must not have left the WARC marked in use
+      assertFalse(TempWarcInUseTracker.INSTANCE.isInUse(tmpWarcPath));
+
+      // Now let the reload finish and assert it still does its job
+      reloadedStore.reloadGate.countDown();
+      assertTrue(reloadedStore.awaitReloadComplete(60, TimeUnit.SECONDS));
+
+      assertFalse(reloadedStore.isPendingReload(tmpWarcPath));
+      assertTrue(isFile(tmpWarcPath), "Reload removed a WARC holding an uncommitted artifact");
+
+      WarcFile pooled = reloadedStore.tmpWarcPool.getWarcFile(tmpWarcPath);
+      assertNotNull(pooled, "Reloaded temporary WARC not in pool");
+      assertEquals(1, pooled.getStats().getArtifactsTotal());
+      assertEquals(1, pooled.getStats().getArtifactsUncommitted());
+
+      // ... and that the artifact is still readable, now through the pool
+      try (ArtifactData ad = reloadedStore.getArtifactData(index.getArtifact(spec.getArtifactUuid()))) {
+        assertNotNull(ad);
+        spec.assertArtifactData(ad);
+      }
+    } finally {
+      reloadedStore.reloadGate.countDown();
+      stopQuietly(reloadedStore);
+    }
+  }
+
+  /**
+   * The direct-read path is only for WARCs awaiting reload: once a temporary WARC has been
+   * reloaded and removed, a read of an artifact that was in it still fails.
+   */
+  @Test
+  public void testGetArtifactDataAfterReloadRemovedTemporaryWarc() throws Exception {
+    teardownDataStore();
+
+    ArtifactIndex index = new VolatileArtifactIndex();
+    index.init();
+
+    store = makeWarcArtifactDataStore(index);
+    ArtifactSpec spec = addUncommittedArtifact();
+
+    Path tmpWarcPath = WarcArtifactDataStore.getPathFromStorageUrl(spec.getStorageUrl());
+    Artifact indexed = index.getArtifact(spec.getArtifactUuid());
+    assertNotNull(indexed);
+
+    // Delete it, so every record in the temporary WARC is removable on reload
+    store.deleteArtifactData(indexed);
+    index.deleteArtifact(spec.getArtifactUuid());
+
+    LatchedReloadStore reloadedStore = makeLatchedReloadStore(index, store);
+
+    try {
+      reloadedStore.init();
+      reloadedStore.start();
+      assertTrue(reloadedStore.reloadStarted.await(30, TimeUnit.SECONDS));
+
+      reloadedStore.reloadGate.countDown();
+      assertTrue(reloadedStore.awaitReloadComplete(60, TimeUnit.SECONDS));
+
+      assertFalse(reloadedStore.isPendingReload(tmpWarcPath));
+      assertFalse(isFile(tmpWarcPath), "Reload did not remove a fully removable temporary WARC");
+
+      // A stale reference to the deleted artifact must not be served by the direct-read path
+      assertThrows(LockssNoSuchArtifactIdException.class,
+          () -> reloadedStore.getArtifactData(indexed));
+    } finally {
+      reloadedStore.reloadGate.countDown();
+      stopQuietly(reloadedStore);
+    }
+  }
+
+  /**
+   * A temporary WARC being read directly because it is still awaiting reload must not be
+   * deleted by the reload underneath the reader: the reload leaves it to the garbage
+   * collector, which already defers to the in-use tracker.
+   */
+  @Test
+  public void testReloadDefersRemovalOfInUseTemporaryWarc() throws Exception {
+    teardownDataStore();
+
+    ArtifactIndex index = new VolatileArtifactIndex();
+    index.init();
+
+    store = makeWarcArtifactDataStore(index);
+    ArtifactSpec spec = addUncommittedArtifact();
+
+    Path tmpWarcPath = WarcArtifactDataStore.getPathFromStorageUrl(spec.getStorageUrl());
+    Artifact indexed = index.getArtifact(spec.getArtifactUuid());
+
+    // Delete it, so the reload would otherwise remove this temporary WARC
+    store.deleteArtifactData(indexed);
+    index.deleteArtifact(spec.getArtifactUuid());
+
+    LatchedReloadStore reloadedStore = makeLatchedReloadStore(index, store);
+
+    try {
+      reloadedStore.init();
+      reloadedStore.start();
+      assertTrue(reloadedStore.reloadStarted.await(30, TimeUnit.SECONDS));
+
+      // Stand in for a read of this WARC that is still in flight when the reload runs
+      TempWarcInUseTracker.INSTANCE.markUseStart(tmpWarcPath);
+
+      try {
+        reloadedStore.reloadGate.countDown();
+        assertTrue(reloadedStore.awaitReloadComplete(60, TimeUnit.SECONDS));
+
+        assertTrue(isFile(tmpWarcPath), "Reload removed a temporary WARC that was in use");
+
+        // It was handed to the pool instead, so the GC can reap it later
+        assertNotNull(reloadedStore.tmpWarcPool.getWarcFile(tmpWarcPath),
+            "In-use removable temporary WARC was neither removed nor pooled");
+
+        // The GC defers to the in-use tracker in the same way
+        reloadedStore.tmpWarcPool.runGC();
+        assertTrue(isFile(tmpWarcPath), "GC removed a temporary WARC that was in use");
+      } finally {
+        TempWarcInUseTracker.INSTANCE.markUseEnd(tmpWarcPath);
+      }
+
+      // Once the read is done the GC reaps it
+      reloadedStore.tmpWarcPool.runGC();
+      assertFalse(isFile(tmpWarcPath), "GC did not reap a removable temporary WARC");
+    } finally {
+      reloadedStore.reloadGate.countDown();
+      stopQuietly(reloadedStore);
+    }
+  }
+
+  /**
+   * Committing an artifact whose temporary WARC has not been reloaded yet must work: there
+   * is no {@link WarcFile} in the pool whose stats to update, which used to be reported as
+   * "Too late to commit artifact". The copy must also happen exactly once, not again when
+   * the reload later reaches the WARC.
+   */
+  @Test
+  public void testCommitArtifactInTemporaryWarcPendingReload() throws Exception {
+    teardownDataStore();
+
+    ArtifactIndex index = new VolatileArtifactIndex();
+    index.init();
+
+    store = makeWarcArtifactDataStore(index);
+    ArtifactSpec spec = addUncommittedArtifact();
+
+    Path tmpWarcPath = WarcArtifactDataStore.getPathFromStorageUrl(spec.getStorageUrl());
+
+    LatchedReloadStore reloadedStore = makeLatchedReloadStore(index, store);
+
+    try {
+      reloadedStore.init();
+      reloadedStore.start();
+      assertTrue(reloadedStore.reloadStarted.await(30, TimeUnit.SECONDS));
+      assertTrue(reloadedStore.isPendingReload(tmpWarcPath));
+
+      Artifact indexed = index.getArtifact(spec.getArtifactUuid());
+      assertNotNull(indexed);
+
+      Future<Artifact> future = reloadedStore.commitArtifactData(indexed);
+      assertNotNull(future, "Commit refused while the temporary WARC was pending reload");
+
+      Artifact committed = future.get(30, TimeUnit.SECONDS);
+      assertNotNull(committed);
+      assertTrue(committed.getCommitted());
+
+      spec.setCommitted(true);
+      spec.setStorageUrl(URI.create(committed.getStorageUrl()));
+
+      Path permWarcPath = WarcArtifactDataStore.getPathFromStorageUrl(URI.create(committed.getStorageUrl()));
+      assertFalse(reloadedStore.isTmpStorage(permWarcPath));
+      long permWarcLength = permWarcPath.toFile().length();
+      assertTrue(permWarcLength > 0);
+
+      // Let the reload reach this WARC now that the artifact has been copied
+      reloadedStore.reloadGate.countDown();
+      assertTrue(reloadedStore.awaitReloadComplete(60, TimeUnit.SECONDS));
+
+      // The reload must not have copied the artifact into permanent storage a second time
+      assertEquals(permWarcLength, permWarcPath.toFile().length(),
+          "Reload copied an already-copied artifact again");
+
+      try (ArtifactData ad = reloadedStore.getArtifactData(index.getArtifact(spec.getArtifactUuid()))) {
+        assertNotNull(ad);
+        spec.assertArtifactData(ad);
+      }
+    } finally {
+      reloadedStore.reloadGate.countDown();
+      stopQuietly(reloadedStore);
+    }
+  }
+
+  /**
+   * Counts the WARC records of a given type in a WARC file.
+   */
+  private int countWarcRecordsOfType(LocalWarcArtifactDataStore ds, Path warcPath,
+                                     WARCConstants.WARCRecordType type) throws IOException {
+    int count = 0;
+
+    try (InputStream is = new BufferedInputStream(ds.getInputStreamAndSeek(warcPath, 0))) {
+      ArchiveReader reader = ds.getArchiveReader(warcPath, is);
+      reader.setDigest(false);
+
+      for (ArchiveRecord record : reader) {
+        if (type.name().equals(record.getHeader().getHeaderValue(WARCConstants.HEADER_KEY_TYPE))) {
+          count++;
+        }
+      }
+    }
+
+    return count;
+  }
+
+  /**
+   * The background reload must not queue a second copy for an artifact whose copy a
+   * concurrent commit has already queued: the artifact would be written into permanent
+   * storage twice.
+   * <p>
+   * The interleaving is forced rather than raced for: a barrier task occupies the AU's
+   * stripe so the commit's copy task is still queued -- and so the artifact is still
+   * PENDING_COPY -- when the reload reaches its temporary WARC.
+   */
+  @Test
+  public void testReloadDoesNotRequeueACopyAlreadyQueued() throws Exception {
+    teardownDataStore();
+
+    ArtifactIndex index = new VolatileArtifactIndex();
+    index.init();
+
+    store = makeWarcArtifactDataStore(index);
+    ArtifactSpec spec = addUncommittedArtifact();
+
+    LatchedReloadStore reloadedStore = makeLatchedReloadStore(index, store);
+
+    CountDownLatch stripeBarrier = new CountDownLatch(1);
+
+    try {
+      reloadedStore.init();
+      reloadedStore.start();
+      assertTrue(reloadedStore.reloadStarted.await(30, TimeUnit.SECONDS));
+
+      // Occupy the AU's stripe so the copy task queued by the commit below cannot run
+      reloadedStore.stripedExecutor.submit(new StripedRunnable() {
+        @Override
+        public Object getStripe() {
+          return new NamespacedAuid(NS1, AUID1);
+        }
+
+        @Override
+        public void run() {
+          try {
+            stripeBarrier.await(60, TimeUnit.SECONDS);
+          } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+          }
+        }
+      });
+
+      Artifact indexed = index.getArtifact(spec.getArtifactUuid());
+      Future<Artifact> future = reloadedStore.commitArtifactData(indexed);
+      assertNotNull(future);
+
+      // The artifact is now PENDING_COPY with its copy queued but not started. Let the
+      // reload reach its temporary WARC in exactly that state.
+      reloadedStore.reloadGate.countDown();
+      assertTrue(reloadedStore.awaitReloadComplete(60, TimeUnit.SECONDS));
+
+      // The reload did find the artifact pending copy -- i.e. the interleaving really was
+      // forced -- and left the queued copy alone rather than queuing a second one.
+      assertEquals(1, reloadedStore.requeueDecisions.get(),
+          "Reload did not reach the PENDING_COPY artifact; the test did not force the interleaving");
+      assertEquals(0, reloadedStore.requeuedCopies.get(),
+          "Reload queued a second copy for an artifact whose copy was already queued");
+
+      // Now let the copy run
+      stripeBarrier.countDown();
+
+      Artifact committed = future.get(60, TimeUnit.SECONDS);
+      assertNotNull(committed);
+      assertTrue(reloadedStore.waitForCommitTasks(NS1, AUID1));
+
+      Path permWarcPath = WarcArtifactDataStore.getPathFromStorageUrl(URI.create(committed.getStorageUrl()));
+      assertFalse(reloadedStore.isTmpStorage(permWarcPath));
+
+      assertEquals(1,
+          countWarcRecordsOfType(reloadedStore, permWarcPath, WARCConstants.WARCRecordType.response),
+          "Artifact was copied into permanent storage more than once");
+    } finally {
+      stripeBarrier.countDown();
+      reloadedStore.reloadGate.countDown();
+      stopQuietly(reloadedStore);
+    }
   }
 }
