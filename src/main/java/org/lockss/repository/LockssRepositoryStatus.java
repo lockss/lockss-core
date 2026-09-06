@@ -178,7 +178,7 @@ public class LockssRepositoryStatus {
                                           rsn.getSpec()));
         try {
           row.put("aus",
-                  new StatusTable.Reference(IterableUtils.size(repo.getAuIds(ns)),
+                  new StatusTable.Reference(repo.getAuIdCount(ns),
                                             AUIDS_STATUS_TABLE_NAME,
                                             rsn.getSpec()));
         } catch (IOException e) {

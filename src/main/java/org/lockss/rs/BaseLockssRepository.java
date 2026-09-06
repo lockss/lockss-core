@@ -783,6 +783,20 @@ public class BaseLockssRepository implements LockssRepository, JmsFactorySource 
   }
 
   /**
+   * Returns the number of Archival Units in a namespace, asking the index to
+   * count rather than inheriting the interface default, which would build every
+   * AUID only to count them.
+   *
+   * @param namespace A {@code String} containing the namespace.
+   * @return A long with the number of AUIDs in the namespace.
+   */
+  @Override
+  public long getAuIdCount(String namespace) throws IOException {
+    validateNamespace(namespace);
+    return index.getAuIdCount(namespace);
+  }
+
+  /**
    * Returns the committed artifacts of the latest version of all URLs, from a specified Archival Unit and namespace.
    *
    * @param namespace A {@code String} containing the namespace.
