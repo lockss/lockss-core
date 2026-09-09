@@ -135,7 +135,7 @@ public class TestSQLArtifactIndexDbManager extends LockssTestCase4 {
     // Initialize the DbManager with a unique database for this test
     idxDbManager = new SQLArtifactIndexDbManager();
     idxDbManager.initService(theDaemon);
-    idxDbManager.setTargetDatabaseVersion(5);
+    idxDbManager.setTargetDatabaseVersion(6);
     idxDbManager.startService();
     theDaemon.setSQLArtifactIndexDbManager(idxDbManager);
   }
@@ -1836,11 +1836,7 @@ public class TestSQLArtifactIndexDbManager extends LockssTestCase4 {
         .setCollectionDate(collectionDate);
   }
 
-  /**
-   * Sets an existing row's committed column to SQL NULL. The column is nullable
-   * in the DDL, and {@link org.lockss.util.rest.repo.model.Artifact} coerces a
-   * null committed to false, so this cannot be done through the normal API.
-   */
+  /** Attempts to bypass the API and set a row's committed flag to SQL NULL. */
   private void setCommittedNull(String uuid) throws Exception {
     Connection conn = idxDbManager.getConnection();
 
@@ -1850,27 +1846,6 @@ public class TestSQLArtifactIndexDbManager extends LockssTestCase4 {
       assertEquals(1, ps.executeUpdate());
       // DbManager connections are not autocommit.
       conn.commit();
-    } finally {
-      DbManager.safeCloseConnection(conn);
-    }
-  }
-
-  /**
-   * Reads the committed column as a nullable Boolean; {@code getArtifact()}
-   * maps SQL NULL to false, so it cannot distinguish the two.
-   */
-  private Boolean readCommittedRaw(String uuid) throws Exception {
-    Connection conn = idxDbManager.getConnection();
-
-    try (PreparedStatement ps = conn.prepareStatement(
-             "SELECT committed FROM artifacts WHERE uuid = ?")) {
-      ps.setString(1, uuid);
-
-      try (ResultSet rs = ps.executeQuery()) {
-        assertTrue(rs.next());
-        boolean value = rs.getBoolean(1);
-        return rs.wasNull() ? null : Boolean.valueOf(value);
-      }
     } finally {
       DbManager.safeCloseConnection(conn);
     }
@@ -2134,49 +2109,16 @@ public class TestSQLArtifactIndexDbManager extends LockssTestCase4 {
     }
   }
 
-  /**
-   * Proves the COALESCE on the existing row's committed column.
-   *
-   * <p>committed is nullable (BOOLEAN with no NOT NULL). Without the COALESCE,
-   * a NULL makes {@code NOT (NULL AND ...)} evaluate to NULL, the ON CONFLICT
-   * WHERE clause is not satisfied, and EVERY update against such a row is
-   * silently skipped.
-   *
-   * <p>Component D.4 changed this fixture, not its expectation. The two specs
-   * used to share the default digest; with equal crawl_times and no committed
-   * upgrade (NULL -> false is not one), D.4's term would now block the update
-   * for a reason that has nothing to do with the COALESCE under test. The
-   * digests therefore differ, which satisfies D.4 outright and leaves the
-   * COALESCE as the only thing that can block the statement.
-   */
+  /** Schema version 6 must reject attempts to make committed NULL. */
   @Test
-  public void testReindexNullCommittedDoesNotBlockUpdate() throws Exception {
+  public void testReindexNullCommittedIsRejected() throws Exception {
     SQLArtifactIndexManagerSql idxdb = new SQLArtifactIndexManagerSql(idxDbManager);
 
-    for (SQLArtifactIndex.VersionConflictResolution policy :
-             SQLArtifactIndex.VersionConflictResolution.values()) {
+    String uuid = UUID.randomUUID().toString();
+    idxdb.addArtifact(
+        makeSameUuidSpec(uuid, true, "old_url", 5000L, "digest_a").getArtifact());
 
-      String msg = "policy " + policy;
-      String uuid = UUID.randomUUID().toString();
-
-      idxdb.addArtifact(
-          makeSameUuidSpec(uuid, true, "old_url", 5000L, "digest_a").getArtifact());
-      setCommittedNull(uuid);
-      assertNull(msg + ": fixture must actually hold SQL NULL",
-          readCommittedRaw(uuid));
-
-      idxdb.upsertArtifactForReindex(
-          makeSameUuidSpec(uuid, false, "new_url", 5000L, "digest_b").getArtifact(),
-          policy);
-
-      // getArtifact() maps NULL to false, so assert on storage_url: the update
-      // must have fired.
-      assertEquals(msg + ": a NULL committed must not block the update",
-          "new_url", idxdb.getArtifact(uuid).getStorageUrl());
-      assertEquals(msg, Boolean.FALSE, readCommittedRaw(uuid));
-
-      idxdb.deleteArtifact(uuid);
-    }
+    assertThrows(SQLException.class, () -> setCommittedNull(uuid));
   }
 
   //
