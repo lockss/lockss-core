@@ -484,6 +484,17 @@ public class SQLArtifactIndexDbManagerSql extends DbManagerSql {
       "CREATE UNIQUE INDEX idx4_" + URL_TABLE + " ON " + URL_TABLE
       + " (" + URL_DIGEST_EXPRESSION + ")";
 
+  // A NULL committed flag had never had a defined meaning.  Treat it as
+  // uncommitted during the upgrade: publishing an artifact that was not
+  // explicitly committed would be the unsafe interpretation.
+  private static final String NORMALIZE_NULL_COMMITTED_QUERY =
+      "UPDATE " + ARTIFACT_TABLE + " SET " + ARTIFACT_COMMITTED_COLUMN
+      + " = FALSE WHERE " + ARTIFACT_COMMITTED_COLUMN + " IS NULL";
+
+  private static final String ARTIFACT_COMMITTED_NOT_NULL_QUERY =
+      "ALTER TABLE " + ARTIFACT_TABLE + " ALTER COLUMN "
+      + ARTIFACT_COMMITTED_COLUMN + " SET NOT NULL";
+
   /**
    * Constructor.
    *
@@ -726,6 +737,29 @@ public class SQLArtifactIndexDbManagerSql extends DbManagerSql {
     // once over the final row set rather than maintained through the dedup.
     log.debug("URL_PREFIX_INDEX_QUERY");
     executeDdlQuery(conn, URL_PREFIX_INDEX_QUERY);
+
+    log.debug2("Done.");
+  }
+
+  /**
+   * Updates the database from version 5 to version 6.
+   *
+   * <p>Artifact writes have always supplied a committed status, but versions
+   * through 5 allowed accidental NULLs. Existing NULLs are conservatively
+   * repaired as uncommitted before the column constraint is added.
+   *
+   * @param conn A Connection with the database connection to be used.
+   * @throws SQLException if any problem occurred updating the database.
+   */
+  void updateDatabaseFrom5To6(Connection conn) throws SQLException {
+    log.debug2("Invoked");
+
+    if (conn == null) {
+      throw new IllegalArgumentException("Null connection");
+    }
+
+    executeDdlQuery(conn, NORMALIZE_NULL_COMMITTED_QUERY);
+    executeDdlQuery(conn, ARTIFACT_COMMITTED_NOT_NULL_QUERY);
 
     log.debug2("Done.");
   }

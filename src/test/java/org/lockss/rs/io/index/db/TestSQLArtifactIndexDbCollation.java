@@ -481,6 +481,35 @@ public class TestSQLArtifactIndexDbCollation extends LockssTestCase4 {
     }
   }
 
+  /** Version 6 must repair legacy NULLs before making committed mandatory. */
+  @Test
+  public void testUpgradeFrom5To6MakesCommittedNotNull() throws Exception {
+    startDbManagerAtVersion(5);
+
+    try (Connection conn = openRawConnection(); Statement st = conn.createStatement()) {
+      st.executeUpdate("INSERT INTO namespaces (namespace) VALUES ('ns')");
+      st.executeUpdate("INSERT INTO auids (auid) VALUES ('auid')");
+      st.executeUpdate("INSERT INTO urls (url) VALUES ('http://example.com/null')");
+      st.executeUpdate("INSERT INTO artifacts (uuid, namespace_seq, auid_seq, url_seq,"
+          + " version, committed, storage_url, length, digest, crawl_time)"
+          + " VALUES ('00000000-0000-0000-0000-000000000006', 1, 1, 1, 1, NULL,"
+          + " 'store://null', 1, 'sha1:null', 1)");
+    }
+
+    startDbManagerAtVersion(6);
+
+    try (Connection conn = openRawConnection(); Statement st = conn.createStatement()) {
+      try (ResultSet rs = st.executeQuery("SELECT committed FROM artifacts")) {
+        assertTrue(rs.next());
+        assertFalse("legacy NULL must become uncommitted", rs.getBoolean(1));
+      }
+      assertEquals("artifacts.committed must be NOT NULL", "NO",
+          columnNullable(conn, "artifacts", "committed"));
+      assertThrows(SQLException.class, () -> st.executeUpdate(
+          "UPDATE artifacts SET committed = NULL"));
+    }
+  }
+
   /**
    * The URL prefix range predicate, spelled exactly as {@code SQLArtifactIndexManagerSql}
    * assembles it, must be able to use {@code idx1_urls}.
