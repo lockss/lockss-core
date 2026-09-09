@@ -67,6 +67,8 @@ import org.lockss.rs.io.storage.ArtifactDataStore;
 import org.lockss.rs.io.storage.ArtifactDataStoreVersion;
 import org.lockss.rs.io.storage.ReindexResult;
 import org.lockss.util.*;
+import org.lockss.config.Configuration;
+import org.lockss.config.CurrentConfig;
 import org.lockss.util.concurrent.stripedexecutor.StripedCallable;
 import org.lockss.util.concurrent.stripedexecutor.StripedExecutorService;
 import org.lockss.util.io.DeferredTempFileOutputStream;
@@ -108,6 +110,7 @@ import java.time.temporal.ChronoField;
 import java.time.temporal.ChronoUnit;
 import java.util.*;
 import java.util.concurrent.*;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.BiConsumer;
 import java.util.function.Function;
 import java.util.function.Predicate;
@@ -132,6 +135,38 @@ public abstract class WarcArtifactDataStore implements ArtifactDataStore, WARCCo
   public final static String DATASTORE_STATE_DIR = "store";
   public final static String DATASTORE_VERSION_FILE = DATASTORE_STATE_DIR + "/version";
   public final static String REINDEXED_WARCS_FILE = DATASTORE_STATE_DIR + "/reindexed-warcs";
+
+  /** Configuration prefix for reindex parameters. */
+  public static final String REINDEX_PREFIX = Configuration.PREFIX + "repository.reindex.";
+
+  /**
+   * Number of WARC files a reindex reads and parses concurrently.
+   * <p>
+   * Reindex wall time is dominated by reading and parsing WARC records, so the
+   * per-WARC parse work is spread over this many threads (see
+   * {@link #reindexArtifacts(ArtifactIndex)}). One means no concurrency: the WARCs
+   * are walked on the calling thread, exactly as before this parameter existed.
+   * <p>
+   * <b>The default is a measured starting point, not a universal optimum.</b>
+   * Parse-side speedup is neither linear nor monotonic in this value: it is bounded
+   * by how much <em>independently large</em> WARC work a corpus actually has, so on a
+   * corpus whose wall time is dominated by a handful of large WARCs the speedup
+   * plateaus once those are already running in parallel, and raising this further can
+   * make a reindex <em>slower</em> than sequential through scheduling and I/O
+   * contention. It is also bounded on the other side by the database: every parse
+   * thread flushes its own batches through {@code ArtifactIndex.reindexArtifacts()},
+   * and concurrent writers contend on the index's locks and connection pool, so past
+   * some point the DB absorbs batches no faster however many threads produce them.
+   * This parameter is therefore the writer-concurrency knob as well as the parse one;
+   * the pool ceiling above it is {@code org.lockss.db.dbcp.maxTotal}.
+   * <p>
+   * Both bounds are corpus- and hardware-dependent, so re-measure rather than assume:
+   * {@code TestWarcReindexBenchmark} measures the parse/DB-commit split of a reindex,
+   * and {@code ReindexConcurrencyBenchmark} sweeps the DB-write side over concurrent
+   * writer counts.
+   */
+  public static final String PARAM_REINDEX_PARSE_THREADS = REINDEX_PREFIX + "parseThreads";
+  public static final int DEFAULT_REINDEX_PARSE_THREADS = 4;
   /**
    * CSV report of the WARCs a reindex pass could not read, written alongside
    * {@link #REINDEXED_WARCS_FILE} and rotated with the same run stamp. The name
@@ -2844,6 +2879,28 @@ public abstract class WarcArtifactDataStore implements ArtifactDataStore, WARCCo
     try (CSVPrinter printer =
              openReindexedWarcsLedger(reindexedWarcsPath, !indexedWarcs.isEmpty())) {
 
+      // The two phases are collected across ALL base paths before either runs.
+      //
+      // It's absolutely necessary that permanent WARCs come first; DON'T CHANGE THIS!
+      // An artifact copied to permanent storage still has a record in the temporary
+      // WARC it was written to, so the same artifact is presented twice in one pass,
+      // and this is the ordering the rest of the reindex was written against. The
+      // constraint is preserved here as given, not re-derived.
+      //
+      // Two changes from the loop this replaces, both in the direction of honouring
+      // it more strictly:
+      //
+      //  - The groups are now collected across every base path, rather than one base
+      //    path at a time. The old loop reindexed one base path's temporary WARCs
+      //    before the next base path's permanent ones, which does not satisfy
+      //    "permanent first" for an artifact whose temporary and permanent WARCs are
+      //    under different base paths -- possible, since the copy destination is
+      //    chosen by free space, not by the source base path.
+      //  - Each group is a barrier (see reindexWarcs), so concurrency cannot start a
+      //    temporary WARC while any permanent one is still being parsed.
+      List<Path> permanentWarcs = new ArrayList<>();
+      List<Path> temporaryWarcs = new ArrayList<>();
+
       for (Path basePath : getBasePaths()) {
         log.debug("Reindexing WARCs from {}", basePath);
 
@@ -2851,24 +2908,30 @@ public abstract class WarcArtifactDataStore implements ArtifactDataStore, WARCCo
         Collection<Path> warcPaths = findWarcs(basePath);
 
         // Find WARCs in permanent storage (exclude journal files, temp WARCs, and processed WARCs)
-        Stream<Path> permanentWarcs = warcPaths
+        warcPaths
             .stream()
             .filter(path -> !isTmpStorage(path))
             .filter(path -> !path.endsWith("lockss-repo" + WARCConstants.DOT_WARC_FILE_EXTENSION))
             .filter(path -> !isWarcJournalPath(path))
-            .filter(path -> !indexedWarcs.contains(path));
+            .filter(path -> !indexedWarcs.contains(path))
+            .forEach(permanentWarcs::add);
 
         // Find WARCS in temporary storage
-        Stream<Path> temporaryWarcs = warcPaths
+        warcPaths
             .stream()
             .filter(this::isTmpStorage)
             .filter(path -> !path.getFileName().toString().endsWith(DOT_METADATA_WARC_FILE_EXTENSION))
-            .filter(path -> !indexedWarcs.contains(path));
-
-        // It's absolutely necessary that permanent WARCs come first; DON'T CHANGE THIS!
-        Stream.concat(permanentWarcs, temporaryWarcs).forEach((warcPath) ->
-            reindexOneWarc(index, warcPath, printer, indexedWarcs, result));
+            .filter(path -> !indexedWarcs.contains(path))
+            .forEach(temporaryWarcs::add);
       }
+
+      // Phase 1. reindexWarcs() does not return until every permanent WARC has been
+      // processed, which is what keeps the ordering constraint above intact under
+      // concurrency: no temporary WARC is even submitted until phase 1 is complete.
+      reindexWarcs(index, permanentWarcs, printer, indexedWarcs, result);
+
+      // Phase 2.
+      reindexWarcs(index, temporaryWarcs, printer, indexedWarcs, result);
     }
 
     // Write the failure report, rotate it and the ledger under one run stamp, and
@@ -2963,16 +3026,151 @@ public abstract class WarcArtifactDataStore implements ArtifactDataStore, WARCCo
     // do), so a targeted run that dies before finishReindexRun() leaves an
     // unrotated ledger behind with no token beside it. The reindex-artifacts script
     // will delete it if reinvoked.
+    //
+    // Concurrent for the same reason as the whole-store pass. There is no phase
+    // ordering to respect here: an AU directory walk sees only permanent WARCs (see
+    // the note above about temp WARCs being deliberately out of scope for this path).
     try (CSVPrinter printer = openReindexedWarcsLedger(reindexedWarcsPath, ledgerHasRecords)) {
-      for (Path warcPath : warcPaths) {
-        reindexOneWarc(index, warcPath, printer, new ArrayList<>(), result);
-      }
+      reindexWarcs(index, warcPaths, printer, new ArrayList<>(), result);
     }
 
     log.info("Reindexed AU [namespace: {}, auid: {}, auPaths: {}, result: {}]",
              namespace, auid, auPaths, result);
 
     return result;
+  }
+
+  /**
+   * Returns the number of WARCs a reindex reads and parses concurrently.
+   *
+   * @see #PARAM_REINDEX_PARSE_THREADS
+   */
+  protected int getReindexParseThreads() {
+    int threads = CurrentConfig.getIntParam(PARAM_REINDEX_PARSE_THREADS,
+                                            DEFAULT_REINDEX_PARSE_THREADS);
+
+    if (threads < 1) {
+      log.warn("Ignoring non-positive {} of {}; reindexing WARCs sequentially",
+               PARAM_REINDEX_PARSE_THREADS, threads);
+      return 1;
+    }
+
+    return threads;
+  }
+
+  /**
+   * Reindexes a list of WARCs, reading and parsing up to
+   * {@link #getReindexParseThreads()} of them concurrently, and does not return
+   * until all of them have been processed.
+   * <p>
+   * Every WARC is processed in isolation, exactly as in the sequential path: each
+   * task accumulates into its own {@link ReindexResult} and catches its own
+   * failures, so a malformed record -- or an unreadable file -- in one WARC cannot
+   * abort or corrupt the processing of another being parsed at the same time. The
+   * per-task results are folded into {@code result} in list order, so the aggregate
+   * a caller sees does not depend on the order the tasks happened to finish in.
+   * <p>
+   * Because this method is a barrier, a caller that needs one group of WARCs
+   * processed before another simply calls it once per group; see the phase ordering
+   * in {@link #reindexArtifacts(ArtifactIndex)}.
+   *
+   * @param index        The {@link ArtifactIndex} to reindex into.
+   * @param warcPaths    The WARCs to reindex.
+   * @param printer      The ledger of successfully reindexed WARCs. Written under
+   *                     its own monitor, since {@link CSVPrinter} is not thread safe.
+   * @param indexedWarcs Accumulates the WARCs that were reindexed successfully.
+   * @param result       Accumulates the outcome of the whole group.
+   */
+  protected void reindexWarcs(ArtifactIndex index, List<Path> warcPaths, CSVPrinter printer,
+                              List<Path> indexedWarcs, ReindexResult result) {
+    if (warcPaths.isEmpty()) {
+      return;
+    }
+
+    // Never more threads than there is work for them to do
+    int threads = Math.min(getReindexParseThreads(), warcPaths.size());
+
+    if (threads == 1) {
+      // Not merely an optimization: this is the pre-concurrency code path, taken
+      // verbatim, so a deployment that sets parseThreads=1 behaves exactly as it
+      // did before -- same thread, same ordering, no executor involved.
+      for (Path warcPath : warcPaths) {
+        reindexOneWarc(index, warcPath, printer, indexedWarcs, result);
+      }
+      return;
+    }
+
+    log.info("Reindexing {} WARC(s) with {} parse thread(s)", warcPaths.size(), threads);
+
+    // Numbered, so a thread dump taken during a long reindex distinguishes the workers
+    AtomicInteger threadNumber = new AtomicInteger();
+
+    ExecutorService executor = Executors.newFixedThreadPool(threads, runnable -> {
+      Thread thread = new Thread(runnable, "warc-reindex-" + threadNumber.incrementAndGet());
+      thread.setDaemon(true);
+      return thread;
+    });
+
+    try {
+      List<Future<ReindexResult>> futures = new ArrayList<>(warcPaths.size());
+
+      for (Path warcPath : warcPaths) {
+        futures.add(executor.submit(() -> reindexOneWarcIsolated(index, warcPath, printer)));
+      }
+
+      for (int i = 0; i < futures.size(); i++) {
+        Path warcPath = warcPaths.get(i);
+
+        try {
+          ReindexResult warcResult = futures.get(i).get();
+          result.add(warcResult);
+
+          if (warcResult.getWarcsSucceeded() > 0) {
+            indexedWarcs.add(warcPath);
+          }
+        } catch (ExecutionException e) {
+          // reindexOneWarc() catches Exception itself, so getting here means a
+          // Throwable it does not handle, or a failure writing the ledger. Report
+          // it against this WARC and carry on with the rest, which is what the
+          // sequential path does for everything it can catch.
+          Throwable cause = (e.getCause() != null) ? e.getCause() : e;
+          log.error("Error reindexing artifacts from WARC [warc: {}]", warcPath, cause);
+          result.addWarcFailure(warcPath, cause);
+        } catch (InterruptedException e) {
+          Thread.currentThread().interrupt();
+
+          // Don't leave the remaining WARCs silently unaccounted for: they were
+          // never processed, and the ledger will not list them, so a later run
+          // re-reads them. Record them as failures of this run.
+          log.error("Interrupted while reindexing WARCs; {} of {} not processed",
+                    futures.size() - i, futures.size(), e);
+
+          for (int j = i; j < futures.size(); j++) {
+            futures.get(j).cancel(true);
+            result.addWarcFailure(warcPaths.get(j), e);
+          }
+
+          return;
+        }
+      }
+    } finally {
+      executor.shutdownNow();
+    }
+  }
+
+  /**
+   * Reindexes one WARC into a {@link ReindexResult} of its own, for a caller that
+   * merges the per-WARC results itself. This is the unit of isolation that lets
+   * WARCs be parsed concurrently: nothing in here is shared with another WARC's
+   * task except the index and the ledger.
+   *
+   * @return the outcome of this WARC alone.
+   */
+  private ReindexResult reindexOneWarcIsolated(ArtifactIndex index, Path warcPath,
+                                               CSVPrinter printer) {
+    ReindexResult warcResult = new ReindexResult();
+    reindexOneWarc(index, warcPath, printer, new ArrayList<>(1), warcResult);
+    return warcResult;
   }
 
   /**
@@ -2989,8 +3187,14 @@ public abstract class WarcArtifactDataStore implements ArtifactDataStore, WARCCo
       // Add WARC to set of WARCs succcessfully reindexed
       indexedWarcs.add(warcPath);
       result.addWarcSucceeded(numIndexed);
-      printer.printRecord(start, end, numIndexed, warcPath);
-      printer.flush();
+
+      // CSVPrinter is not thread safe, and WARCs are parsed concurrently. Flushed
+      // per record, as before, so an interrupted run leaves a durable ledger of
+      // what it had finished.
+      synchronized (printer) {
+        printer.printRecord(start, end, numIndexed, warcPath);
+        printer.flush();
+      }
     } catch (Exception e) {
       log.error("Error reindexing artifacts from WARC [warc: {}]", warcPath, e);
       result.addWarcFailure(warcPath, e);
