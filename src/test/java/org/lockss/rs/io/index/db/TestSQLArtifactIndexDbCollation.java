@@ -501,7 +501,9 @@ public class TestSQLArtifactIndexDbCollation extends LockssTestCase4 {
     try (Connection conn = openRawConnection(); Statement st = conn.createStatement()) {
       try (ResultSet rs = st.executeQuery("SELECT committed FROM artifacts")) {
         assertTrue(rs.next());
-        assertFalse("legacy NULL must become uncommitted", rs.getBoolean(1));
+        Object v = rs.getObject(1);
+        assertNotNull("legacy committed value is no longer NULL", v);
+        assertFalse("legacy NULL must become uncommitted", v.equals(Boolean.FALSE));
       }
       assertEquals("artifacts.committed must be NOT NULL", "NO",
           columnNullable(conn, "artifacts", "committed"));
