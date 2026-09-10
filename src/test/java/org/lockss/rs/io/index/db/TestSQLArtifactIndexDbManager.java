@@ -1836,7 +1836,6 @@ public class TestSQLArtifactIndexDbManager extends LockssTestCase4 {
         .setCollectionDate(collectionDate);
   }
 
-  /** Attempts to bypass the API and set a row's committed flag to SQL NULL. */
   private void setCommittedNull(String uuid) throws Exception {
     Connection conn = idxDbManager.getConnection();
 
