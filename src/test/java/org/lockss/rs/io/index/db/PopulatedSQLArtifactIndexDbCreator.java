@@ -102,7 +102,7 @@ public class PopulatedSQLArtifactIndexDbCreator {
     daemon.setSQLArtifactIndexDbManager(idxDbManager);
     idxDbManager.initService(daemon);
 
-    idxDbManager.setTargetDatabaseVersion(4);
+    idxDbManager.setTargetDatabaseVersion(5);
     idxDbManager.startService();
 
     populateDatabase(idxDbManager);

@@ -100,9 +100,10 @@ public interface ArtifactIndex extends LockssRepositorySubsystem, StorageInfoSou
      * Bulk addition or update of artifacts into this index.
      *
      * @param artifacts An {@link Iterable<Artifact>} containing artifacts to add to this index.
+     * @return the number of artifacts that could not be indexed and were skipped.
      * @throws IOException
      */
-    void reindexArtifacts(Iterable<Artifact> artifacts) throws IOException;
+    int reindexArtifacts(Iterable<Artifact> artifacts) throws IOException;
 
     /**
      * Removes all artifacts (and any associated data) from the index

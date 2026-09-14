@@ -47,6 +47,13 @@ import org.lockss.util.time.TimeBase;
 import java.lang.ref.Cleaner;
 import java.sql.*;
 import java.util.*;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicLong;
 
 import static org.lockss.config.db.SqlConstants.*;
@@ -71,35 +78,52 @@ public class SQLArtifactIndexManagerSql {
 
   private static final String EMPTY_STRING = "";
 
-  private static final int LONG_URL_THRESHOLD = 2500;
-
-  // Only used for short URLs, so we expect LIMIT 1 to be okay
+  /**
+   * Matches a URL exactly, driving off the unique index on the URL digest.
+   *
+   * <p>Uniqueness is enforced on a digest rather than on the column because a
+   * btree index row is capped at 2704 bytes and a URL is not bounded at all.
+   * The digest term is the part the index can serve; the {@code url} equality
+   * term is what makes the match exact, so a digest collision could return no
+   * row but never the wrong one. Both terms are required.
+   *
+   * <p>That second term is a safety net, not a working part: the digest is
+   * SHA-256, for which no collision is known, so it is the digest term that
+   * decides in practice. See {@code SqlConstants.URL_DIGEST_EXPRESSION} - with
+   * MD5 the net would carry real weight, because an attacker-supplied pair of
+   * colliding URLs is cheap to produce and the second of them could then never
+   * be stored.
+   *
+   * <p>No {@code LIMIT 1}: the unique index guarantees at most one match.
+   */
   private static final String FIND_URL_SEQ_QUERY = "SELECT "
       + URL_SEQ_COLUMN
       + " FROM " + URL_TABLE
-      + " WHERE " + URL_COLUMN + " = ?"
-      + " LIMIT 1";
+      + " WHERE " + URL_DIGEST_EXPRESSION + " = " + URL_DIGEST_PARAM_EXPRESSION
+      + " AND " + URL_COLUMN + " = ?";
 
-  private static final String FIND_LONG_URL_SEQ_QUERY = "SELECT "
-      + "u." + URL_SEQ_COLUMN
-      + " FROM " + URL_TABLE + " u,"
-      + LONG_URL_TABLE + " lu"
-      + " WHERE u." + URL_SEQ_COLUMN + " = lu." + URL_SEQ_COLUMN
-      + " AND u." + URL_COLUMN + " = ?"
-      + " AND lu." + LONG_URL_COLUMN + " = ?"
-      + " LIMIT 1";
-
-  private static final String INSERT_URL_QUERY = "INSERT INTO "
+  /**
+   * Race-free URL insert. Returns the new sequence, or no row at all when a
+   * concurrent transaction won the race.
+   *
+   * <p>{@code DO NOTHING} rather than {@code DO UPDATE}: during a re-crawl
+   * nearly every URL already exists, and {@code DO UPDATE} would burn a
+   * sequence value and leave a dead tuple on every repeat. The caller falls
+   * back to {@link #FIND_URL_SEQ_QUERY} on the empty result, which is the rare
+   * path because the LRU absorbs most repeats before they reach the database.
+   *
+   * <p>The conflict target must be spelled exactly as the index expression is,
+   * which is why both come from one constant: a mismatch is not caught until
+   * runtime, and then only as "no unique or exclusion constraint matching the
+   * ON CONFLICT specification".
+   */
+  private static final String UPSERT_URL_QUERY = "INSERT INTO "
       + URL_TABLE
       + "(" + URL_SEQ_COLUMN
       + "," + URL_COLUMN
-      + ") VALUES (default,?)";
-
-  private static final String INSERT_LONG_URL_QUERY = "INSERT INTO "
-      + LONG_URL_TABLE
-      + "(" + URL_SEQ_COLUMN
-      + "," + LONG_URL_COLUMN
-      + ") VALUES (?,?)";
+      + ") VALUES (default,?)"
+      + " ON CONFLICT (" + URL_DIGEST_EXPRESSION + ") DO NOTHING"
+      + " RETURNING " + URL_SEQ_COLUMN;
 
   private static final String FIND_NAMESPACE_SEQ_QUERY = "SELECT "
       + NAMESPACE_SEQ_COLUMN
@@ -107,11 +131,24 @@ public class SQLArtifactIndexManagerSql {
       + " WHERE " + NAMESPACE_COLUMN + " = ?"
       + " LIMIT 1";
 
-  private static final String INSERT_NAMESPACE_QUERY = "INSERT INTO "
+  /**
+   * Race-free namespace insert, driving off the unique index on
+   * {@code namespaces(namespace)}.
+   *
+   * <p>{@code DO UPDATE} rather than {@code DO NOTHING}: it always returns a
+   * row, so there is no fallback path to write. That costs a burned sequence
+   * value and a dead tuple per conflict, which is irrelevant here because
+   * namespaces are created a handful of times in a repository's life. The URL
+   * upsert makes the opposite trade for the opposite reason.
+   */
+  private static final String UPSERT_NAMESPACE_QUERY = "INSERT INTO "
       + NAMESPACE_TABLE
       + "(" + NAMESPACE_SEQ_COLUMN
       + "," + NAMESPACE_COLUMN
-      + ") VALUES (default,?)";
+      + ") VALUES (default,?)"
+      + " ON CONFLICT (" + NAMESPACE_COLUMN + ") DO UPDATE SET "
+      + NAMESPACE_COLUMN + " = EXCLUDED." + NAMESPACE_COLUMN
+      + " RETURNING " + NAMESPACE_SEQ_COLUMN;
 
   private static final String GET_NAMESPACES_QUERY = "SELECT DISTINCT "
       + "ns." + NAMESPACE_COLUMN
@@ -128,12 +165,20 @@ public class SQLArtifactIndexManagerSql {
       + " where " + AUID_COLUMN + " = ?"
       + " LIMIT 1";
 
-  // Query to add an entry to the AUID table
-  private static final String INSERT_AUID_QUERY = "insert into "
+  /**
+   * Race-free AUID insert, driving off the unique index on
+   * {@code auids(auid)}. {@code DO UPDATE} for the same reason as
+   * {@link #UPSERT_NAMESPACE_QUERY}: AUID creation is once-per-AU, so an
+   * occasional dead tuple is not worth a fallback path.
+   */
+  private static final String UPSERT_AUID_QUERY = "insert into "
       + AUID_TABLE
       + "(" + AUID_SEQ_COLUMN
       + "," + AUID_COLUMN
-      + ") values (default,?)";
+      + ") values (default,?)"
+      + " ON CONFLICT (" + AUID_COLUMN + ") DO UPDATE SET "
+      + AUID_COLUMN + " = EXCLUDED." + AUID_COLUMN
+      + " RETURNING " + AUID_SEQ_COLUMN;
 
   // Query for the AU sizes of an AU associated with an AUID
   private static final String GET_AU_SIZE_QUERY = "select "
@@ -151,7 +196,7 @@ public class SQLArtifactIndexManagerSql {
       + "a." + ARTIFACT_UUID_COLUMN
       + ", ns." + NAMESPACE_COLUMN
       + ", au." + AUID_COLUMN
-      + ", concat(u." + URL_COLUMN + ", lu." + LONG_URL_COLUMN + ") " + URL_COLUMN
+      + ", u." + URL_COLUMN
       + ", a." + ARTIFACT_VERSION_COLUMN
       + ", a." + ARTIFACT_COMMITTED_COLUMN
       + ", a." + ARTIFACT_STORAGE_URL_COLUMN
@@ -162,7 +207,6 @@ public class SQLArtifactIndexManagerSql {
       + "," + AUID_TABLE + " au"
       + "," + URL_TABLE + " u"
       + "," + ARTIFACT_TABLE + " a"
-      + " LEFT JOIN " + LONG_URL_TABLE + " lu ON lu." + URL_SEQ_COLUMN + " = a." + URL_SEQ_COLUMN
       + " WHERE a." + NAMESPACE_SEQ_COLUMN + " = ns." + NAMESPACE_SEQ_COLUMN
       + " AND a." + AUID_SEQ_COLUMN + " = au." + AUID_SEQ_COLUMN
       + " AND a." + URL_SEQ_COLUMN + " = u." + URL_SEQ_COLUMN
@@ -180,21 +224,6 @@ public class SQLArtifactIndexManagerSql {
       + " AND ns." + NAMESPACE_COLUMN + " = ?"
       + " AND auid." + AUID_COLUMN + " = ?"
       + " AND u." + URL_COLUMN + " = ?";
-
-  private static final String LONG_URL_GET_LATEST_ARTIFACT_VERSION_QUERY = "SELECT "
-      + " MAX(a." + ARTIFACT_VERSION_COLUMN + ")"
-      + " FROM " + NAMESPACE_TABLE + " ns"
-      + "," + AUID_TABLE + " auid"
-      + "," + URL_TABLE + " u"
-      + "," + ARTIFACT_TABLE + " a"
-      + " LEFT JOIN " + LONG_URL_TABLE + " lu ON lu." + URL_SEQ_COLUMN + " = a." + URL_SEQ_COLUMN
-      + " WHERE a." + NAMESPACE_SEQ_COLUMN + " = ns." + NAMESPACE_SEQ_COLUMN
-      + " AND a." + AUID_SEQ_COLUMN + " = auid." + AUID_SEQ_COLUMN
-      + " AND a." + URL_SEQ_COLUMN + " = u." + URL_SEQ_COLUMN
-      + " AND ns." + NAMESPACE_COLUMN + " = ?"
-      + " AND auid." + AUID_COLUMN + " = ?"
-      + " AND u." + URL_COLUMN + " = ?"
-      + " AND lu." + LONG_URL_COLUMN + " = ?";
 
   private static final String GET_LATEST_ARTIFACT_QUERY = "SELECT "
       + "a." + ARTIFACT_UUID_COLUMN
@@ -218,35 +247,53 @@ public class SQLArtifactIndexManagerSql {
       + " AND auid." + AUID_COLUMN + " = ?"
       + " AND u." + URL_COLUMN + " = ?";
 
-  private static final String LONG_URL_GET_LATEST_ARTIFACT_QUERY = "SELECT "
-      + "a." + ARTIFACT_UUID_COLUMN
-      + ", ns." + NAMESPACE_COLUMN
-      + ", auid." + AUID_COLUMN
-      + ", concat(u." + URL_COLUMN + ", lu." + LONG_URL_COLUMN + ") " + URL_COLUMN
-      + ", a." + ARTIFACT_VERSION_COLUMN
-      + ", a." + ARTIFACT_COMMITTED_COLUMN
-      + ", a." + ARTIFACT_STORAGE_URL_COLUMN
-      + ", a." + ARTIFACT_LENGTH_COLUMN
-      + ", a." + ARTIFACT_DIGEST_COLUMN
-      + ", a." + ARTIFACT_CRAWL_TIME_COLUMN
-      + " FROM " + NAMESPACE_TABLE + " ns"
-      + "," + AUID_TABLE + " auid"
-      + "," + URL_TABLE + " u"
-      + "," + ARTIFACT_TABLE + " a"
-      + " LEFT JOIN " + LONG_URL_TABLE + " lu ON lu." + URL_SEQ_COLUMN + " = a." + URL_SEQ_COLUMN
-      + " WHERE a." + NAMESPACE_SEQ_COLUMN + " = ns." + NAMESPACE_SEQ_COLUMN
-      + " AND a." + AUID_SEQ_COLUMN + " = auid." + AUID_SEQ_COLUMN
-      + " AND a." + URL_SEQ_COLUMN + " = u." + URL_SEQ_COLUMN
-      + " AND ns." + NAMESPACE_COLUMN + " = ?"
-      + " AND auid." + AUID_COLUMN + " = ?"
-      + " AND u." + URL_COLUMN + " = ?"
-      + " AND lu." + LONG_URL_COLUMN + " = ?";
-
   private static final String ARTIFACT_COMMITTED_STATUS_CONDITION =
       " AND a." + ARTIFACT_COMMITTED_COLUMN + " = ?";
 
   private static final String ARTIFACT_COMMITTED_STATUS_CONDITION_TRUE =
       " AND a." + ARTIFACT_COMMITTED_COLUMN + " IS TRUE";
+
+  /**
+   * Placeholder for the literal URL-prefix range predicate, replaced at query
+   * assembly time with the fragment built by
+   * {@link #urlPrefixCondition(String, boolean, boolean, boolean)}. Runtime
+   * substitution is required because the forms of the predicate bind different
+   * numbers of parameters.
+   *
+   * <p>Deliberately <em>not</em> spelled {@code --UrlPrefixCondition--} like the
+   * sibling {@code --KeysetCondition--} placeholder: {@code --} starts a SQL line
+   * comment, and because these queries are assembled as single-line Java string
+   * concatenations, an unreplaced {@code --Token--} would silently comment out
+   * everything after it, including {@code ORDER BY} and {@code LIMIT}. An
+   * unreplaced {@code @@UrlPrefixCondition@@} is a syntax error instead, which
+   * fails loudly.
+   */
+  private static final String URL_PREFIX_CONDITION_TOKEN = " @@UrlPrefixCondition@@ ";
+
+  /**
+   * The AUID sort key, used both as the secondary {@code ORDER BY} term of the
+   * all-AUIDs queries and as the corresponding term of
+   * {@link #KEYSET_WHERE_CLAUSE_ALL_AUIDS}. The two <em>must</em> use the same
+   * expression: if the keyset comparison and the sort disagree on collation,
+   * pagination silently skips or repeats rows at page boundaries.
+   *
+   * <p>{@code COLLATE "C"} makes the SQL ordering byte-order, matching the
+   * Java-side contract in {@code ArtifactComparators}, whose AUID tiebreaker is a
+   * bare {@code thenComparing(Artifact::getAuid)}, i.e. natural (UTF-16 binary)
+   * {@code String} order. The database default collation is inherited from the
+   * cluster and is generally a locale collation; glibc's {@code en_US.UTF-8}
+   * deweights punctuation at the primary level, and AUIDs are punctuation-dense,
+   * so the two orderings genuinely disagree on plain ASCII input.
+   *
+   * <p>Redundant once {@code auids.auid} is declared {@code COLLATE "C"} by
+   * schema version 5 - the planner normalizes an explicit collation that matches
+   * the column's declared collation, and still uses the index - but retained for
+   * the same reason as the {@code COLLATE "C"} on the URL predicates: it keeps
+   * the queries correct if the database is ever restored into a
+   * differently-collated cluster.
+   */
+  private static final String SORT_AUID_EXPR =
+      "auid." + AUID_COLUMN + " COLLATE \"C\"";
 
   private static final String GET_ARTIFACT_WITH_VERSION_QUERY = "SELECT "
       + "a." + ARTIFACT_UUID_COLUMN
@@ -269,31 +316,6 @@ public class SQLArtifactIndexManagerSql {
       + " AND ns." + NAMESPACE_COLUMN + " = ?"
       + " AND auid." + AUID_COLUMN + " = ?"
       + " AND u." + URL_COLUMN + " = ?"
-      + " AND a." + ARTIFACT_VERSION_COLUMN + " = ?";
-
-  private static final String LONG_URL_GET_ARTIFACT_WITH_VERSION_QUERY = "SELECT "
-      + "a." + ARTIFACT_UUID_COLUMN
-      + ", ns." + NAMESPACE_COLUMN
-      + ", auid." + AUID_COLUMN
-      + ", concat(u." + URL_COLUMN + ", lu." + LONG_URL_COLUMN + ") " + URL_COLUMN
-      + ", a." + ARTIFACT_VERSION_COLUMN
-      + ", a." + ARTIFACT_COMMITTED_COLUMN
-      + ", a." + ARTIFACT_STORAGE_URL_COLUMN
-      + ", a." + ARTIFACT_LENGTH_COLUMN
-      + ", a." + ARTIFACT_DIGEST_COLUMN
-      + ", a." + ARTIFACT_CRAWL_TIME_COLUMN
-      + " FROM " + NAMESPACE_TABLE + " ns"
-      + "," + AUID_TABLE + " auid"
-      + "," + URL_TABLE + " u"
-      + "," + ARTIFACT_TABLE + " a"
-      + " LEFT JOIN " + LONG_URL_TABLE + " lu ON lu." + URL_SEQ_COLUMN + " = a." + URL_SEQ_COLUMN
-      + " WHERE  a." + NAMESPACE_SEQ_COLUMN + " = ns." + NAMESPACE_SEQ_COLUMN
-      + " AND a." + AUID_SEQ_COLUMN + " = auid." + AUID_SEQ_COLUMN
-      + " AND a." + URL_SEQ_COLUMN + " = u." + URL_SEQ_COLUMN
-      + " AND ns." + NAMESPACE_COLUMN + " = ?"
-      + " AND auid." + AUID_COLUMN + " = ?"
-      + " AND u." + URL_COLUMN + " = ?"
-      + " AND lu." + LONG_URL_COLUMN + " = ?"
       + " AND a." + ARTIFACT_VERSION_COLUMN + " = ?";
 
   private static final String MAX_VERSION_OF_URL_WITH_NAMESPACE_AND_AUID_QUERY = "SELECT "
@@ -336,19 +358,18 @@ public class SQLArtifactIndexManagerSql {
       + "a." + ARTIFACT_UUID_COLUMN
       + ", ns." + NAMESPACE_COLUMN
       + ", auid." + AUID_COLUMN
-      + ", concat(u." + URL_COLUMN + ", lu." + LONG_URL_COLUMN + ") " + URL_COLUMN
+      + ", u." + URL_COLUMN
       + ", a." + ARTIFACT_VERSION_COLUMN
       + ", a." + ARTIFACT_COMMITTED_COLUMN
       + ", a." + ARTIFACT_STORAGE_URL_COLUMN
       + ", a." + ARTIFACT_LENGTH_COLUMN
       + ", a." + ARTIFACT_DIGEST_COLUMN
       + ", a." + ARTIFACT_CRAWL_TIME_COLUMN
-      + ", replace(concat(u." + URL_COLUMN + ", " + LONG_URL_COLUMN + "), '/', '\u0009') COLLATE \"C\" sortUri"
+      + ", replace(u." + URL_COLUMN + ", '/', '\u0009') COLLATE \"C\" sortUri"
       + " FROM " + NAMESPACE_TABLE + " ns"
       + "," + AUID_TABLE + " auid"
       + "," + URL_TABLE + " u"
       + "," + ARTIFACT_TABLE + " a"
-      + " LEFT JOIN " + LONG_URL_TABLE + " lu ON lu." + URL_SEQ_COLUMN + " = a." + URL_SEQ_COLUMN
       + " INNER JOIN ( --MaxVersionAllUrlsWithNamespaceAndAuid-- ) m ON"
       + " m." + NAMESPACE_SEQ_COLUMN + " = a." + NAMESPACE_SEQ_COLUMN
       + " AND m." + AUID_SEQ_COLUMN + " = a." + AUID_SEQ_COLUMN
@@ -366,19 +387,18 @@ public class SQLArtifactIndexManagerSql {
       + "a." + ARTIFACT_UUID_COLUMN
       + ", ns." + NAMESPACE_COLUMN
       + ", auid." + AUID_COLUMN
-      + ", concat(u." + URL_COLUMN + ", lu." + LONG_URL_COLUMN + ") " + URL_COLUMN
+      + ", u." + URL_COLUMN
       + ", a." + ARTIFACT_VERSION_COLUMN
       + ", a." + ARTIFACT_COMMITTED_COLUMN
       + ", a." + ARTIFACT_STORAGE_URL_COLUMN
       + ", a." + ARTIFACT_LENGTH_COLUMN
       + ", a." + ARTIFACT_DIGEST_COLUMN
       + ", a." + ARTIFACT_CRAWL_TIME_COLUMN
-      + ", replace(concat(u." + URL_COLUMN + ", " + LONG_URL_COLUMN + "), '/', '\u0009') COLLATE \"C\" sortUri"
+      + ", replace(u." + URL_COLUMN + ", '/', '\u0009') COLLATE \"C\" sortUri"
       + " FROM " + NAMESPACE_TABLE + " ns"
       + "," + AUID_TABLE + " auid"
       + "," + URL_TABLE + " u"
       + "," + ARTIFACT_TABLE + " a"
-      + " LEFT JOIN " + LONG_URL_TABLE + " lu ON lu." + URL_SEQ_COLUMN + " = a." + URL_SEQ_COLUMN
       + " WHERE  a." + NAMESPACE_SEQ_COLUMN + " = ns." + NAMESPACE_SEQ_COLUMN
       + " AND a." + AUID_SEQ_COLUMN + " = auid." + AUID_SEQ_COLUMN
       + " AND a." + URL_SEQ_COLUMN + " = u." + URL_SEQ_COLUMN
@@ -418,36 +438,6 @@ public class SQLArtifactIndexManagerSql {
       + " sortUri ASC,"
       + ARTIFACT_VERSION_COLUMN + " DESC";
 
-  private static final String LONG_URL_GET_COMMITTED_ARTIFACTS_WITH_NAMESPACE_AUID_URL_QUERY = "SELECT "
-      + "a." + ARTIFACT_UUID_COLUMN
-      + ", ns." + NAMESPACE_COLUMN
-      + ", auid." + AUID_COLUMN
-      + ", concat(u." + URL_COLUMN + ", lu." + LONG_URL_COLUMN + ") " + URL_COLUMN
-      + ", a." + ARTIFACT_VERSION_COLUMN
-      + ", a." + ARTIFACT_COMMITTED_COLUMN
-      + ", a." + ARTIFACT_STORAGE_URL_COLUMN
-      + ", a." + ARTIFACT_LENGTH_COLUMN
-      + ", a." + ARTIFACT_DIGEST_COLUMN
-      + ", a." + ARTIFACT_CRAWL_TIME_COLUMN
-      + ", replace(concat(u." + URL_COLUMN + ", " + LONG_URL_COLUMN + "), '/', '\u0009') COLLATE \"C\" sortUri"
-      + " FROM " + NAMESPACE_TABLE + " ns"
-      + "," + AUID_TABLE + " auid"
-      + "," + URL_TABLE + " u"
-      + "," + ARTIFACT_TABLE + " a"
-      + " LEFT JOIN " + LONG_URL_TABLE + " lu ON lu." + URL_SEQ_COLUMN + " = a." + URL_SEQ_COLUMN
-      + " WHERE  a." + NAMESPACE_SEQ_COLUMN + " = ns." + NAMESPACE_SEQ_COLUMN
-      + " AND a." + AUID_SEQ_COLUMN + " = auid." + AUID_SEQ_COLUMN
-      + " AND a." + URL_SEQ_COLUMN + " = u." + URL_SEQ_COLUMN
-      + " AND ns." + NAMESPACE_COLUMN + " = ?"
-      + " AND auid." + AUID_COLUMN + " = ?"
-      + " AND u." + URL_COLUMN + " = ?"
-      + " AND lu." + LONG_URL_COLUMN + " = ?"
-      + ARTIFACT_COMMITTED_STATUS_CONDITION_TRUE
-      + " --KeysetCondition-- "
-      + " ORDER BY "
-      + " sortUri ASC,"
-      + ARTIFACT_VERSION_COLUMN + " DESC";
-
   // Latest version artifact for each AUID, for a given namespace and URL
   private static final String MAX_COMMITTED_VERSION_OF_URL_WITH_NAMESPACE_AND_URL_QUERY = "SELECT "
       + " a." + NAMESPACE_SEQ_COLUMN + ","
@@ -467,27 +457,6 @@ public class SQLArtifactIndexManagerSql {
       + " a." + AUID_SEQ_COLUMN + ","
       + " a." + URL_SEQ_COLUMN;
 
-  // Latest version artifact for each AUID, for a given namespace and URL
-  private static final String LONG_URL_MAX_COMMITTED_VERSION_OF_URL_WITH_NAMESPACE_AND_URL_QUERY = "SELECT "
-      + " a." + NAMESPACE_SEQ_COLUMN + ","
-      + " a." + AUID_SEQ_COLUMN + ","
-      + " a." + URL_SEQ_COLUMN + ","
-      + " MAX(" + ARTIFACT_VERSION_COLUMN + ") latest_version"
-      + " FROM " + NAMESPACE_TABLE + " ns"
-      + "," + URL_TABLE + " u"
-      + "," + ARTIFACT_TABLE + " a"
-      + " LEFT JOIN " + LONG_URL_TABLE + " lu ON lu." + URL_SEQ_COLUMN + " = a." + URL_SEQ_COLUMN
-      + " WHERE a." + NAMESPACE_SEQ_COLUMN + " = ns." + NAMESPACE_SEQ_COLUMN
-      + " AND a." + URL_SEQ_COLUMN + " = u." + URL_SEQ_COLUMN
-      + " AND ns." + NAMESPACE_COLUMN + " = ?"
-      + " AND u." + URL_COLUMN + " = ?"
-      + " AND lu." + LONG_URL_COLUMN + " = ?"
-      + ARTIFACT_COMMITTED_STATUS_CONDITION_TRUE
-      + " GROUP BY "
-      + " a." + NAMESPACE_SEQ_COLUMN + ","
-      + " a." + AUID_SEQ_COLUMN + ","
-      + " a." + URL_SEQ_COLUMN;
-
   // Latest version artifact for each AUID, for a given namespace and URL prefix
   private static final String MAX_COMMITTED_VERSION_OF_URL_WITH_NAMESPACE_AND_URL_PREFIX_QUERY = "SELECT "
       + " a." + NAMESPACE_SEQ_COLUMN + ","
@@ -500,7 +469,7 @@ public class SQLArtifactIndexManagerSql {
       + " WHERE a." + NAMESPACE_SEQ_COLUMN + " = ns." + NAMESPACE_SEQ_COLUMN
       + " AND a." + URL_SEQ_COLUMN + " = u." + URL_SEQ_COLUMN
       + " AND ns." + NAMESPACE_COLUMN + " = ?"
-      + " AND u." + URL_COLUMN + " LIKE ?"
+      + URL_PREFIX_CONDITION_TOKEN
       + ARTIFACT_COMMITTED_STATUS_CONDITION_TRUE
       + " GROUP BY "
       + " a." + NAMESPACE_SEQ_COLUMN + ","
@@ -508,26 +477,6 @@ public class SQLArtifactIndexManagerSql {
       + " a." + URL_SEQ_COLUMN;
 
   // Latest version artifact for each AUID, for a given namespace and URL prefix
-  private static final String LONG_URL_MAX_COMMITTED_VERSION_OF_URL_WITH_NAMESPACE_AND_URL_PREFIX_QUERY = "SELECT "
-      + " a." + NAMESPACE_SEQ_COLUMN + ","
-      + " a." + AUID_SEQ_COLUMN + ","
-      + " a." + URL_SEQ_COLUMN + ","
-      + " MAX(" + ARTIFACT_VERSION_COLUMN + ") latest_version"
-      + " FROM " + NAMESPACE_TABLE + " ns"
-      + "," + URL_TABLE + " u"
-      + "," + ARTIFACT_TABLE + " a"
-      + " LEFT JOIN " + LONG_URL_TABLE + " lu ON lu." + URL_SEQ_COLUMN + " = a." + URL_SEQ_COLUMN
-      + " WHERE a." + NAMESPACE_SEQ_COLUMN + " = ns." + NAMESPACE_SEQ_COLUMN
-      + " AND a." + URL_SEQ_COLUMN + " = u." + URL_SEQ_COLUMN
-      + " AND ns." + NAMESPACE_COLUMN + " = ?"
-      + " AND u." + URL_COLUMN + " = ?"
-      + " AND lu." + LONG_URL_COLUMN + " LIKE ?"
-      + ARTIFACT_COMMITTED_STATUS_CONDITION_TRUE
-      + " GROUP BY "
-      + " a." + NAMESPACE_SEQ_COLUMN + ","
-      + " a." + AUID_SEQ_COLUMN + ","
-      + " a." + URL_SEQ_COLUMN;
-
   private static final String GET_ARTIFACTS_WITH_NAMESPACE_AND_URL_QUERY = "SELECT "
       + "a." + ARTIFACT_UUID_COLUMN
       + ", ns." + NAMESPACE_COLUMN
@@ -553,96 +502,35 @@ public class SQLArtifactIndexManagerSql {
       + " --KeysetCondition-- "
       + " ORDER BY "
       + " sortUri ASC,"
-      + " auid." + AUID_COLUMN + " ASC,"
-      + " a." + ARTIFACT_VERSION_COLUMN + " DESC";
-
-  private static final String LONG_URL_GET_ARTIFACTS_WITH_NAMESPACE_AND_URL_QUERY = "SELECT "
-      + "a." + ARTIFACT_UUID_COLUMN
-      + ", ns." + NAMESPACE_COLUMN
-      + ", auid." + AUID_COLUMN
-      + ", concat(u." + URL_COLUMN + ", lu." + LONG_URL_COLUMN + ") " + URL_COLUMN
-      + ", a." + ARTIFACT_VERSION_COLUMN
-      + ", a." + ARTIFACT_COMMITTED_COLUMN
-      + ", a." + ARTIFACT_STORAGE_URL_COLUMN
-      + ", a." + ARTIFACT_LENGTH_COLUMN
-      + ", a." + ARTIFACT_DIGEST_COLUMN
-      + ", a." + ARTIFACT_CRAWL_TIME_COLUMN
-      + ", replace(concat(u." + URL_COLUMN + ", " + LONG_URL_COLUMN + "), '/', '\u0009') COLLATE \"C\" sortUri"
-      + " FROM " + NAMESPACE_TABLE + " ns"
-      + "," + AUID_TABLE + " auid"
-      + "," + URL_TABLE + " u"
-      + "," + ARTIFACT_TABLE + " a"
-      + " LEFT JOIN " + LONG_URL_TABLE + " lu ON lu." + URL_SEQ_COLUMN + " = a." + URL_SEQ_COLUMN
-      + " WHERE  a." + NAMESPACE_SEQ_COLUMN + " = ns." + NAMESPACE_SEQ_COLUMN
-      + " AND a." + AUID_SEQ_COLUMN + " = auid." + AUID_SEQ_COLUMN
-      + " AND a." + URL_SEQ_COLUMN + " = u." + URL_SEQ_COLUMN
-      + " AND ns." + NAMESPACE_COLUMN + " = ?"
-      + " AND u." + URL_COLUMN + " = ?"
-      + " AND lu." + LONG_URL_COLUMN + " = ?"
-      + ARTIFACT_COMMITTED_STATUS_CONDITION_TRUE
-      + " --KeysetCondition-- "
-      + " ORDER BY "
-      + " sortUri ASC,"
-      + " auid." + AUID_COLUMN + " ASC,"
+      + " " + SORT_AUID_EXPR + " ASC,"
       + " a." + ARTIFACT_VERSION_COLUMN + " DESC";
 
   private static final String GET_ARTIFACTS_WITH_NAMESPACE_AND_URL_PREFIX_QUERY = "SELECT "
       + "a." + ARTIFACT_UUID_COLUMN
       + ", ns." + NAMESPACE_COLUMN
       + ", auid." + AUID_COLUMN
-      + ", concat(u." + URL_COLUMN + ", lu." + LONG_URL_COLUMN + ") " + URL_COLUMN
+      + ", u." + URL_COLUMN
       + ", a." + ARTIFACT_VERSION_COLUMN
       + ", a." + ARTIFACT_COMMITTED_COLUMN
       + ", a." + ARTIFACT_STORAGE_URL_COLUMN
       + ", a." + ARTIFACT_LENGTH_COLUMN
       + ", a." + ARTIFACT_DIGEST_COLUMN
       + ", a." + ARTIFACT_CRAWL_TIME_COLUMN
-      + ", replace(concat(u." + URL_COLUMN + ", " + LONG_URL_COLUMN + "), '/', '\u0009') COLLATE \"C\" sortUri"
+      + ", replace(u." + URL_COLUMN + ", '/', '\u0009') COLLATE \"C\" sortUri"
       + " FROM " + NAMESPACE_TABLE + " ns"
       + "," + AUID_TABLE + " auid"
       + "," + URL_TABLE + " u"
       + "," + ARTIFACT_TABLE + " a"
-      + " LEFT JOIN " + LONG_URL_TABLE + " lu ON lu." + URL_SEQ_COLUMN + " = a." + URL_SEQ_COLUMN
       + " WHERE  a." + NAMESPACE_SEQ_COLUMN + " = ns." + NAMESPACE_SEQ_COLUMN
       + " AND a." + AUID_SEQ_COLUMN + " = auid." + AUID_SEQ_COLUMN
       + " AND a." + URL_SEQ_COLUMN + " = u." + URL_SEQ_COLUMN
       + " AND ns." + NAMESPACE_COLUMN + " = ?"
-      + " AND u." + URL_COLUMN + " LIKE ?"
+      + URL_PREFIX_CONDITION_TOKEN
       + ARTIFACT_COMMITTED_STATUS_CONDITION_TRUE
       + " --KeysetCondition-- "
       + " ORDER BY "
       + " sortUri ASC,"
-      + " auid." + AUID_COLUMN + " ASC,"
-      + " a." + ARTIFACT_VERSION_COLUMN + " DESC";
-
-  private static final String LONG_URL_GET_ARTIFACTS_WITH_NAMESPACE_AND_URL_PREFIX_QUERY = "SELECT "
-      + "a." + ARTIFACT_UUID_COLUMN
-      + ", ns." + NAMESPACE_COLUMN
-      + ", auid." + AUID_COLUMN
-      + ", concat(u." + URL_COLUMN + ", lu." + LONG_URL_COLUMN + ") " + URL_COLUMN
-      + ", a." + ARTIFACT_VERSION_COLUMN
-      + ", a." + ARTIFACT_COMMITTED_COLUMN
-      + ", a." + ARTIFACT_STORAGE_URL_COLUMN
-      + ", a." + ARTIFACT_LENGTH_COLUMN
-      + ", a." + ARTIFACT_DIGEST_COLUMN
-      + ", a." + ARTIFACT_CRAWL_TIME_COLUMN
-      + ", replace(concat(u." + URL_COLUMN + ", " + LONG_URL_COLUMN + "), '/', '\u0009') COLLATE \"C\" sortUri"
-      + " FROM " + NAMESPACE_TABLE + " ns"
-      + "," + AUID_TABLE + " auid"
-      + "," + URL_TABLE + " u"
-      + "," + ARTIFACT_TABLE + " a"
-      + " LEFT JOIN " + LONG_URL_TABLE + " lu ON lu." + URL_SEQ_COLUMN + " = a." + URL_SEQ_COLUMN
-      + " WHERE  a." + NAMESPACE_SEQ_COLUMN + " = ns." + NAMESPACE_SEQ_COLUMN
-      + " AND a." + AUID_SEQ_COLUMN + " = auid." + AUID_SEQ_COLUMN
-      + " AND a." + URL_SEQ_COLUMN + " = u." + URL_SEQ_COLUMN
-      + " AND ns." + NAMESPACE_COLUMN + " = ?"
-      + " AND u." + URL_COLUMN + " = ?"
-      + " AND lu." + LONG_URL_COLUMN + " LIKE ?"
-      + ARTIFACT_COMMITTED_STATUS_CONDITION_TRUE
-      + " --KeysetCondition-- "
-      + " ORDER BY "
-      + " sortUri ASC,"
-      + " auid." + AUID_COLUMN + " ASC,"
+      + " " + SORT_AUID_EXPR + " ASC,"
       + " a." + ARTIFACT_VERSION_COLUMN + " DESC";
 
   private static final String GET_LATEST_ARTIFACTS_WITH_NAMESPACE_AND_URL_QUERY = "SELECT "
@@ -672,57 +560,25 @@ public class SQLArtifactIndexManagerSql {
       + " --KeysetCondition-- "
       + " ORDER BY "
       + " sortUri ASC,"
-      + " auid." + AUID_COLUMN + " ASC,"
-      + " a." + ARTIFACT_VERSION_COLUMN + " DESC";
-
-  private static final String LONG_URL_GET_LATEST_ARTIFACTS_WITH_NAMESPACE_AND_URL_QUERY = "SELECT "
-      + "a." + ARTIFACT_UUID_COLUMN
-      + ", ns." + NAMESPACE_COLUMN
-      + ", auid." + AUID_COLUMN
-      + ", concat(u." + URL_COLUMN + ", lu." + LONG_URL_COLUMN + ") " + URL_COLUMN
-      + ", a." + ARTIFACT_VERSION_COLUMN
-      + ", a." + ARTIFACT_COMMITTED_COLUMN
-      + ", a." + ARTIFACT_STORAGE_URL_COLUMN
-      + ", a." + ARTIFACT_LENGTH_COLUMN
-      + ", a." + ARTIFACT_DIGEST_COLUMN
-      + ", a." + ARTIFACT_CRAWL_TIME_COLUMN
-      + ", replace(concat(u." + URL_COLUMN + ", " + LONG_URL_COLUMN + "), '/', '\u0009') COLLATE \"C\" sortUri"
-      + " FROM " + NAMESPACE_TABLE + " ns"
-      + "," + AUID_TABLE + " auid"
-      + "," + URL_TABLE + " u"
-      + "," + ARTIFACT_TABLE + " a"
-      + " LEFT JOIN " + LONG_URL_TABLE + " lu ON lu." + URL_SEQ_COLUMN + " = a." + URL_SEQ_COLUMN
-      + " INNER JOIN (" + LONG_URL_MAX_COMMITTED_VERSION_OF_URL_WITH_NAMESPACE_AND_URL_QUERY + ") m ON"
-      + " m." + NAMESPACE_SEQ_COLUMN + " = a." + NAMESPACE_SEQ_COLUMN
-      + " AND m." + AUID_SEQ_COLUMN + " = a." + AUID_SEQ_COLUMN
-      + " AND m." + URL_SEQ_COLUMN + " = a." + URL_SEQ_COLUMN
-      + " AND m.latest_version = a." + ARTIFACT_VERSION_COLUMN
-      + " WHERE  a." + NAMESPACE_SEQ_COLUMN + " = ns." + NAMESPACE_SEQ_COLUMN
-      + " AND a." + AUID_SEQ_COLUMN + " = auid." + AUID_SEQ_COLUMN
-      + " AND a." + URL_SEQ_COLUMN + " = u." + URL_SEQ_COLUMN
-      + " --KeysetCondition-- "
-      + " ORDER BY "
-      + " sortUri ASC,"
-      + " auid." + AUID_COLUMN + " ASC,"
+      + " " + SORT_AUID_EXPR + " ASC,"
       + " a." + ARTIFACT_VERSION_COLUMN + " DESC";
 
   private static final String GET_LATEST_ARTIFACTS_WITH_NAMESPACE_AND_URL_PREFIX_QUERY = "SELECT "
       + "a." + ARTIFACT_UUID_COLUMN
       + ", ns." + NAMESPACE_COLUMN
       + ", auid." + AUID_COLUMN
-      + ", concat(u." + URL_COLUMN + ", lu." + LONG_URL_COLUMN + ") " + URL_COLUMN
+      + ", u." + URL_COLUMN
       + ", a." + ARTIFACT_VERSION_COLUMN
       + ", a." + ARTIFACT_COMMITTED_COLUMN
       + ", a." + ARTIFACT_STORAGE_URL_COLUMN
       + ", a." + ARTIFACT_LENGTH_COLUMN
       + ", a." + ARTIFACT_DIGEST_COLUMN
       + ", a." + ARTIFACT_CRAWL_TIME_COLUMN
-      + ", replace(concat(u." + URL_COLUMN + ", " + LONG_URL_COLUMN + "), '/', '\u0009') COLLATE \"C\" sortUri"
+      + ", replace(u." + URL_COLUMN + ", '/', '\u0009') COLLATE \"C\" sortUri"
       + " FROM " + NAMESPACE_TABLE + " ns"
       + "," + AUID_TABLE + " auid"
       + "," + URL_TABLE + " u"
       + "," + ARTIFACT_TABLE + " a"
-      + " LEFT JOIN " + LONG_URL_TABLE + " lu ON lu." + URL_SEQ_COLUMN + " = a." + URL_SEQ_COLUMN
       + " INNER JOIN (" + MAX_COMMITTED_VERSION_OF_URL_WITH_NAMESPACE_AND_URL_PREFIX_QUERY + ") m ON"
       + " m." + NAMESPACE_SEQ_COLUMN + " = a." + NAMESPACE_SEQ_COLUMN
       + " AND m." + AUID_SEQ_COLUMN + " = a." + AUID_SEQ_COLUMN
@@ -734,93 +590,31 @@ public class SQLArtifactIndexManagerSql {
       + " --KeysetCondition-- "
       + " ORDER BY "
       + " sortUri ASC,"
-      + " auid." + AUID_COLUMN + " ASC,"
-      + " a." + ARTIFACT_VERSION_COLUMN + " DESC";
-
-  private static final String LONG_URL_GET_LATEST_ARTIFACTS_WITH_NAMESPACE_AND_URL_PREFIX_QUERY = "SELECT "
-      + "a." + ARTIFACT_UUID_COLUMN
-      + ", ns." + NAMESPACE_COLUMN
-      + ", auid." + AUID_COLUMN
-      + ", concat(u." + URL_COLUMN + ", lu." + LONG_URL_COLUMN + ") " + URL_COLUMN
-      + ", a." + ARTIFACT_VERSION_COLUMN
-      + ", a." + ARTIFACT_COMMITTED_COLUMN
-      + ", a." + ARTIFACT_STORAGE_URL_COLUMN
-      + ", a." + ARTIFACT_LENGTH_COLUMN
-      + ", a." + ARTIFACT_DIGEST_COLUMN
-      + ", a." + ARTIFACT_CRAWL_TIME_COLUMN
-      + ", replace(concat(u." + URL_COLUMN + ", " + LONG_URL_COLUMN + "), '/', '\u0009') COLLATE \"C\" sortUri"
-      + " FROM " + NAMESPACE_TABLE + " ns"
-      + "," + AUID_TABLE + " auid"
-      + "," + URL_TABLE + " u"
-      + "," + ARTIFACT_TABLE + " a"
-      + " LEFT JOIN " + LONG_URL_TABLE + " lu ON lu." + URL_SEQ_COLUMN + " = a." + URL_SEQ_COLUMN
-      + " INNER JOIN (" + LONG_URL_MAX_COMMITTED_VERSION_OF_URL_WITH_NAMESPACE_AND_URL_PREFIX_QUERY + ") m ON"
-      + " m." + NAMESPACE_SEQ_COLUMN + " = a." + NAMESPACE_SEQ_COLUMN
-      + " AND m." + AUID_SEQ_COLUMN + " = a." + AUID_SEQ_COLUMN
-      + " AND m." + URL_SEQ_COLUMN + " = a." + URL_SEQ_COLUMN
-      + " AND m.latest_version = a." + ARTIFACT_VERSION_COLUMN
-      + " WHERE  a." + NAMESPACE_SEQ_COLUMN + " = ns." + NAMESPACE_SEQ_COLUMN
-      + " AND a." + AUID_SEQ_COLUMN + " = auid." + AUID_SEQ_COLUMN
-      + " AND a." + URL_SEQ_COLUMN + " = u." + URL_SEQ_COLUMN
-      + " --KeysetCondition-- "
-      + " ORDER BY "
-      + " sortUri ASC,"
-      + " auid." + AUID_COLUMN + " ASC,"
+      + " " + SORT_AUID_EXPR + " ASC,"
       + " a." + ARTIFACT_VERSION_COLUMN + " DESC";
 
   private static final String GET_ARTIFACTS_WITH_NAMESPACE_AUID_URL_PREFIX_QUERY = "SELECT "
       + "a." + ARTIFACT_UUID_COLUMN
       + ", ns." + NAMESPACE_COLUMN
       + ", auid." + AUID_COLUMN
-      + ", concat(u." + URL_COLUMN + ", lu." + LONG_URL_COLUMN + ") " + URL_COLUMN
+      + ", u." + URL_COLUMN
       + ", a." + ARTIFACT_VERSION_COLUMN
       + ", a." + ARTIFACT_COMMITTED_COLUMN
       + ", a." + ARTIFACT_STORAGE_URL_COLUMN
       + ", a." + ARTIFACT_LENGTH_COLUMN
       + ", a." + ARTIFACT_DIGEST_COLUMN
       + ", a." + ARTIFACT_CRAWL_TIME_COLUMN
-      + ", replace(concat(u." + URL_COLUMN + ", " + LONG_URL_COLUMN + "), '/', '\u0009') COLLATE \"C\" sortUri"
+      + ", replace(u." + URL_COLUMN + ", '/', '\u0009') COLLATE \"C\" sortUri"
       + " FROM " + NAMESPACE_TABLE + " ns"
       + "," + AUID_TABLE + " auid"
       + "," + URL_TABLE + " u"
       + "," + ARTIFACT_TABLE + " a"
-      + " LEFT JOIN " + LONG_URL_TABLE + " lu ON lu." + URL_SEQ_COLUMN + " = a." + URL_SEQ_COLUMN
       + " WHERE  a." + NAMESPACE_SEQ_COLUMN + " = ns." + NAMESPACE_SEQ_COLUMN
       + " AND a." + AUID_SEQ_COLUMN + " = auid." + AUID_SEQ_COLUMN
       + " AND a." + URL_SEQ_COLUMN + " = u." + URL_SEQ_COLUMN
       + " AND ns." + NAMESPACE_COLUMN + " = ?"
       + " AND auid." + AUID_COLUMN + " = ?"
-      + " AND u." + URL_COLUMN + " LIKE ?"
-      + ARTIFACT_COMMITTED_STATUS_CONDITION
-      + " --KeysetCondition-- "
-      + " ORDER BY "
-      + " sortUri ASC,"
-      + ARTIFACT_VERSION_COLUMN + " DESC";
-
-  private static final String LONG_URL_GET_ARTIFACTS_WITH_NAMESPACE_AUID_URL_PREFIX_QUERY = "SELECT "
-      + "a." + ARTIFACT_UUID_COLUMN
-      + ", ns." + NAMESPACE_COLUMN
-      + ", auid." + AUID_COLUMN
-      + ", concat(u." + URL_COLUMN + ", lu." + LONG_URL_COLUMN + ") " + URL_COLUMN
-      + ", a." + ARTIFACT_VERSION_COLUMN
-      + ", a." + ARTIFACT_COMMITTED_COLUMN
-      + ", a." + ARTIFACT_STORAGE_URL_COLUMN
-      + ", a." + ARTIFACT_LENGTH_COLUMN
-      + ", a." + ARTIFACT_DIGEST_COLUMN
-      + ", a." + ARTIFACT_CRAWL_TIME_COLUMN
-      + ", replace(concat(u." + URL_COLUMN + ", " + LONG_URL_COLUMN + "), '/', '\u0009') COLLATE \"C\" sortUri"
-      + " FROM " + NAMESPACE_TABLE + " ns"
-      + "," + AUID_TABLE + " auid"
-      + "," + URL_TABLE + " u"
-      + "," + ARTIFACT_TABLE + " a"
-      + " LEFT JOIN " + LONG_URL_TABLE + " lu ON lu." + URL_SEQ_COLUMN + " = a." + URL_SEQ_COLUMN
-      + " WHERE  a." + NAMESPACE_SEQ_COLUMN + " = ns." + NAMESPACE_SEQ_COLUMN
-      + " AND a." + AUID_SEQ_COLUMN + " = auid." + AUID_SEQ_COLUMN
-      + " AND a." + URL_SEQ_COLUMN + " = u." + URL_SEQ_COLUMN
-      + " AND ns." + NAMESPACE_COLUMN + " = ?"
-      + " AND auid." + AUID_COLUMN + " = ?"
-      + " AND u." + URL_COLUMN + " = ?"
-      + " AND lu." + LONG_URL_COLUMN + " LIKE ?"
+      + URL_PREFIX_CONDITION_TOKEN
       + ARTIFACT_COMMITTED_STATUS_CONDITION
       + " --KeysetCondition-- "
       + " ORDER BY "
@@ -841,30 +635,7 @@ public class SQLArtifactIndexManagerSql {
       + " AND a." + URL_SEQ_COLUMN + " = u." + URL_SEQ_COLUMN
       + " AND ns." + NAMESPACE_COLUMN + " = ?"
       + " AND auid." + AUID_COLUMN + " = ?"
-      + " AND u." + URL_COLUMN + " LIKE ?"
-      + ARTIFACT_COMMITTED_STATUS_CONDITION_TRUE
-      + " GROUP BY "
-      + " a." + NAMESPACE_SEQ_COLUMN + ","
-      + " a." + AUID_SEQ_COLUMN + ","
-      + " a." + URL_SEQ_COLUMN;
-
-  private static final String LONG_URL_MAX_COMMITTED_VERSION_OF_URL_WITH_NAMESPACE_AUID_AND_URL_PREFIX_QUERY = "SELECT "
-      + " a." + NAMESPACE_SEQ_COLUMN + ","
-      + " a." + AUID_SEQ_COLUMN + ","
-      + " a." + URL_SEQ_COLUMN + ","
-      + " MAX(" + ARTIFACT_VERSION_COLUMN + ") latest_version"
-      + " FROM " + NAMESPACE_TABLE + " ns"
-      + "," + AUID_TABLE + " auid"
-      + "," + URL_TABLE + " u"
-      + "," + ARTIFACT_TABLE + " a"
-      + " LEFT JOIN " + LONG_URL_TABLE + " lu ON lu." + URL_SEQ_COLUMN + " = a." + URL_SEQ_COLUMN
-      + " WHERE a." + NAMESPACE_SEQ_COLUMN + " = ns." + NAMESPACE_SEQ_COLUMN
-      + " AND a." + AUID_SEQ_COLUMN + " = auid." + AUID_SEQ_COLUMN
-      + " AND a." + URL_SEQ_COLUMN + " = u." + URL_SEQ_COLUMN
-      + " AND ns." + NAMESPACE_COLUMN + " = ?"
-      + " AND auid." + AUID_COLUMN + " = ?"
-      + " AND u." + URL_COLUMN + " = ?"
-      + " AND lu." + LONG_URL_COLUMN + " LIKE ?"
+      + URL_PREFIX_CONDITION_TOKEN
       + ARTIFACT_COMMITTED_STATUS_CONDITION_TRUE
       + " GROUP BY "
       + " a." + NAMESPACE_SEQ_COLUMN + ","
@@ -875,50 +646,19 @@ public class SQLArtifactIndexManagerSql {
       + "a." + ARTIFACT_UUID_COLUMN
       + ", ns." + NAMESPACE_COLUMN
       + ", auid." + AUID_COLUMN
-      + ", concat(u." + URL_COLUMN + ", lu." + LONG_URL_COLUMN + ") " + URL_COLUMN
+      + ", u." + URL_COLUMN
       + ", a." + ARTIFACT_VERSION_COLUMN
       + ", a." + ARTIFACT_COMMITTED_COLUMN
       + ", a." + ARTIFACT_STORAGE_URL_COLUMN
       + ", a." + ARTIFACT_LENGTH_COLUMN
       + ", a." + ARTIFACT_DIGEST_COLUMN
       + ", a." + ARTIFACT_CRAWL_TIME_COLUMN
-      + ", replace(concat(u." + URL_COLUMN + ", " + LONG_URL_COLUMN + "), '/', '\u0009') COLLATE \"C\" sortUri"
+      + ", replace(u." + URL_COLUMN + ", '/', '\u0009') COLLATE \"C\" sortUri"
       + " FROM " + NAMESPACE_TABLE + " ns"
       + "," + AUID_TABLE + " auid"
       + "," + URL_TABLE + " u"
       + "," + ARTIFACT_TABLE + " a"
-      + " LEFT JOIN " + LONG_URL_TABLE + " lu ON lu." + URL_SEQ_COLUMN + " = a." + URL_SEQ_COLUMN
       + " INNER JOIN (" + MAX_COMMITTED_VERSION_OF_URL_WITH_NAMESPACE_AUID_AND_URL_PREFIX_QUERY + ") m ON"
-      + " m." + NAMESPACE_SEQ_COLUMN + " = a." + NAMESPACE_SEQ_COLUMN
-      + " AND m." + AUID_SEQ_COLUMN + " = a." + AUID_SEQ_COLUMN
-      + " AND m." + URL_SEQ_COLUMN + " = a." + URL_SEQ_COLUMN
-      + " AND m.latest_version = a." + ARTIFACT_VERSION_COLUMN
-      + " WHERE  a." + NAMESPACE_SEQ_COLUMN + " = ns." + NAMESPACE_SEQ_COLUMN
-      + " AND a." + AUID_SEQ_COLUMN + " = auid." + AUID_SEQ_COLUMN
-      + " AND a." + URL_SEQ_COLUMN + " = u." + URL_SEQ_COLUMN
-      + " --KeysetCondition-- "
-      + " ORDER BY "
-      + " sortUri ASC,"
-      + ARTIFACT_VERSION_COLUMN + " DESC";
-
-  private static final String LONG_URL_GET_LATEST_ARTIFACTS_WITH_NAMESPACE_AUID_URL_PREFIX_QUERY = "SELECT "
-      + "a." + ARTIFACT_UUID_COLUMN
-      + ", ns." + NAMESPACE_COLUMN
-      + ", auid." + AUID_COLUMN
-      + ", concat(u." + URL_COLUMN + ", lu." + LONG_URL_COLUMN + ") " + URL_COLUMN
-      + ", a." + ARTIFACT_VERSION_COLUMN
-      + ", a." + ARTIFACT_COMMITTED_COLUMN
-      + ", a." + ARTIFACT_STORAGE_URL_COLUMN
-      + ", a." + ARTIFACT_LENGTH_COLUMN
-      + ", a." + ARTIFACT_DIGEST_COLUMN
-      + ", a." + ARTIFACT_CRAWL_TIME_COLUMN
-      + ", replace(concat(u." + URL_COLUMN + ", " + LONG_URL_COLUMN + "), '/', '\u0009') COLLATE \"C\" sortUri"
-      + " FROM " + NAMESPACE_TABLE + " ns"
-      + "," + AUID_TABLE + " auid"
-      + "," + URL_TABLE + " u"
-      + "," + ARTIFACT_TABLE + " a"
-      + " LEFT JOIN " + LONG_URL_TABLE + " lu ON lu." + URL_SEQ_COLUMN + " = a." + URL_SEQ_COLUMN
-      + " INNER JOIN (" + LONG_URL_MAX_COMMITTED_VERSION_OF_URL_WITH_NAMESPACE_AUID_AND_URL_PREFIX_QUERY + ") m ON"
       + " m." + NAMESPACE_SEQ_COLUMN + " = a." + NAMESPACE_SEQ_COLUMN
       + " AND m." + AUID_SEQ_COLUMN + " = a." + AUID_SEQ_COLUMN
       + " AND m." + URL_SEQ_COLUMN + " = a." + URL_SEQ_COLUMN
@@ -991,9 +731,158 @@ public class SQLArtifactIndexManagerSql {
       + "," + ARTIFACT_CRAWL_TIME_COLUMN
       + " ) VALUES (?,?,?,?,?,?,?,?,?,?)";
 
-  private static final String UPSERT_ARTIFACT_FOR_REINDEX_QUERY = INSERT_ARTIFACT_QUERY
+  // Component D.2: the reindex upsert's SAME-uuid arbitration.
+  //
+  // This is the other half of Component D's conflict handling, and the split is
+  // deliberate: FIND_ARTIFACT_VERSION_CONFLICTS_QUERY / resolveVersionConflict
+  // below decide which rows on this tuple survive (which ON CONFLICT (uuid)
+  // cannot see, there being no unique index on the tuple); this ON CONFLICT
+  // clause is the only thing that ever WRITES the incoming artifact's own row.
+  //
+  // Uses EXCLUDED, like UPSERT_ARTIFACT_QUERY, so it binds the same 10
+  // parameters as INSERT_ARTIFACT_QUERY (see bindArtifactInsertParams).
+  // crawl_time joins the SET so that a winning incoming record is applied
+  // whole.
+  //
+  // The WHERE guard:
+  //
+  //   NOT (COALESCE(artifacts.committed, FALSE) AND NOT COALESCE(EXCLUDED.committed, FALSE))
+  //     never downgrade committed true -> false. Reindex walks permanent WARCs
+  //     before temporary ones (WarcArtifactDataStore.reindexArtifacts), and a
+  //     temp-WARC record whose journal entry is missing or corrupt takes the
+  //     UNKNOWN branch and is presented as committed=false with a *temporary*
+  //     storage URL. Without this guard that record clobbers the already
+  //     correct committed row with a temp URL -- precisely on the damaged
+  //     installs this recovery path exists for. It matches the philosophy
+  //     already stated in WarcArtifactDataStore: an artifact coming back is
+  //     preferable to an artifact disappearing.
+  //
+  //     committed is nullable (BOOLEAN with no NOT NULL, see
+  //     SQLArtifactIndexDbManagerSql's CREATE_ARTIFACT_TABLE_QUERY), so both
+  //     references are COALESCEd: a NULL would make the whole predicate NULL
+  //     and silently skip *every* update.
+  //
+  //   EXCLUDED.crawl_time <= artifacts.crawl_time   (>= for PreferLatest)
+  //     only a strictly worse collection date, under the configured policy,
+  //     blocks the update -- consistent with the different-uuid path, which the
+  //     same conflictPolicy governs. The comparison is non-strict on purpose:
+  //     for the same artifact both records carry the same collectionDate, so a
+  //     strict comparison would refuse EVERY same-artifact update, including the
+  //     committed upgrade. Which of the equal-date updates actually fire is
+  //     decided by the D.4 term below, not here.
+  //     crawl_time is NOT NULL, so no COALESCE is needed here.
+  //
+  // Component D.4: the equal-date term.
+  //
+  //   (   EXCLUDED.crawl_time <> artifacts.crawl_time
+  //    OR EXCLUDED.digest IS DISTINCT FROM artifacts.digest
+  //    OR (COALESCE(EXCLUDED.committed, FALSE)
+  //        AND NOT COALESCE(artifacts.committed, FALSE)) )
+  //
+  // WarcArtifactDataStore.CopyArtifactTask copies a record into a permanent
+  // WARC, then updates the INDEX (setStorageUrl + updateStorageUrl), and only
+  // THEN writes the journal entry saying COPIED. A crash between those last two
+  // steps leaves the index holding the permanent storage URL while the temp
+  // WARC's journal does not say COPIED. On restart the isCopied skip in
+  // reindexArtifacts does not fire, so the temp-WARC record is re-presented
+  // with the SAME uuid, the SAME crawl_time and the SAME digest -- and the
+  // non-strict crawl_time comparison above let it through, reverting
+  // storage_url to the TEMPORARY WARC. That is the artifact becoming
+  // unreadable as soon as the temp WARC is reclaimed.
+  //
+  // Operator decision: when the collection dates are equal, the incoming record
+  // overwrites the existing row only if the digests differ. Equal date plus
+  // equal digest means "the same bytes presented from somewhere else", and this
+  // layer has no way to tell a better somewhere-else from a worse one, so it
+  // keeps what it has.
+  //
+  // The committed disjunct is not optional. Without it, equal date + equal
+  // digest + committed false -> true would be blocked too, silently breaking
+  // the committed upgrade that testReindexCommittedUpgradeStillAllowed pins.
+  // Both committed references are COALESCEd for the same reason as above.
+  //
+  // digest is VARCHAR(1024) NOT NULL in CREATE_ARTIFACT_TABLE_QUERY, so
+  // "<>" would do; IS DISTINCT FROM is used anyway because it is null-safe and
+  // therefore cannot silently turn the whole predicate NULL if the column's
+  // nullability ever changes.
+  //
+  // Known trade, recorded deliberately: an artifact whose stored storage_url is
+  // stale for a reason OTHER than this crash window -- a relocated repository,
+  // say -- is no longer repaired by reindex when the record is presented with
+  // the same date and the same digest. The digest is the only discriminator
+  // available here, and the ambiguity it cannot resolve is exactly the bug.
+  private static final String UPSERT_ARTIFACT_FOR_REINDEX_QUERY_PREFIX =
+      INSERT_ARTIFACT_QUERY
       + " ON CONFLICT (" + ARTIFACT_UUID_COLUMN + ") DO UPDATE SET "
-      + ARTIFACT_COMMITTED_COLUMN + " = ? , " + ARTIFACT_STORAGE_URL_COLUMN + " = ?";
+      + ARTIFACT_COMMITTED_COLUMN + " = EXCLUDED." + ARTIFACT_COMMITTED_COLUMN
+      + ", " + ARTIFACT_STORAGE_URL_COLUMN + " = EXCLUDED." + ARTIFACT_STORAGE_URL_COLUMN
+      + ", " + ARTIFACT_CRAWL_TIME_COLUMN + " = EXCLUDED." + ARTIFACT_CRAWL_TIME_COLUMN
+      + " WHERE NOT (COALESCE(" + ARTIFACT_TABLE + "." + ARTIFACT_COMMITTED_COLUMN + ", FALSE)"
+      + "            AND NOT COALESCE(EXCLUDED." + ARTIFACT_COMMITTED_COLUMN + ", FALSE))"
+      + "       AND (EXCLUDED." + ARTIFACT_CRAWL_TIME_COLUMN + " <> " + ARTIFACT_TABLE + "." + ARTIFACT_CRAWL_TIME_COLUMN
+      + "            OR EXCLUDED." + ARTIFACT_DIGEST_COLUMN + " IS DISTINCT FROM " + ARTIFACT_TABLE + "." + ARTIFACT_DIGEST_COLUMN
+      + "            OR (COALESCE(EXCLUDED." + ARTIFACT_COMMITTED_COLUMN + ", FALSE)"
+      + "                AND NOT COALESCE(" + ARTIFACT_TABLE + "." + ARTIFACT_COMMITTED_COLUMN + ", FALSE)))"
+      + "       AND EXCLUDED." + ARTIFACT_CRAWL_TIME_COLUMN + " ";
+
+  /** Reindex upsert under {@code PreferEarliest}: a strictly later incoming
+   *  collection date does not overwrite the existing row. */
+  private static final String UPSERT_ARTIFACT_FOR_REINDEX_PREFER_EARLIEST_QUERY =
+      UPSERT_ARTIFACT_FOR_REINDEX_QUERY_PREFIX
+      + "<= " + ARTIFACT_TABLE + "." + ARTIFACT_CRAWL_TIME_COLUMN;
+
+  /** Reindex upsert under {@code PreferLatest}: a strictly earlier incoming
+   *  collection date does not overwrite the existing row. */
+  private static final String UPSERT_ARTIFACT_FOR_REINDEX_PREFER_LATEST_QUERY =
+      UPSERT_ARTIFACT_FOR_REINDEX_QUERY_PREFIX
+      + ">= " + ARTIFACT_TABLE + "." + ARTIFACT_CRAWL_TIME_COLUMN;
+
+  /**
+   * The reindex upsert for a given version-conflict policy.
+   */
+  private static String upsertArtifactForReindexQuery(
+      SQLArtifactIndex.VersionConflictResolution conflictPolicy) {
+    switch (conflictPolicy) {
+      case PreferLatest:
+        return UPSERT_ARTIFACT_FOR_REINDEX_PREFER_LATEST_QUERY;
+      case PreferEarliest:
+      default:
+        return UPSERT_ARTIFACT_FOR_REINDEX_PREFER_EARLIEST_QUERY;
+    }
+  }
+
+  // Component D: finds every artifact already claiming the (namespace, auid,
+  // url, version) an incoming reindexed artifact claims -- including, since
+  // D.3, the incoming artifact's own row.
+  //
+  // The ON CONFLICT clause above targets artifact_uuid because that is the only
+  // unique index on the artifacts table (idx4_artifacts); there is no unique
+  // index on this tuple in any schema version -- see the v5 migration's
+  // COUNT_VERSION_COLLISIONS_QUERY comment in SQLArtifactIndexDbManagerSql.
+  // So when post-migration crawling stored a new UUID at a tuple a migrated
+  // artifact also claims, the upsert cannot see the collision and simply
+  // inserts a second row, which reads then resolve arbitrarily via LIMIT 1.
+  // Detecting that needs its own SELECT, in the same transaction as the insert.
+  //
+  // The result may legitimately hold more than one row: the schema has always
+  // permitted duplicates on this tuple, so an already-damaged index may carry
+  // several.
+  //
+  // This SELECT only informs the Java arbitration and never mutates
+  // anything, and the guarded ON CONFLICT clause above is the only thing that
+  // ever writes the own row. resolveVersionConflict never deletes the own row
+  // in the branch where the incoming artifact wins, precisely so that the
+  // guard is not pre-empted.
+  private static final String FIND_ARTIFACT_VERSION_CONFLICTS_QUERY = "SELECT "
+      + ARTIFACT_UUID_COLUMN
+      + ", " + ARTIFACT_CRAWL_TIME_COLUMN
+      + ", COALESCE(" + ARTIFACT_COMMITTED_COLUMN + ", FALSE) AS "
+      + ARTIFACT_COMMITTED_COLUMN
+      + " FROM " + ARTIFACT_TABLE
+      + " WHERE " + NAMESPACE_SEQ_COLUMN + " = ?"
+      + " AND " + AUID_SEQ_COLUMN + " = ?"
+      + " AND " + URL_SEQ_COLUMN + " = ?"
+      + " AND " + ARTIFACT_VERSION_COLUMN + " = ?";
 
   // Idempotent variant of INSERT_ARTIFACT_QUERY used by the bulk addArtifacts()
   // path. Because that path now commits per batch, a retried finishBulkStore
@@ -1045,17 +934,14 @@ public class SQLArtifactIndexManagerSql {
   // This provides unique cursor positioning across multiple AUIDs with the same URL and version
   private static final String KEYSET_WHERE_CLAUSE_ALL_AUIDS =
       " AND (--SortUriExpr-- > ?"
-      + " OR (--SortUriExpr-- = ? AND auid." + AUID_COLUMN + " > ?)"
-      + " OR (--SortUriExpr-- = ? AND auid." + AUID_COLUMN + " = ? AND " + ARTIFACT_VERSION_COLUMN + " < ?))";
+      + " OR (--SortUriExpr-- = ? AND " + SORT_AUID_EXPR + " > ?)"
+      + " OR (--SortUriExpr-- = ? AND " + SORT_AUID_EXPR + " = ? AND " + ARTIFACT_VERSION_COLUMN + " < ?))";
 
-  // sortUri expression for queries using long URLs (with LEFT JOIN to long_url table)
-  // COLLATE "C" ensures byte-order sorting consistent across all PostgreSQL locales
-  private static final String SORT_URI_EXPR_LONG_URL =
-      "replace(concat(u." + URL_COLUMN + ", " + LONG_URL_COLUMN + "), '/', '\u0009') COLLATE \"C\"";
-
-  // sortUri expression for queries using short URLs only
-  // COLLATE "C" ensures byte-order sorting consistent across all PostgreSQL locales
-  private static final String SORT_URI_EXPR_SHORT_URL =
+  // sortUri expression. COLLATE "C" ensures byte-order sorting consistent across
+  // all PostgreSQL locales. Formerly split into long-URL and short-URL variants;
+  // with the head/tail split gone, urls.url holds the whole URL and one
+  // expression serves every query.
+  private static final String SORT_URI_EXPR =
       "replace(u." + URL_COLUMN + ", '/', '\u0009') COLLATE \"C\"";
 
   /**
@@ -1105,33 +991,50 @@ public class SQLArtifactIndexManagerSql {
 
     log.debug2("url = {}", url);
 
-    while (true) {
-      if (lru_urls_seqs.containsKey(url)) {
-        return lru_urls_seqs.get(url);
-      }
+    // Single lookup: containsKey() followed by get() is not atomic on a
+    // synchronizedMap, so a concurrent LRU eviction or cache flush between the
+    // two calls would turn a hit into a null return.
+    Long cachedUrlSeq = lru_urls_seqs.get(url);
+    if (cachedUrlSeq != null) {
+      return cachedUrlSeq;
+    }
 
-      // Find the URL in the database
-      Long urlSeq = findUrlSeq(conn, url);
-      log.trace("urlSeq = {}", urlSeq);
+    // Insert-first rather than select-then-insert: the upsert is atomic, so
+    // there is no window for two transactions to both create the URL. The
+    // former retry-on-duplicate-key loop could never succeed on PostgreSQL --
+    // the violation aborts the transaction, so the retry's SELECT failed with
+    // "current transaction is aborted" rather than finding the winner's row.
+    Long urlSeq = addUrl(conn, url);
+
+    if (urlSeq == null) {
+      // A concurrent transaction created it first, so DO NOTHING suppressed the
+      // insert and returned no row. Its row is visible to us only once it has
+      // committed; under READ COMMITTED our next statement sees it.
+      urlSeq = findUrlSeq(conn, url);
+      log.trace("lost insert race, found urlSeq = {}", urlSeq);
 
       if (urlSeq == null) {
-        try {
-          // Add the URL to the database
-          urlSeq = addUrl(conn, url);
-          log.trace("new urlSeq = {}", urlSeq);
-        } catch (DbException e) {
-          Throwable cause = e.getCause();
-          if (cause != null && cause.getMessage().startsWith(DUPLICATE_KEY_ERROR_MESSAGE)) {
-            log.warn("Race caused duplicate key violation on URL: {}; retrying...", url);
-            continue;
-          }
-          throw e;
-        }
+        // Two things would have to be true at once for this to happen. ON
+        // CONFLICT DO NOTHING waits for the conflicting transaction to end and
+        // only suppresses the insert if that transaction committed, so a
+        // committed row for this digest exists; and the fallback compares the
+        // URL text, so that row holds a different URL. That is a SHA-256
+        // collision, which is why this is unreachable rather than merely
+        // unlikely - under MD5 it would be reachable, and cheaply so, by
+        // anyone able to choose two URLs the repository will crawl.
+        //
+        // Fail loudly rather than returning null, which callers unbox into a
+        // long. Report it as what it would be: a broken assumption about the
+        // digest, not a transient database error to be retried.
+        throw new DbException(
+            "Insert of url reported a conflict but no row holds that url,"
+            + " which requires a " + URL_DIGEST_EXPRESSION + " collision: "
+            + url);
       }
-
-      log.debug2("urlSeq = {}", urlSeq);
-      return urlSeq;
     }
+
+    log.debug2("urlSeq = {}", urlSeq);
+    return urlSeq;
   }
 
   protected Long findUrlSeq(Connection conn, String url)
@@ -1143,21 +1046,17 @@ public class SQLArtifactIndexManagerSql {
     PreparedStatement ps = null;
     ResultSet resultSet = null;
     String errorMessage = "Cannot find url";
-    boolean isLongUrl = LONG_URL_THRESHOLD < url.length();
 
-    String sqlQuery = isLongUrl ? FIND_LONG_URL_SEQ_QUERY : FIND_URL_SEQ_QUERY;
+    String sqlQuery = FIND_URL_SEQ_QUERY;
 
     try {
       // Prepare the query
       ps = idxDbManager.prepareStatement(conn, sqlQuery);
 
-      // Populate the query
-      if (isLongUrl) {
-        ps.setString(1, url.substring(0, LONG_URL_THRESHOLD));
-        ps.setString(2, url.substring(LONG_URL_THRESHOLD));
-      } else {
-        ps.setString(1, url);
-      }
+      // Populate the query. Both parameters are the same URL: one feeds the
+      // indexed md5 term, the other the exact-equality term.
+      ps.setString(1, url);
+      ps.setString(2, url);
 
       // Get the URL row
       resultSet = idxDbManager.executeQuery(ps);
@@ -1182,6 +1081,16 @@ public class SQLArtifactIndexManagerSql {
     return urlSeq;
   }
 
+  /**
+   * Inserts a URL, or does nothing if a concurrent transaction already
+   * inserted it.
+   *
+   * @param conn A Connection with the database connection to be used
+   * @param url  The URL to insert
+   * @return The new sequence number, or {@code null} if the URL already
+   *         existed and no row was inserted
+   * @throws DbException if any problem occurred accessing the database
+   */
   private Long addUrl(Connection conn, String url) throws DbException {
     log.debug2("url = {}", url);
 
@@ -1191,60 +1100,40 @@ public class SQLArtifactIndexManagerSql {
     String errorMessage = "Cannot add url";
 
     try {
-      boolean isLongUrl = LONG_URL_THRESHOLD < url.length();
-      String urlm = url;
-
-      if (isLongUrl) {
-        urlm = url.substring(0, LONG_URL_THRESHOLD);
-      }
-
       // Prepare the query
-      ps = idxDbManager.prepareStatement(conn,
-          INSERT_URL_QUERY, Statement.RETURN_GENERATED_KEYS);
+      ps = idxDbManager.prepareStatement(conn, UPSERT_URL_QUERY);
 
       // Populate the query
-      ps.setString(1, urlm);
+      ps.setString(1, url);
 
-      // Add the URL
-      idxDbManager.executeUpdate(ps);
-      resultSet = ps.getGeneratedKeys();
+      // Add the URL. RETURNING makes this a result-producing statement, so it
+      // is executed as a query rather than an update.
+      resultSet = idxDbManager.executeQuery(ps);
 
-      // Check whether a result was not obtained.
+      // No row means ON CONFLICT DO NOTHING suppressed the insert because a
+      // concurrent transaction created this URL digest first. That is a normal
+      // outcome, not an error; the caller resolves it with a lookup.
       if (!resultSet.next()) {
-        // Yes: Report the problem.
-        String message =
-            "Unable to create row in url table for url = " + url;
-        log.error(message);
-        throw new DbException(message);
+        log.debug2("url digest already existed, no row inserted");
+        return null;
       }
 
-      // No: Get the url database identifier.
       urlSeq = resultSet.getLong(1);
       log.debug2("urlSeq = {}", urlSeq);
 
-      if (isLongUrl) {
-        String urle = url.substring(LONG_URL_THRESHOLD);
-
-        ps = idxDbManager.prepareStatement(conn, INSERT_LONG_URL_QUERY);
-
-        ps.setLong(1, urlSeq);
-        ps.setString(2, urle);
-
-        idxDbManager.executeUpdate(ps);
-      }
-
       // Count this new urls-table row toward the geometric ANALYZE cadence.
+      // Only reached when a row was actually inserted.
       noteUrlRowCreated();
 
       return urlSeq;
     } catch (SQLException sqle) {
       log.error(errorMessage, sqle);
-      log.error("SQL = '{}'.", INSERT_URL_QUERY);
+      log.error("SQL = '{}'.", UPSERT_URL_QUERY);
       log.error("url = {}", url);
       throw new DbException(errorMessage, sqle);
     } catch (DbException dbe) {
       log.error(errorMessage, dbe);
-      log.error("SQL = '{}'.", INSERT_URL_QUERY);
+      log.error("SQL = '{}'.", UPSERT_URL_QUERY);
       log.error("url = {}", url);
       throw dbe;
     } finally {
@@ -1266,73 +1155,16 @@ public class SQLArtifactIndexManagerSql {
 
     log.debug2("namespace = {}", namespace);
 
-    while (true) {
-      if (lru_namespace_seqs.containsKey(namespace)) {
-        return lru_namespace_seqs.get(namespace);
-      }
-
-      // Find the namespace in the database
-      Long namespaceSeq = findNamespaceSeq(conn, namespace);
-      log.trace("namespaceSeq = {}", namespaceSeq);
-
-      if (namespaceSeq == null) {
-        try {
-          // Add the namespace to the database
-          namespaceSeq = addNamespace(conn, namespace);
-          log.trace("new namespaceSeq = {}", namespaceSeq);
-        } catch (DbException e) {
-          Throwable cause = e.getCause();
-          if (cause != null && cause.getMessage().startsWith(DUPLICATE_KEY_ERROR_MESSAGE)) {
-            log.warn("Race caused duplicate key violation on namespace: {}; retrying...", namespace);
-            continue;
-          }
-          throw e;
-        }
-      }
-
-      log.debug2("namespaceSeq = {}", namespaceSeq);
-      return namespaceSeq;
+    // Single lookup; see findOrCreateUrlSeq() for why containsKey()+get() is
+    // unsafe here.
+    Long cachedNamespaceSeq = lru_namespace_seqs.get(namespace);
+    if (cachedNamespaceSeq != null) {
+      return cachedNamespaceSeq;
     }
-  }
 
-  private static final String DUPLICATE_KEY_ERROR_MESSAGE =
-      "ERROR: duplicate key value violates unique constraint";
-
-  protected Long findNamespaceSeq(Connection conn, String namespace)
-      throws DbException {
-
-    log.debug2("namespace = {}", namespace);
-
-    Long namespaceSeq = null;
-    PreparedStatement ps = null;
-    ResultSet resultSet = null;
-    String errorMessage = "Cannot find namespace";
-
-    try {
-      // Prepare the query
-      ps = idxDbManager.prepareStatement(conn, FIND_NAMESPACE_SEQ_QUERY);
-
-      // Populate the query
-      ps.setString(1, namespace);
-
-      // Get the namespace row
-      resultSet = idxDbManager.executeQuery(ps);
-
-      // Check whether a result was obtained.
-      if (resultSet.next()) {
-        // Yes: Get the namespace sequence
-        namespaceSeq = resultSet.getLong(NAMESPACE_SEQ_COLUMN);
-        log.trace("Found namespaceSeq = {}", namespaceSeq);
-      }
-    } catch (SQLException sqle) {
-      log.error(errorMessage, sqle);
-      log.error("SQL = '{}'.", FIND_NAMESPACE_SEQ_QUERY);
-      log.error("namespace = {}", namespace);
-      throw new DbException(errorMessage, sqle);
-    } finally {
-      DbManager.safeCloseResultSet(resultSet);
-      DbManager.safeCloseStatement(ps);
-    }
+    // Atomic upsert; see findOrCreateUrlSeq() for why the former
+    // retry-on-duplicate-key loop could not work.
+    Long namespaceSeq = addNamespace(conn, namespace);
 
     log.debug2("namespaceSeq = {}", namespaceSeq);
     return namespaceSeq;
@@ -1348,19 +1180,17 @@ public class SQLArtifactIndexManagerSql {
 
     try {
       // Prepare the query
-      ps = idxDbManager.prepareStatement(conn,
-          INSERT_NAMESPACE_QUERY, Statement.RETURN_GENERATED_KEYS);
+      ps = idxDbManager.prepareStatement(conn, UPSERT_NAMESPACE_QUERY);
 
       // Populate the query
       ps.setString(1, namespace);
 
-      // Add the namespace
-      idxDbManager.executeUpdate(ps);
-      resultSet = ps.getGeneratedKeys();
+      // Add the namespace. RETURNING makes this a result-producing statement.
+      resultSet = idxDbManager.executeQuery(ps);
 
       // Check whether a result was not obtained.
       if (!resultSet.next()) {
-        // Yes: Report the problem.
+        // DO UPDATE always produces a row, so an empty result is impossible.
         String message =
             "Unable to create row in namespace table for namespace = " + namespace;
         log.error(message);
@@ -1372,12 +1202,12 @@ public class SQLArtifactIndexManagerSql {
       log.trace("Added namespaceSeq = {}", namespaceSeq);
     } catch (SQLException sqle) {
       log.error(errorMessage, sqle);
-      log.error("SQL = '{}'.", INSERT_NAMESPACE_QUERY);
+      log.error("SQL = '{}'.", UPSERT_NAMESPACE_QUERY);
       log.error("namespace = {}", namespace);
       throw new DbException(errorMessage, sqle);
     } catch (DbException dbe) {
       log.error(errorMessage, dbe);
-      log.error("SQL = '{}'.", INSERT_NAMESPACE_QUERY);
+      log.error("SQL = '{}'.", UPSERT_NAMESPACE_QUERY);
       log.error("namespace = {}", namespace);
       throw dbe;
     } finally {
@@ -1474,70 +1304,16 @@ public class SQLArtifactIndexManagerSql {
 
     log.debug2("auid = {}", auid);
 
-    while (true) {
-      if (lru_auids_seqs.containsKey(auid)) {
-        return lru_auids_seqs.get(auid);
-      }
-
-      // Find the AUID in the database
-      Long auidSeq = findAuidSeq(conn, auid);
-      log.trace("auidSeq = {}", auidSeq);
-
-      if (auidSeq == null) {
-        try {
-          // Add the AUID to the database
-          auidSeq = addAuid(conn, auid);
-          log.trace("new auidSeq = {}", auidSeq);
-        } catch (DbException e) {
-          Throwable cause = e.getCause();
-          if (cause != null && cause.getMessage().startsWith(DUPLICATE_KEY_ERROR_MESSAGE)) {
-            log.warn("Race caused duplicate key violation on AUID: {}; retrying...", auid);
-            continue;
-          }
-          throw e;
-        }
-      }
-
-      log.debug2("auidSeq = {}", auidSeq);
-      return auidSeq;
+    // Single lookup; see findOrCreateUrlSeq() for why containsKey()+get() is
+    // unsafe here.
+    Long cachedAuidSeq = lru_auids_seqs.get(auid);
+    if (cachedAuidSeq != null) {
+      return cachedAuidSeq;
     }
-  }
 
-  protected Long findAuidSeq(Connection conn, String auid)
-      throws DbException {
-
-    log.debug2("auid = {}", auid);
-
-    Long auidSeq = null;
-    PreparedStatement findAuid = null;
-    ResultSet resultSet = null;
-    String errorMessage = "Cannot find AUID";
-
-    try {
-      // Prepare the query
-      findAuid = idxDbManager.prepareStatement(conn, FIND_AUID_SEQ_QUERY);
-
-      // Populate the query
-      findAuid.setString(1, auid);
-
-      // Get the AUID row
-      resultSet = idxDbManager.executeQuery(findAuid);
-
-      // Check whether a result was obtained.
-      if (resultSet.next()) {
-        // Yes: Get the AUID sequence
-        auidSeq = resultSet.getLong(AUID_SEQ_COLUMN);
-        log.trace("Found auidSeq = {}", auidSeq);
-      }
-    } catch (SQLException sqle) {
-      log.error(errorMessage, sqle);
-      log.error("SQL = '{}'.", FIND_AUID_SEQ_QUERY);
-      log.error("auid = {}", auid);
-      throw new DbException(errorMessage, sqle);
-    } finally {
-      DbManager.safeCloseResultSet(resultSet);
-      DbManager.safeCloseStatement(findAuid);
-    }
+    // Atomic upsert; see findOrCreateUrlSeq() for why the former
+    // retry-on-duplicate-key loop could not work.
+    Long auidSeq = addAuid(conn, auid);
 
     log.debug2("auidSeq = {}", auidSeq);
     return auidSeq;
@@ -1553,19 +1329,17 @@ public class SQLArtifactIndexManagerSql {
 
     try {
       // Prepare the query
-      insertAuid = idxDbManager.prepareStatement(conn,
-          INSERT_AUID_QUERY, Statement.RETURN_GENERATED_KEYS);
+      insertAuid = idxDbManager.prepareStatement(conn, UPSERT_AUID_QUERY);
 
       // Populate the query
       insertAuid.setString(1, auid);
 
-      // Add the AUID
-      idxDbManager.executeUpdate(insertAuid);
-      resultSet = insertAuid.getGeneratedKeys();
+      // Add the AUID. RETURNING makes this a result-producing statement.
+      resultSet = idxDbManager.executeQuery(insertAuid);
 
       // Check whether a result was not obtained.
       if (!resultSet.next()) {
-        // Yes: Report the problem.
+        // DO UPDATE always produces a row, so an empty result is impossible.
         String message =
             "Unable to create row in AUID table for auid = " + auid;
         log.error(message);
@@ -1577,12 +1351,12 @@ public class SQLArtifactIndexManagerSql {
       log.trace("Added auidSeq = {}", auidSeq);
     } catch (SQLException sqle) {
       log.error(errorMessage, sqle);
-      log.error("SQL = '{}'.", INSERT_AUID_QUERY);
+      log.error("SQL = '{}'.", UPSERT_AUID_QUERY);
       log.error("auid = {}", auid);
       throw new DbException(errorMessage, sqle);
     } catch (DbException dbe) {
       log.error(errorMessage, dbe);
-      log.error("SQL = '{}'.", INSERT_AUID_QUERY);
+      log.error("SQL = '{}'.", UPSERT_AUID_QUERY);
       log.error("auid = {}", auid);
       throw dbe;
     } finally {
@@ -1665,11 +1439,7 @@ public class SQLArtifactIndexManagerSql {
       url = EMPTY_STRING;
     }
 
-    boolean isLongUrl = LONG_URL_THRESHOLD < url.length();
-
-    String sqlQuery = isLongUrl ?
-        LONG_URL_GET_ARTIFACT_WITH_VERSION_QUERY :
-        GET_ARTIFACT_WITH_VERSION_QUERY;
+    String sqlQuery = GET_ARTIFACT_WITH_VERSION_QUERY;
 
     try {
       if (!includeUncommitted) {
@@ -1684,15 +1454,8 @@ public class SQLArtifactIndexManagerSql {
       // Populate the query
       ps.setString(1, namespace);
       ps.setString(2, auid);
-
-      if (isLongUrl) {
-        ps.setString(3, url.substring(0, LONG_URL_THRESHOLD));
-        ps.setString(4, url.substring(LONG_URL_THRESHOLD));
-        ps.setInt(5, version);
-      } else {
-        ps.setString(3, url);
-        ps.setInt(4, version);
-      }
+      ps.setString(3, url);
+      ps.setInt(4, version);
 
       resultSet = idxDbManager.executeQuery(ps);
 
@@ -1757,7 +1520,7 @@ public class SQLArtifactIndexManagerSql {
 
       // Add keyset WHERE clause if not first page
       String keysetClause = hasCursor ?
-          KEYSET_WHERE_CLAUSE.replace("--SortUriExpr--", SORT_URI_EXPR_LONG_URL) : EMPTY_STRING;
+          KEYSET_WHERE_CLAUSE.replace("--SortUriExpr--", SORT_URI_EXPR) : EMPTY_STRING;
       sqlQuery = sqlQuery.replace("--KeysetCondition--", keysetClause);
 
       // Add LIMIT clause
@@ -1842,7 +1605,7 @@ public class SQLArtifactIndexManagerSql {
 
       // Add keyset WHERE clause if not first page
       String keysetClause = hasCursor ?
-          KEYSET_WHERE_CLAUSE.replace("--SortUriExpr--", SORT_URI_EXPR_LONG_URL) : EMPTY_STRING;
+          KEYSET_WHERE_CLAUSE.replace("--SortUriExpr--", SORT_URI_EXPR) : EMPTY_STRING;
       sqlQuery = sqlQuery.replace("--KeysetCondition--", keysetClause);
 
       // Add LIMIT clause
@@ -1907,18 +1670,15 @@ public class SQLArtifactIndexManagerSql {
     Connection conn = null;
     PreparedStatement ps = null;
     ResultSet rs = null;
-    boolean isLongUrl = LONG_URL_THRESHOLD < url.length();
     boolean hasCursor = !cursor.isInitial();
 
-    String sqlQuery = isLongUrl ?
-        LONG_URL_GET_COMMITTED_ARTIFACTS_WITH_NAMESPACE_AUID_URL_QUERY :
-        GET_COMMITTED_ARTIFACTS_WITH_NAMESPACE_AUID_URL_QUERY;
+    String sqlQuery = GET_COMMITTED_ARTIFACTS_WITH_NAMESPACE_AUID_URL_QUERY;
 
     try {
       conn = getConnection();
 
       // Add keyset WHERE clause if not first page
-      String sortUriExpr = isLongUrl ? SORT_URI_EXPR_LONG_URL : SORT_URI_EXPR_SHORT_URL;
+      String sortUriExpr = SORT_URI_EXPR;
       String keysetClause = hasCursor ?
           KEYSET_WHERE_CLAUSE.replace("--SortUriExpr--", sortUriExpr) : EMPTY_STRING;
       sqlQuery = sqlQuery.replace("--KeysetCondition--", keysetClause);
@@ -1934,12 +1694,7 @@ public class SQLArtifactIndexManagerSql {
       ps.setString(paramIndex++, namespace);
       ps.setString(paramIndex++, auid);
 
-      if (isLongUrl) {
-        ps.setString(paramIndex++, url.substring(0, LONG_URL_THRESHOLD));
-        ps.setString(paramIndex++, url.substring(LONG_URL_THRESHOLD));
-      } else {
         ps.setString(paramIndex++, url);
-      }
 
       if (hasCursor) {
         ps.setString(paramIndex++, cursor.getSortUri());
@@ -1995,26 +1750,19 @@ public class SQLArtifactIndexManagerSql {
     Connection conn = null;
     PreparedStatement ps = null;
     ResultSet rs = null;
-    boolean isLongUrl = LONG_URL_THRESHOLD < url.length();
     boolean hasCursor = !cursor.isInitial();
     String sqlQuery;
 
-    if (isLongUrl) {
-      sqlQuery = versions == VersionsEnum.LATEST ?
-          LONG_URL_GET_LATEST_ARTIFACTS_WITH_NAMESPACE_AND_URL_QUERY :
-          LONG_URL_GET_ARTIFACTS_WITH_NAMESPACE_AND_URL_QUERY;
-    } else {
       sqlQuery = versions == VersionsEnum.LATEST ?
           GET_LATEST_ARTIFACTS_WITH_NAMESPACE_AND_URL_QUERY :
           GET_ARTIFACTS_WITH_NAMESPACE_AND_URL_QUERY;
-    }
 
     try {
       conn = getConnection();
 
       // Add keyset WHERE clause if not first page
       // Use extended clause with auid because same URL can exist across multiple AUIDs
-      String sortUriExpr = isLongUrl ? SORT_URI_EXPR_LONG_URL : SORT_URI_EXPR_SHORT_URL;
+      String sortUriExpr = SORT_URI_EXPR;
       String keysetClause = hasCursor ?
           KEYSET_WHERE_CLAUSE_ALL_AUIDS.replace("--SortUriExpr--", sortUriExpr) : EMPTY_STRING;
       sqlQuery = sqlQuery.replace("--KeysetCondition--", keysetClause);
@@ -2029,12 +1777,7 @@ public class SQLArtifactIndexManagerSql {
       int paramIndex = 1;
       ps.setString(paramIndex++, namespace);
 
-      if (isLongUrl) {
-        ps.setString(paramIndex++, url.substring(0, LONG_URL_THRESHOLD));
-        ps.setString(paramIndex++, url.substring(LONG_URL_THRESHOLD));
-      } else {
         ps.setString(paramIndex++, url);
-      }
 
       if (hasCursor) {
         // Extended keyset: (sortUri > ?) OR (sortUri = ? AND auid > ?) OR (sortUri = ? AND auid = ? AND version < ?)
@@ -2070,6 +1813,164 @@ public class SQLArtifactIndexManagerSql {
   }
 
   /**
+   * Builds the SQL fragment that matches {@code column} against a literal URL
+   * prefix, for substitution in place of {@link #URL_PREFIX_CONDITION_TOKEN}.
+   *
+   * <p>A range predicate is used rather than {@code LIKE prefix || '%'} because
+   * {@code %} and {@code _} are {@code LIKE} metacharacters, as is {@code \} in
+   * PostgreSQL (which supplies a default escape character when the predicate has
+   * no {@code ESCAPE} clause). A caller-supplied URL prefix must be matched
+   * literally, i.e. equivalently to {@code String.startsWith}.
+   *
+   * <p>{@code COLLATE "C"} is required, not decorative: the range is equivalent
+   * to a literal prefix match only under byte-order (equivalently, code point
+   * order) comparison. The index database is created from {@code template0} with
+   * no explicit {@code LC_COLLATE}, so it inherits a cluster default that is
+   * generally a locale collation, under which comparison is not
+   * character-by-character.
+   *
+   * <p>The range is expressed over {@code left(column, URL_PREFIX_INDEX_LENGTH)}
+   * rather than over the column itself, because that is the expression
+   * {@code idx1_urls} is built on: {@code urls.url} is unbounded and a btree
+   * index row cannot exceed 2704 bytes, so the index cannot cover the whole
+   * column. For a prefix no longer than that bound the truncated range is
+   * <em>exact</em> - {@code left(U,N)} starts with P if and only if {@code U}
+   * does - so no further comparison is needed. Only a longer prefix, where the
+   * truncated range degrades to equality, needs the exact recheck against the
+   * column.
+   *
+   * <p>So the fragment is built from two independent ranges, and the three
+   * booleans say which of their four bounds are present:
+   * <ul>
+   *   <li>the <em>truncated</em> range over {@code left(column, N)}, which
+   *       drives the index and is always emitted;
+   *   <li>the <em>exact</em> range over the bare column, emitted only when
+   *       {@code recheck}.
+   * </ul>
+   * Each range's lower bound always exists, so only the upper bounds are
+   * optional - {@link #prefixUpperBound} returns null for a prefix that has no
+   * successor, leaving that range open-ended.
+   *
+   * <p>The two upper bounds must be decided separately by the caller, because
+   * one can exist where the other does not: a prefix of {@code N} copies of
+   * U+10FFFF followed by any lesser character truncates to an all-U+10FFFF
+   * string, which has no successor, while the full prefix does. (The converse
+   * cannot happen - truncating an all-U+10FFFF prefix leaves it all-U+10FFFF.)
+   * Passing one flag for both would drop a bound that exists, or bind a
+   * parameter the predicate has no placeholder for.
+   *
+   * <p>The caller must bind exactly the parameters this emits, in this order:
+   * truncated lower, truncated upper if {@code idxBounded}, then - only when
+   * {@code recheck} - exact lower and exact upper if {@code exactBounded}.
+   *
+   * @param column       The qualified column holding the URL
+   * @param idxBounded   Whether the <em>truncated</em> range has an exclusive
+   *                     upper bound to bind, i.e. whether
+   *                     {@link #prefixUpperBound} found a successor for
+   *                     {@code leftCodePoints(prefix, N)}. When false the lower
+   *                     bound alone is the correct, trivially true, predicate
+   * @param recheck      Whether the prefix is longer than {@link
+   *                     SqlConstants#URL_PREFIX_INDEX_LENGTH}, so that the
+   *                     truncated range has degraded to equality and no longer
+   *                     decides the match on its own. When false, no exact
+   *                     range is emitted and {@code exactBounded} is ignored
+   * @param exactBounded Whether the <em>exact</em> range has an exclusive upper
+   *                     bound to bind, i.e. whether {@link #prefixUpperBound}
+   *                     found a successor for the full prefix. Only consulted
+   *                     when {@code recheck}
+   * @return The SQL fragment, each conjunct preceded by {@code AND}
+   */
+  private static String urlPrefixCondition(String column, boolean idxBounded,
+                                           boolean recheck,
+                                           boolean exactBounded) {
+    String truncated =
+        "left(" + column + ", " + URL_PREFIX_INDEX_LENGTH + ") COLLATE \"C\"";
+
+    StringBuilder sb = new StringBuilder();
+
+    sb.append(" AND ").append(truncated).append(" >= ? ");
+    if (idxBounded) {
+      sb.append(" AND ").append(truncated).append(" < ? ");
+    }
+
+    if (recheck) {
+      String collated = column + " COLLATE \"C\"";
+      sb.append(" AND ").append(collated).append(" >= ? ");
+      if (exactBounded) {
+        sb.append(" AND ").append(collated).append(" < ? ");
+      }
+    }
+
+    return sb.toString();
+  }
+
+  /**
+   * The first {@code n} code points of {@code s}, matching what PostgreSQL's
+   * {@code left(s, n)} returns.
+   *
+   * <p>Not {@code substring(0, n)}: that counts UTF-16 code units, so on a
+   * string containing any non-BMP character it would both cut at the wrong
+   * place and, in the worst case, split a surrogate pair. {@code left()} counts
+   * characters, and the two must agree exactly or the index-driving predicate
+   * stops matching the index expression.
+   *
+   * @param s The string to truncate; must not be null
+   * @param n The number of code points to keep
+   * @return {@code s} itself when it is no longer than {@code n} code points,
+   *         otherwise its first {@code n} code points
+   */
+  static String leftCodePoints(String s, int n) {
+    if (s.codePointCount(0, s.length()) <= n) {
+      return s;
+    }
+
+    return s.substring(0, s.offsetByCodePoints(0, n));
+  }
+
+  /**
+   * Returns the exclusive upper bound for a literal-prefix range match under C
+   * (byte-order) collation: the prefix with its last code point incremented,
+   * carrying left past any U+10FFFF. Returns null when no upper bound exists
+   * (empty prefix, or a prefix consisting entirely of U+10FFFF), meaning the
+   * range is open-ended.
+   *
+   * <p>The increment is by code point rather than by {@code char} because UTF-8
+   * byte order is code point order, and code point order is what
+   * {@code COLLATE "C"} compares.
+   *
+   * @param prefix The literal prefix; must not be null
+   * @return The exclusive upper bound, or null if the range is open-ended
+   * @throws IllegalArgumentException if {@code prefix} is null
+   */
+  static String prefixUpperBound(String prefix) {
+    if (prefix == null) {
+      throw new IllegalArgumentException("prefix must not be null");
+    }
+
+    int i = prefix.length();
+
+    while (i > 0) {
+      int cp = prefix.codePointBefore(i);
+      int start = i - Character.charCount(cp);
+      int next = cp + 1;
+
+      // Code points in the surrogate range are not Unicode scalar values.
+      if (next == Character.MIN_SURROGATE) {
+        next = Character.MAX_SURROGATE + 1;
+      }
+
+      if (next <= Character.MAX_CODE_POINT) {
+        return prefix.substring(0, start) + new String(Character.toChars(next));
+      }
+
+      // cp was U+10FFFF: drop it and carry left.
+      i = start;
+    }
+
+    return null;
+  }
+
+  /**
    * Fetches a page of artifacts by URL prefix across all AUIDs in a namespace using keyset pagination.
    * Connection is opened, used, and closed within this method.
    *
@@ -2098,29 +1999,39 @@ public class SQLArtifactIndexManagerSql {
     Connection conn = null;
     PreparedStatement ps = null;
     ResultSet rs = null;
-    boolean isLongUrl = LONG_URL_THRESHOLD < prefix.length();
     boolean hasCursor = !cursor.isInitial();
     String sqlQuery;
 
-    if (isLongUrl) {
-      sqlQuery = versions == VersionsEnum.LATEST ?
-          LONG_URL_GET_LATEST_ARTIFACTS_WITH_NAMESPACE_AND_URL_PREFIX_QUERY :
-          LONG_URL_GET_ARTIFACTS_WITH_NAMESPACE_AND_URL_PREFIX_QUERY;
-    } else {
       sqlQuery = versions == VersionsEnum.LATEST ?
           GET_LATEST_ARTIFACTS_WITH_NAMESPACE_AND_URL_PREFIX_QUERY :
           GET_ARTIFACTS_WITH_NAMESPACE_AND_URL_PREFIX_QUERY;
-    }
 
     try {
       conn = getConnection();
 
       // Add keyset WHERE clause if not first page
       // Use extended clause with auid because same URL can exist across multiple AUIDs
-      // All prefix queries use long URL expression (they use LEFT JOIN to long_url table)
       String keysetClause = hasCursor ?
-          KEYSET_WHERE_CLAUSE_ALL_AUIDS.replace("--SortUriExpr--", SORT_URI_EXPR_LONG_URL) : EMPTY_STRING;
+          KEYSET_WHERE_CLAUSE_ALL_AUIDS.replace("--SortUriExpr--", SORT_URI_EXPR) : EMPTY_STRING;
       sqlQuery = sqlQuery.replace("--KeysetCondition--", keysetClause);
+
+      // Add the literal URL prefix condition. In the long URL branch the prefix
+      // head is matched by an '=' predicate and only the tail is ranged over.
+      String prefixColumn = "u." + URL_COLUMN;
+      // idx1_urls is built on left(url, N), so the range that can drive it is
+      // over the truncated prefix. That range is exact whenever the prefix itself
+      // fits within N; only a longer prefix needs the exact bounds as a recheck.
+      // Both upper bounds are computed independently: a truncated prefix can be
+      // open-ended where the full one is not. See urlPrefixCondition().
+      String idxLowerBound = leftCodePoints(prefix, URL_PREFIX_INDEX_LENGTH);
+      String idxUpperBound = prefixUpperBound(idxLowerBound);
+      boolean recheck = !idxLowerBound.equals(prefix);
+      String lowerBound = prefix;
+      String upperBound = prefixUpperBound(lowerBound);
+
+      sqlQuery = sqlQuery.replace(URL_PREFIX_CONDITION_TOKEN,
+          urlPrefixCondition(prefixColumn, idxUpperBound != null, recheck,
+              upperBound != null));
 
       // Add LIMIT clause
       sqlQuery += " LIMIT ?";
@@ -2132,13 +2043,18 @@ public class SQLArtifactIndexManagerSql {
       int paramIndex = 1;
       ps.setString(paramIndex++, namespace);
 
-      if (isLongUrl) {
-        String pattern = prefix.substring(LONG_URL_THRESHOLD) + "%";
-        ps.setString(paramIndex++, prefix.substring(0, LONG_URL_THRESHOLD));
-        ps.setString(paramIndex++, pattern);
-      } else {
-        String pattern = prefix + "%";
-        ps.setString(paramIndex++, pattern);
+      ps.setString(paramIndex++, idxLowerBound);
+
+      if (idxUpperBound != null) {
+        ps.setString(paramIndex++, idxUpperBound);
+      }
+
+      if (recheck) {
+        ps.setString(paramIndex++, lowerBound);
+
+        if (upperBound != null) {
+          ps.setString(paramIndex++, upperBound);
+        }
       }
 
       if (hasCursor) {
@@ -2200,21 +2116,35 @@ public class SQLArtifactIndexManagerSql {
     Connection conn = null;
     PreparedStatement ps = null;
     ResultSet rs = null;
-    boolean isLongUrl = LONG_URL_THRESHOLD < urlPrefix.length();
     boolean hasCursor = !cursor.isInitial();
 
-    String sqlQuery = isLongUrl ?
-        LONG_URL_GET_LATEST_ARTIFACTS_WITH_NAMESPACE_AUID_URL_PREFIX_QUERY :
-        GET_LATEST_ARTIFACTS_WITH_NAMESPACE_AUID_URL_PREFIX_QUERY;
+    String sqlQuery = GET_LATEST_ARTIFACTS_WITH_NAMESPACE_AUID_URL_PREFIX_QUERY;
 
     try {
       conn = getConnection();
 
       // Add keyset WHERE clause if not first page
-      // All prefix queries use long URL expression (they use LEFT JOIN to long_url table)
       String keysetClause = hasCursor ?
-          KEYSET_WHERE_CLAUSE.replace("--SortUriExpr--", SORT_URI_EXPR_LONG_URL) : EMPTY_STRING;
+          KEYSET_WHERE_CLAUSE.replace("--SortUriExpr--", SORT_URI_EXPR) : EMPTY_STRING;
       sqlQuery = sqlQuery.replace("--KeysetCondition--", keysetClause);
+
+      // Add the literal URL prefix condition. In the long URL branch the prefix
+      // head is matched by an '=' predicate and only the tail is ranged over.
+      String prefixColumn = "u." + URL_COLUMN;
+      // idx1_urls is built on left(url, N), so the range that can drive it is
+      // over the truncated prefix. That range is exact whenever the prefix itself
+      // fits within N; only a longer prefix needs the exact bounds as a recheck.
+      // Both upper bounds are computed independently: a truncated prefix can be
+      // open-ended where the full one is not. See urlPrefixCondition().
+      String idxLowerBound = leftCodePoints(urlPrefix, URL_PREFIX_INDEX_LENGTH);
+      String idxUpperBound = prefixUpperBound(idxLowerBound);
+      boolean recheck = !idxLowerBound.equals(urlPrefix);
+      String lowerBound = urlPrefix;
+      String upperBound = prefixUpperBound(lowerBound);
+
+      sqlQuery = sqlQuery.replace(URL_PREFIX_CONDITION_TOKEN,
+          urlPrefixCondition(prefixColumn, idxUpperBound != null, recheck,
+              upperBound != null));
 
       // Add LIMIT clause
       sqlQuery += " LIMIT ?";
@@ -2227,13 +2157,18 @@ public class SQLArtifactIndexManagerSql {
       ps.setString(paramIndex++, namespace);
       ps.setString(paramIndex++, auid);
 
-      if (isLongUrl) {
-        String pattern = urlPrefix.substring(LONG_URL_THRESHOLD) + "%";
-        ps.setString(paramIndex++, urlPrefix.substring(0, LONG_URL_THRESHOLD));
-        ps.setString(paramIndex++, pattern);
-      } else {
-        String pattern = urlPrefix + "%";
-        ps.setString(paramIndex++, pattern);
+      ps.setString(paramIndex++, idxLowerBound);
+
+      if (idxUpperBound != null) {
+        ps.setString(paramIndex++, idxUpperBound);
+      }
+
+      if (recheck) {
+        ps.setString(paramIndex++, lowerBound);
+
+        if (upperBound != null) {
+          ps.setString(paramIndex++, upperBound);
+        }
       }
 
       if (hasCursor) {
@@ -2291,21 +2226,35 @@ public class SQLArtifactIndexManagerSql {
     Connection conn = null;
     PreparedStatement ps = null;
     ResultSet rs = null;
-    boolean isLongUrl = LONG_URL_THRESHOLD < urlPrefix.length();
     boolean hasCursor = !cursor.isInitial();
 
-    String sqlQuery = isLongUrl ?
-        LONG_URL_GET_ARTIFACTS_WITH_NAMESPACE_AUID_URL_PREFIX_QUERY :
-        GET_ARTIFACTS_WITH_NAMESPACE_AUID_URL_PREFIX_QUERY;
+    String sqlQuery = GET_ARTIFACTS_WITH_NAMESPACE_AUID_URL_PREFIX_QUERY;
 
     try {
       conn = getConnection();
 
       // Add keyset WHERE clause if not first page
-      // All prefix queries use long URL expression (they use LEFT JOIN to long_url table)
       String keysetClause = hasCursor ?
-          KEYSET_WHERE_CLAUSE.replace("--SortUriExpr--", SORT_URI_EXPR_LONG_URL) : EMPTY_STRING;
+          KEYSET_WHERE_CLAUSE.replace("--SortUriExpr--", SORT_URI_EXPR) : EMPTY_STRING;
       sqlQuery = sqlQuery.replace("--KeysetCondition--", keysetClause);
+
+      // Add the literal URL prefix condition. In the long URL branch the prefix
+      // head is matched by an '=' predicate and only the tail is ranged over.
+      String prefixColumn = "u." + URL_COLUMN;
+      // idx1_urls is built on left(url, N), so the range that can drive it is
+      // over the truncated prefix. That range is exact whenever the prefix itself
+      // fits within N; only a longer prefix needs the exact bounds as a recheck.
+      // Both upper bounds are computed independently: a truncated prefix can be
+      // open-ended where the full one is not. See urlPrefixCondition().
+      String idxLowerBound = leftCodePoints(urlPrefix, URL_PREFIX_INDEX_LENGTH);
+      String idxUpperBound = prefixUpperBound(idxLowerBound);
+      boolean recheck = !idxLowerBound.equals(urlPrefix);
+      String lowerBound = urlPrefix;
+      String upperBound = prefixUpperBound(lowerBound);
+
+      sqlQuery = sqlQuery.replace(URL_PREFIX_CONDITION_TOKEN,
+          urlPrefixCondition(prefixColumn, idxUpperBound != null, recheck,
+              upperBound != null));
 
       // Add LIMIT clause
       sqlQuery += " LIMIT ?";
@@ -2318,16 +2267,21 @@ public class SQLArtifactIndexManagerSql {
       ps.setString(paramIndex++, namespace);
       ps.setString(paramIndex++, auid);
 
-      if (isLongUrl) {
-        String pattern = urlPrefix.substring(LONG_URL_THRESHOLD) + "%";
-        ps.setString(paramIndex++, urlPrefix.substring(0, LONG_URL_THRESHOLD));
-        ps.setString(paramIndex++, pattern);
-        ps.setBoolean(paramIndex++, true);
-      } else {
-        String pattern = urlPrefix + "%";
-        ps.setString(paramIndex++, pattern);
-        ps.setBoolean(paramIndex++, true);
+      ps.setString(paramIndex++, idxLowerBound);
+
+      if (idxUpperBound != null) {
+        ps.setString(paramIndex++, idxUpperBound);
       }
+
+      if (recheck) {
+        ps.setString(paramIndex++, lowerBound);
+
+        if (upperBound != null) {
+          ps.setString(paramIndex++, upperBound);
+        }
+      }
+
+      ps.setBoolean(paramIndex++, true);
 
       if (hasCursor) {
         ps.setString(paramIndex++, cursor.getSortUri());
@@ -2512,17 +2466,8 @@ public class SQLArtifactIndexManagerSql {
     PreparedStatement ps = null;
     ResultSet resultSet = null;
     String errorMessage = "Cannot get artifact";
-    boolean isLongUrl = LONG_URL_THRESHOLD < url.length();
-    String sqlQuery = null;
-    String latestVersionQuery;
-
-    if (isLongUrl) {
-      sqlQuery = LONG_URL_GET_LATEST_ARTIFACT_QUERY;
-      latestVersionQuery = LONG_URL_GET_LATEST_ARTIFACT_VERSION_QUERY;
-    } else {
-      sqlQuery = GET_LATEST_ARTIFACT_QUERY;
-      latestVersionQuery = GET_LATEST_ARTIFACT_VERSION_QUERY;
-    }
+    String sqlQuery = GET_LATEST_ARTIFACT_QUERY;
+    String latestVersionQuery = GET_LATEST_ARTIFACT_VERSION_QUERY;
 
     try {
       if (!includeUncommitted) {
@@ -2540,22 +2485,12 @@ public class SQLArtifactIndexManagerSql {
       ps.setString(idx++, namespace);
       ps.setString(idx++, auid);
 
-      if (isLongUrl) {
-        ps.setString(idx++, url.substring(0, LONG_URL_THRESHOLD));
-        ps.setString(idx++, url.substring(LONG_URL_THRESHOLD));
-      } else {
         ps.setString(idx++, url);
-      }
 
       ps.setString(idx++, namespace);
       ps.setString(idx++, auid);
 
-      if (isLongUrl) {
-        ps.setString(idx++, url.substring(0, LONG_URL_THRESHOLD));
-        ps.setString(idx++, url.substring(LONG_URL_THRESHOLD));
-      } else {
         ps.setString(idx++, url);
-      }
 
       if (!includeUncommitted) {
         ps.setBoolean(idx, true);
@@ -2768,6 +2703,51 @@ public class SQLArtifactIndexManagerSql {
   // with a per-table key in pg_try_advisory_xact_lock(int, int).
   private static final int ANALYZE_ADVISORY_LOCK_NAMESPACE = 0x4C4B5341; // "LKSA"
 
+  // Longest a loading thread will wait for an out-of-band ANALYZE before
+  // carrying on without it.
+  //
+  // The refresh takes a second connection while the caller already holds one.
+  // Under pool pressure that acquisition can BLOCK rather than throw, so a load
+  // could stall indefinitely waiting for a connection it needs only to update
+  // planner statistics. Waiting buys the caller nothing anyway: the replan the
+  // ANALYZE enables benefits whichever batch runs after it lands, not this one.
+  // The wait exists only so the refresh doesn't drift arbitrarily far behind
+  // the load, so it is deliberately short.
+  private static final long ANALYZE_WAIT_TIMEOUT_MS = 5000;
+
+  // Runs the out-of-band ANALYZEs. Single-threaded and daemon: at most one
+  // refresh is ever in flight, and a stuck one can't hold up JVM exit. The
+  // executor creates its thread on first use, so instances that never load
+  // artifacts never start one.
+  private final ExecutorService analyzeExecutor =
+      Executors.newSingleThreadExecutor(r -> {
+        Thread t = new Thread(r, "sql-artifact-index-analyze");
+        t.setDaemon(true);
+        return t;
+      });
+
+  // Tables with an ANALYZE currently scheduled or running. Entries are added by
+  // the submitter and removed by the task itself -- removing on the submitter's
+  // timeout would let refresh requests pile up behind a task that is still
+  // blocked, which is exactly what this is here to prevent.
+  //
+  // Keyed by table, not a single flag: addArtifacts() refreshes the urls table
+  // during the load and the artifacts table right after the last commit, and a
+  // single flag would let an in-flight urls refresh swallow the trailing
+  // artifacts one -- which is the refresh that keeps post-load reads from
+  // waiting on autovacuum. The executor is single-threaded, so refreshes of
+  // different tables still never run concurrently; the second one queues.
+  private final Set<String> analyzesInFlight = ConcurrentHashMap.newKeySet();
+
+  /**
+   * Stops the background ANALYZE thread. Pending refreshes are best-effort and
+   * are simply dropped; in-flight ones are left to finish or to be killed at
+   * JVM exit (the thread is a daemon).
+   */
+  public void shutdown() {
+    analyzeExecutor.shutdownNow();
+  }
+
   /** Add all the Artifacts to the DB, return a Set containing all
    * unique (Namespace, AUID) pairs */
   public Set<Pair<String,String>> addArtifacts(Iterable<Artifact> artifacts)
@@ -2854,6 +2834,12 @@ public class SQLArtifactIndexManagerSql {
     // Refresh artifact-table stats once, after all rows are committed, so
     // post-load reads don't have to wait for autovacuum to catch up. Done
     // out-of-band for the same safety reason as the URL analyze.
+    //
+    // This is past the finally above: every artifact is durably committed and
+    // the connection is closed. Anything thrown from here would report the AU
+    // as failed with 100% of its rows in the database -- a pure false negative
+    // that, at the finishBulkStore() call site, used to cost the AU's entire
+    // volatile index. analyzeTableOutOfBand() is total, so it cannot.
     if (count > 0) {
       analyzeTableOutOfBand(ARTIFACT_TABLE);
     }
@@ -2898,7 +2884,75 @@ public class SQLArtifactIndexManagerSql {
   // A per-table advisory lock serializes concurrent refreshes so they don't
   // collide (and so we skip redundant work: the holder's ANALYZE benefits us
   // too). The advisory lock is transaction-scoped and released by the commit.
+  //
+  // THIS METHOD IS TOTAL: it returns normally no matter what goes wrong. That
+  // is a requirement, not a nicety. It is called from inside the addArtifacts()
+  // insert loop (via maybeAnalyzeUrls()) and again after the final commit, so
+  // anything it throws destroys the uncommitted batch and abandons every
+  // artifact left in the iterable -- or, from the trailing call site, fails an
+  // AU whose rows are already 100% committed. Nothing a statistics refresh does
+  // can justify that: ANALYZE only affects query planning.
+  //
+  // IT IS ALSO BOUNDED: the refresh runs on the background thread and the caller
+  // waits at most ANALYZE_WAIT_TIMEOUT_MS for it, because getConnection() can
+  // block, not just throw, when the pool is under pressure -- and the caller is
+  // holding a connection of its own while it waits. Totality alone does not
+  // cover a stall.
+  //
+  // The honest cost of that bound: the caller's wait is bounded, the background
+  // thread's is not. One permanently stuck refresh means no further ANALYZEs of
+  // that table for the life of the process, since its in-flight entry never
+  // clears. That is the intended trade -- a load that keeps running with stale
+  // statistics beats a load that stops -- and it is why repeat refreshes of a
+  // table are skipped rather than queued while one is in flight: the total
+  // added stall is one timeout per stuck episode, not one per batch.
+  //
+  // The timeout runs from submission, not from the start of the ANALYZE, so a
+  // refresh that queues behind another table's can spend its whole budget
+  // waiting for the thread. The caller returns either way; the refresh still
+  // happens, just later.
   private void analyzeTableOutOfBand(String table) {
+    if (!analyzesInFlight.add(table)) {
+      log.debug2("Out-of-band ANALYZE {} skipped: a refresh of it is already in flight", table);
+      return;
+    }
+
+    Future<?> future;
+
+    try {
+      future = analyzeExecutor.submit(() -> {
+        try {
+          analyzeTableNow(table);
+        } finally {
+          analyzesInFlight.remove(table);
+        }
+      });
+    } catch (RuntimeException e) {
+      // Notably RejectedExecutionException, after shutdown().
+      analyzesInFlight.remove(table);
+      log.warn("Could not schedule out-of-band ANALYZE {} (ignored): {}", table, e.toString());
+      return;
+    }
+
+    try {
+      future.get(ANALYZE_WAIT_TIMEOUT_MS, TimeUnit.MILLISECONDS);
+    } catch (TimeoutException e) {
+      // Carry on: the refresh keeps running and will benefit whatever comes
+      // after it. The in-flight flag stops requests piling up behind it.
+      log.warn("Out-of-band ANALYZE {} did not finish within {}ms; continuing without it",
+               table, ANALYZE_WAIT_TIMEOUT_MS);
+    } catch (ExecutionException e) {
+      // analyzeTableNow() is total, so this should be unreachable.
+      log.warn("Out-of-band ANALYZE {} failed (ignored): {}", table, e.getCause());
+    } catch (InterruptedException e) {
+      Thread.currentThread().interrupt();
+      log.warn("Interrupted waiting for out-of-band ANALYZE {}", table);
+    }
+  }
+
+  // The body of the out-of-band ANALYZE, run on analyzeExecutor. Total, for the
+  // reasons given on analyzeTableOutOfBand().
+  private void analyzeTableNow(String table) {
     Connection conn = null;
     try {
       conn = getConnection();
@@ -2921,10 +2975,16 @@ public class SQLArtifactIndexManagerSql {
 
       // Commit to release the advisory lock (and the ANALYZE's catalog updates).
       DbManager.commitOrRollback(conn, log);
-    } catch (SQLException | DbException e) {
+    } catch (Exception e) {
       // Best-effort: a failed ANALYZE (e.g. "tuple concurrently updated") aborts
       // only this throwaway transaction; the finally rolls it back and closes.
-      log.warn("Out-of-band ANALYZE {} failed (ignored): {}", table, e.getMessage());
+      //
+      // Deliberately Exception and not a checked list: an unchecked failure here
+      // is at least as likely as a checked one (a connection pool that is
+      // exhausted or shutting down throws IllegalStateException, drivers throw
+      // unchecked wrappers), and it would propagate all the way out of
+      // addArtifacts(). See the totality note above.
+      log.warn("Out-of-band ANALYZE {} failed (ignored): {}", table, e.toString());
     } finally {
       if (conn != null) {
         DbManager.safeRollbackAndClose(conn);
@@ -2953,8 +3013,11 @@ public class SQLArtifactIndexManagerSql {
     long seed = 0;
     try {
       seed = estimatedRowCount(URL_TABLE);
-    } catch (DbException e) {
-      log.warn("Could not seed urls row estimate; assuming empty: {}", e.getMessage());
+    } catch (Exception e) {
+      // Total, like analyzeTableOutOfBand(): this runs from noteUrlRowCreated(),
+      // i.e. on the creation of every new url row, deep inside the addArtifacts()
+      // insert loop. A failure to read a row estimate must never cost artifacts.
+      log.warn("Could not seed urls row estimate; assuming empty: {}", e.toString());
     }
     // Only the first thread to seed wins; others adopt whatever value was set.
     if (urlTableRowEstimate.compareAndSet(-1, seed)) {
@@ -2982,7 +3045,10 @@ public class SQLArtifactIndexManagerSql {
       long n = rs.next() ? rs.getLong(1) : 0;
       DbManager.commitOrRollback(conn, log);
       return Math.max(n, 0);
-    } catch (SQLException e) {
+    } catch (SQLException | RuntimeException e) {
+      // RuntimeException included so this method's whole failure surface is
+      // DbException; its caller is a best-effort path that must not let an
+      // unchecked failure escape into the artifact insert loop.
       throw new DbException("Could not read estimated row count for " + table, e);
     } finally {
       DbManager.safeCloseResultSet(rs);
@@ -3080,70 +3146,564 @@ public class SQLArtifactIndexManagerSql {
     ps.setLong(10, artifact.getCollectionDate());
   }
 
-  public void upsertArtifactForReindex(Artifact artifact) throws DbException {
+  /**
+   * Upserts an artifact on the reindex path.
+   *
+   * @param artifact       The {@link Artifact} to upsert.
+   * @param conflictPolicy How to resolve another artifact already claiming
+   *                       this artifact's (namespace, AUID, URL, version).
+   */
+  public void upsertArtifactForReindex(Artifact artifact,
+      SQLArtifactIndex.VersionConflictResolution conflictPolicy)
+      throws DbException {
     log.debug2("artifact = {}", artifact);
 
     Connection conn = null;
 
     try {
       conn = getConnection();
-      upsertArtifactForReindex(conn, artifact);
+      upsertArtifactForReindex(conn, artifact, conflictPolicy);
 
-      // Commit the transaction.
+      // Commit the transaction. The conflict resolution above and the upsert
+      // are in this one transaction, so a failure cannot leave the loser
+      // deleted and the winner uninserted.
       DbManager.commitOrRollback(conn, log);
     } finally {
       DbManager.safeRollbackAndClose(conn);
     }
   }
 
-  public void upsertArtifactsForReindex(Iterable<Artifact> artifacts) throws DbException {
+  /**
+   * Outcome of a batched reindex-upsert pass over an iterable of artifacts.
+   */
+  public static final class ReindexUpsertOutcome {
+    private final int attempted;
+    private final int failed;
+    private final Artifact firstArtifact;
+
+    ReindexUpsertOutcome(int attempted, int failed, Artifact firstArtifact) {
+      this.attempted = attempted;
+      this.failed = failed;
+      this.firstArtifact = firstArtifact;
+    }
+
+    /** @return How many artifacts were attempted. */
+    public int getAttempted() {
+      return attempted;
+    }
+
+    /** @return How many artifacts failed and were skipped. */
+    public int getFailed() {
+      return failed;
+    }
+
+    /**
+     * @return The first artifact seen, or {@code null} if the input iterable
+     *         was empty.
+     */
+    public Artifact getFirstArtifact() {
+      return firstArtifact;
+    }
+  }
+
+  /**
+   * Upserts each of the given artifacts on the reindex path, batching commits
+   * for throughput while preserving per-artifact isolation: no single bad
+   * artifact can abandon the rest of the (possibly very large) input.
+   *
+   * <p>Per-artifact transactions cost a pool checkout and a COMMIT each, and
+   * the COMMIT is the expensive half: with {@code synchronous_commit=on} that
+   * is a WAL flush per artifact -- 1000 fsyncs per 1000 artifacts where a
+   * batched version does one. This is the shape {@code addArtifacts()}
+   * already uses, plus a failure path.
+   *
+   * <p>Algorithm: buffer artifacts into lists of at most
+   * {@code ARTIFACT_INSERT_BATCH_SIZE}. For each buffered batch, first try an
+   * <b>optimistic</b> pass on a single held connection: upsert every artifact
+   * in the batch without an intervening commit, then commit once. If any
+   * artifact in the optimistic pass throws, the whole transaction is presumed
+   * aborted (a statement error aborts the entire PostgreSQL transaction until
+   * rolled back), so nothing is salvaged: the connection is closed and a
+   * fresh one is opened, and the <b>same</b> buffered batch is replayed one
+   * artifact at a time, each in its own transaction, skipping (and counting)
+   * failures exactly as the pre-batching per-artifact loop did. Only the
+   * batch that actually failed pays the per-artifact commit cost.
+   *
+   * <p>The iterable is walked exactly once, since it may be single-use.
+   *
+   * @param artifacts      The artifacts to upsert, walked once.
+   * @param conflictPolicy How to resolve another artifact already claiming
+   *                       an incoming artifact's (namespace, AUID, URL, version).
+   * @return An outcome recording how many artifacts were attempted, how many
+   *         failed, and the first artifact seen (for AU-size invalidation).
+   */
+  public ReindexUpsertOutcome upsertArtifactsForReindex(Iterable<Artifact> artifacts,
+      SQLArtifactIndex.VersionConflictResolution conflictPolicy)
+      throws DbException {
+    int attempted = 0;
+    Artifact firstArtifact = null;
+    int[] failedHolder = new int[1];
+
     Connection conn = null;
+    List<Artifact> batch = new ArrayList<>(ARTIFACT_INSERT_BATCH_SIZE);
 
     try {
       conn = getConnection();
 
       for (Artifact artifact : artifacts) {
-        upsertArtifactForReindex(conn, artifact);
+        attempted++;
+
+        if (firstArtifact == null) {
+          firstArtifact = artifact;
+        }
+
+        batch.add(artifact);
+
+        if (batch.size() == ARTIFACT_INSERT_BATCH_SIZE) {
+          conn = flushReindexBatch(conn, batch, conflictPolicy, failedHolder);
+          batch.clear();
+        }
       }
 
-      // Commit the transaction.
-      DbManager.commitOrRollback(conn, log);
+      if (!batch.isEmpty()) {
+        conn = flushReindexBatch(conn, batch, conflictPolicy, failedHolder);
+        batch.clear();
+      }
     } finally {
       DbManager.safeRollbackAndClose(conn);
     }
+
+    int failed = failedHolder[0];
+
+    if (failed > 0) {
+      log.error("Reindex skipped {} of {} artifacts; see the errors above",
+                failed, attempted);
+    }
+
+    return new ReindexUpsertOutcome(attempted, failed, firstArtifact);
   }
 
-  private void upsertArtifactForReindex(Connection conn, Artifact artifact) throws DbException {
+  /**
+   * Flushes one buffered reindex batch: an optimistic single-commit attempt
+   * over the whole batch on {@code conn}, falling back to an isolated
+   * per-artifact replay (on a fresh connection) if the optimistic attempt
+   * throws. See {@link #upsertArtifactsForReindex(Iterable, SQLArtifactIndex.VersionConflictResolution)}.
+   *
+   * @param conn          The connection to use for the optimistic attempt.
+   *                      Consumed: on return, the caller must use the
+   *                      returned connection instead.
+   * @param batch         The buffered batch to upsert. Not mutated.
+   * @param conflictPolicy The version-conflict resolution policy.
+   * @param failedHolder  One-element array; incremented by the number of
+   *                      artifacts in this batch that failed and were
+   *                      skipped.
+   * @return The connection to use for subsequent work -- {@code conn} itself
+   *         on optimistic success, or a fresh connection after a replay.
+   */
+  private Connection flushReindexBatch(Connection conn, List<Artifact> batch,
+      SQLArtifactIndex.VersionConflictResolution conflictPolicy, int[] failedHolder)
+      throws DbException {
+    try {
+      for (Artifact artifact : batch) {
+        upsertArtifactForReindex(conn, artifact, conflictPolicy);
+      }
+
+      // Every artifact in the batch upserted cleanly: commit once for the
+      // whole batch (a single WAL flush under synchronous_commit=on).
+      DbManager.commitOrRollback(conn, log);
+      return conn;
+    } catch (DbException | RuntimeException e) {
+      // The optimistic attempt failed somewhere in the batch. A server-side
+      // error aborts the whole PostgreSQL transaction until rolled back, so
+      // nothing here can be salvaged: close this connection (redundant, and
+      // harmless, if commitOrRollback already did so on a commit failure) and
+      // replay the SAME batch one artifact at a time on a fresh connection,
+      // isolating each artifact in its own transaction exactly as the
+      // pre-batching per-artifact loop did.
+      DbManager.safeRollbackAndClose(conn);
+
+      Connection freshConn = getConnection();
+
+      for (Artifact artifact : batch) {
+        try {
+          upsertArtifactForReindex(freshConn, artifact, conflictPolicy);
+          DbManager.commitOrRollback(freshConn, log);
+        } catch (DbException | RuntimeException e2) {
+          failedHolder[0]++;
+          log.error("Could not reindex artifact, skipping it [uuid: {}, url: {}]",
+                    artifact.getUuid(), artifact.getUri(), e2);
+
+          // The failed artifact may have left the connection's transaction
+          // aborted (if upsertArtifactForReindex itself threw) or already
+          // closed (if commitOrRollback's own failure path closed it).
+          // Either way, get a connection known to be usable for the next
+          // artifact in the replay.
+          DbManager.safeRollbackAndClose(freshConn);
+          freshConn = getConnection();
+        }
+      }
+
+      return freshConn;
+    }
+  }
+
+  private void upsertArtifactForReindex(Connection conn, Artifact artifact,
+      SQLArtifactIndex.VersionConflictResolution conflictPolicy)
+      throws DbException {
     long namespaceSeq = findOrCreateNamespaceSeq(conn, artifact.getNamespace());
     long auidSeq = findOrCreateAuidSeq(conn, artifact.getAuid());
     long urlSeq = findOrCreateUrlSeq(conn, artifact.getUri());
-    upsertArtifactForReindex(conn, auidSeq, namespaceSeq, urlSeq, artifact);
+    upsertArtifactForReindex(conn, auidSeq, namespaceSeq, urlSeq, artifact,
+        conflictPolicy);
   }
 
-  private void upsertArtifactForReindex(Connection conn, long auidSeq, long namespaceSeq, long urlSeq, Artifact artifact)
+  private void upsertArtifactForReindex(Connection conn, long auidSeq, long namespaceSeq, long urlSeq, Artifact artifact,
+      SQLArtifactIndex.VersionConflictResolution conflictPolicy)
       throws DbException {
 
-    PreparedStatement ps = idxDbManager.prepareStatement(conn, UPSERT_ARTIFACT_FOR_REINDEX_QUERY);
-    ArtifactIdentifier artifactId = artifact.getIdentifier();
+    // Arbitrate against any other artifact already claiming this
+    // artifact's (namespace, AUID, URL, version), i.e. rows under a DIFFERENT
+    // uuid. Skips the insert when the incumbent wins.
+    if (!resolveVersionConflict(conn, namespaceSeq, auidSeq, urlSeq, artifact,
+                                conflictPolicy)) {
+      return;
+    }
+
+    // The SAME-uuid case is arbitrated by the statement's own
+    // guarded ON CONFLICT clause -- never downgrading committed true -> false,
+    // and never applying a record with a strictly worse collection date under
+    // the policy. The two compose: resolveVersionConflict has already left the
+    // own row as the only row on the tuple, so whichever way the guard goes --
+    // update in place or leave the row alone -- exactly one row remains.
+    PreparedStatement ps = idxDbManager.prepareStatement(conn,
+        upsertArtifactForReindexQuery(conflictPolicy));
 
     try {
-      ps.setString(1, artifactId.getUuid());
-      ps.setLong(2, namespaceSeq);
-      ps.setLong(3, auidSeq);
-      ps.setLong(4, urlSeq);
-      ps.setInt(5, artifactId.getVersion());
-      ps.setBoolean(6, artifact.isCommitted());
-      ps.setString(7, artifact.getStorageUrl());
-      ps.setLong(8, artifact.getContentLength());
-      ps.setString(9, artifact.getContentDigest());
-      ps.setLong(10, artifact.getCollectionDate());
-      ps.setBoolean(11, artifact.isCommitted());
-      ps.setString(12, artifact.getStorageUrl());
+      bindArtifactInsertParams(ps, namespaceSeq, auidSeq, urlSeq, artifact);
 
       idxDbManager.executeUpdate(ps);
     } catch (SQLException e) {
       log.error("Error preparing SQL statement", e);
       throw new DbException("Error preparing SQL statement", e);
+    } finally {
+      DbManager.safeCloseStatement(ps);
+    }
+  }
+
+  /**
+   * One row of {@link #FIND_ARTIFACT_VERSION_CONFLICTS_QUERY}: an artifact
+   * already claiming the tuple an incoming reindexed artifact claims.
+   */
+  private static final class VersionConflict {
+    final String uuid;
+    final long crawlTime;
+    final boolean committed;
+
+    VersionConflict(String uuid, long crawlTime, boolean committed) {
+      this.uuid = uuid;
+      this.crawlTime = crawlTime;
+      this.committed = committed;
+    }
+  }
+
+  /**
+   * Resolves, on the reindex path, the case of two or more artifacts claiming
+   * the same {@code (namespace, AUID, URL, version)} under different UUIDs.
+   *
+   * <p>Nothing in the schema prevents this: the artifacts table's only unique
+   * index is on {@code uuid}, so
+   * {@code UPSERT_ARTIFACT_FOR_REINDEX_QUERY}'s {@code ON CONFLICT (uuid)}
+   * never fires for it and the reindex would otherwise insert a second row that
+   * reads then resolve arbitrarily. The typical origin is a V2 migration
+   * followed by a re-crawl that stored a fresh UUID at a URL and version the
+   * migrated artifact already held.
+   *
+   * <h3>Committedness dominates the collection-date policy (Component D.3)</h3>
+   *
+   * <p>A committed candidate always beats an uncommitted one, whatever
+   * {@code conflictPolicy} and whatever the collection dates. Only between two
+   * candidates of the <em>same</em> committed class does {@code crawl_time}
+   * decide. An uncommitted artifact therefore never displaces a committed one.
+   *
+   * <p>That is right because an uncommitted row is transient by construction --
+   * the artifact in the temporary WARC will either be committed, at which point
+   * it is a legitimate competitor, or the temporary WARC will be
+   * garbage-collected. Overwriting a committed artifact on the strength of one
+   * would trade a permanent loss for a situation that resolves itself.
+   *
+   * <p><b>Committedness selects the winner; it does not exempt the losers.</b>
+   * A losing uncommitted row is deleted like any other loser, because two rows
+   * on one tuple are exactly the non-determinism Component D exists to remove:
+   * an {@code includeUncommitted} read would resolve between them arbitrarily
+   * via {@code LIMIT 1}.
+   *
+   * <p>When an uncommitted incoming artifact loses to a committed row, the
+   * insert is <em>skipped</em>, not merely overridden. That is load-bearing:
+   * reindex walks permanent WARCs before temporary ones
+   * ({@code WarcArtifactDataStore.reindexArtifacts}), so the uncommitted
+   * temp-WARC record -- under a different uuid, since the temp and permanent
+   * copies of a repaired artifact need not share one -- arrives after the
+   * committed permanent record. Inserting it would re-create the duplicate that
+   * was just removed, and Component D.2's {@code ON CONFLICT} guard could not
+   * prevent it: that guard only ever sees the same-uuid path.
+   *
+   * <p>The incoming artifact's <em>effective</em> committed state is
+   * {@code artifact.isCommitted() || (its own row exists and is committed)}.
+   * Once an artifact is known committed, a later presentation that says
+   * otherwise -- the temp-WARC {@code UNKNOWN} branch in
+   * {@code WarcArtifactDataStore}, which reports {@code committed=false} when
+   * a journal entry is missing -- must not downgrade it. This is the same
+   * principle Component D.2 encodes in the {@code ON CONFLICT} guard; only the
+   * committed flag of the own row is merged this way. The own row's stored
+   * {@code crawl_time} deliberately does <em>not</em> participate in the
+   * arbitration: on a reindex the WARC record is the source of truth for the
+   * collection date, and the stored value may be exactly the corrupt migration
+   * stamp being repaired. A consequence worth stating: a committed own row can
+   * be deleted here when the <em>presented</em> crawl time loses to a committed
+   * competitor, even though the own row's stored crawl time would have won.
+   *
+   * <h3>Convergence</h3>
+   *
+   * After this call exactly one row remains on the tuple</b>. Every losing
+   * row is deleted, not just one, because an index damaged before this code
+   * existed may hold several; and when the incumbent wins, the incoming
+   * artifact's own row is deleted too if a previous run left one behind.
+   * Without that an install already holding both artifacts would never converge
+   * under {@code PreferLatest}, since the losing artifact's insert is merely
+   * skipped. The single exception is the incoming artifact's own row when the
+   * incoming artifact <em>wins</em>: it is left for the guarded
+   * {@code ON CONFLICT} clause to update in place.
+   *
+   * <p>Equal crawl times within a class keep the
+   * existing row, so re-running a recovery does not churn the index. Because
+   * the arbitration reads only the stored rows and the presented artifact, and
+   * because it is deterministic, reindexing the same AU twice leaves the same
+   * single row both times.
+   *
+   * <p>Takes an explicit {@link Connection} rather than opening its own, both
+   * so that the resolution and the insert it arbitrates share one transaction
+   * and so that the deferred batched reindex path (E.3) can call it unchanged.
+   *
+   * @param conn           The {@link Connection} of the enclosing transaction.
+   * @param namespaceSeq   The namespace sequence of the incoming artifact.
+   * @param auidSeq        The AUID sequence of the incoming artifact.
+   * @param urlSeq         The URL sequence of the incoming artifact.
+   * @param artifact       The incoming {@link Artifact}.
+   * @param conflictPolicy How to choose between the artifacts.
+   * @return {@code true} if the incoming artifact should be inserted or
+   *         upserted, {@code false} if an existing artifact won and the insert
+   *         must be skipped.
+   * @throws DbException if the database cannot be queried or updated.
+   */
+  boolean resolveVersionConflict(Connection conn, long namespaceSeq,
+      long auidSeq, long urlSeq, Artifact artifact,
+      SQLArtifactIndex.VersionConflictResolution conflictPolicy)
+      throws DbException {
+
+    ArtifactIdentifier artifactId = artifact.getIdentifier();
+    String incomingUuid = artifactId.getUuid();
+    long incomingCrawlTime = artifact.getCollectionDate();
+
+    List<VersionConflict> rows = findVersionConflicts(conn, namespaceSeq,
+        auidSeq, urlSeq, artifactId.getVersion());
+
+    // Partition on uuid: the incoming artifact's own row (0 or 1 rows, since
+    // uuid is uniquely indexed) and the competitors under other uuids.
+    VersionConflict own = null;
+    List<VersionConflict> others = new ArrayList<>(rows.size());
+
+    for (VersionConflict row : rows) {
+      if (row.uuid.equals(incomingUuid)) {
+        own = row;
+      } else {
+        others.add(row);
+      }
+    }
+
+    if (others.isEmpty()) {
+      // The common case by far: nothing else claims this tuple. The own row,
+      // if there is one, is the guarded ON CONFLICT clause's business (D.2).
+      return true;
+    }
+
+    // D.3: the incoming artifact is committed if it is presented as committed
+    // OR is already recorded as committed. A presentation that says otherwise
+    // must not downgrade what the index already knows.
+    boolean incomingCommitted =
+        artifact.isCommitted() || (own != null && own.committed);
+
+    // D.3: committedness dominates the collection-date policy, so the winner's
+    // committed class is settled before any crawl time is compared. It is the
+    // committed class iff any candidate at all is committed.
+    boolean winnerCommitted = incomingCommitted;
+    for (VersionConflict other : others) {
+      winnerCommitted |= other.committed;
+    }
+
+    // Pick the competitor the policy likes best from within that class; the
+    // incoming artifact is then compared against that one. Ties among existing
+    // rows are broken arbitrarily but deterministically for a given result
+    // order -- they are already indistinguishable to every read.
+    VersionConflict best = null;
+    int classSize = 0;
+
+    for (VersionConflict other : others) {
+      if (other.committed != winnerCommitted) {
+        continue;
+      }
+      classSize++;
+      if (best == null || prefers(conflictPolicy, other.crawlTime, best.crawlTime)) {
+        best = other;
+      }
+    }
+
+    // The incoming artifact wins if it is the only candidate in the winner's
+    // class (i.e. it is committed and no competitor is), or if it is in that
+    // class and the policy strictly prefers its collection date.
+    boolean incomingWins = best == null
+        || (incomingCommitted == winnerCommitted
+            && prefers(conflictPolicy, incomingCrawlTime, best.crawlTime));
+
+    if (incomingWins) {
+      // Every other row loses, whatever its committed class: exactly one row
+      // must be left on the tuple. The own row is the one exception, and is
+      // never deleted here -- the guarded ON CONFLICT clause (D.2) owns it,
+      // and deleting it would both pre-empt that guard and turn an update into
+      // an insert.
+      for (VersionConflict loser : others) {
+        deleteArtifactRow(conn, loser.uuid);
+      }
+
+      log.info("Version conflict on ({}, {}, {}, ver {}) resolved by {}: "
+              + "keeping incoming [uuid: {}, crawlTime: {}, committed: {}{}], "
+              + "deleting {} existing row(s) "
+              + "(winning committed class: {}, {} competitor(s) in it, "
+              + "best of them: {})",
+          artifact.getNamespace(), artifact.getAuid(), artifact.getUri(),
+          artifactId.getVersion(), conflictPolicy,
+          incomingUuid, incomingCrawlTime, incomingCommitted,
+          own == null ? ", no existing row"
+                      : ", own row committed: " + own.committed,
+          others.size(), winnerCommitted, classSize,
+          best == null ? "none" : best.uuid + "/" + best.crawlTime);
+
+      return true;
+    }
+
+    // The incumbent wins. Every other row loses, including the incoming
+    // artifact's own row if a previous run left one behind, so that exactly one
+    // row is left on the tuple this way too.
+    //
+    // Returning false here is load-bearing beyond "do not overwrite": it stops
+    // the insert. Reindex walks permanent WARCs before temporary ones
+    // (WarcArtifactDataStore.reindexArtifacts), so an uncommitted temp-WARC
+    // record under a DIFFERENT uuid arrives after the committed permanent
+    // record. Inserting it would re-create the very duplicate just deleted, and
+    // D.2's ON CONFLICT guard could not stop it -- that guard only ever sees
+    // the same-uuid path.
+    for (VersionConflict loser : others) {
+      if (!loser.uuid.equals(best.uuid)) {
+        deleteArtifactRow(conn, loser.uuid);
+      }
+    }
+
+    if (own != null) {
+      deleteArtifactRow(conn, incomingUuid);
+    }
+
+    log.info("Version conflict on ({}, {}, {}, ver {}) resolved by {}: "
+            + "keeping existing [uuid: {}, crawlTime: {}, committed: {}], "
+            + "skipping incoming [uuid: {}, crawlTime: {}, committed: {}] "
+            + "(own row {}, winning committed class: {})",
+        artifact.getNamespace(), artifact.getAuid(), artifact.getUri(),
+        artifactId.getVersion(), conflictPolicy,
+        best.uuid, best.crawlTime, best.committed,
+        incomingUuid, incomingCrawlTime, incomingCommitted,
+        own == null ? "absent" : "deleted", winnerCommitted);
+
+    return false;
+  }
+
+  /**
+   * Whether {@code candidate} is strictly preferred over {@code incumbent}
+   * under the given policy. Strict, so equal crawl times keep the incumbent.
+   */
+  private static boolean prefers(
+      SQLArtifactIndex.VersionConflictResolution conflictPolicy,
+      long candidate, long incumbent) {
+    switch (conflictPolicy) {
+      case PreferLatest:
+        return candidate > incumbent;
+      case PreferEarliest:
+      default:
+        return candidate < incumbent;
+    }
+  }
+
+  /**
+   * Finds every artifact claiming the given (namespace, AUID, URL, version),
+   * including the incoming artifact's own row -- {@link
+   * #resolveVersionConflict} partitions them, because it needs the own row's
+   * committed flag. See {@link #FIND_ARTIFACT_VERSION_CONFLICTS_QUERY}.
+   */
+  private List<VersionConflict> findVersionConflicts(Connection conn,
+      long namespaceSeq, long auidSeq, long urlSeq, int version)
+      throws DbException {
+
+    List<VersionConflict> result = new ArrayList<>();
+    PreparedStatement ps = null;
+    ResultSet resultSet = null;
+
+    try {
+      ps = idxDbManager.prepareStatement(conn, FIND_ARTIFACT_VERSION_CONFLICTS_QUERY);
+      ps.setLong(1, namespaceSeq);
+      ps.setLong(2, auidSeq);
+      ps.setLong(3, urlSeq);
+      ps.setInt(4, version);
+
+      resultSet = idxDbManager.executeQuery(ps);
+
+      while (resultSet.next()) {
+        // committed is COALESCEd to FALSE by the query, so no wasNull() check
+        // is needed here.
+        result.add(new VersionConflict(
+            resultSet.getString(ARTIFACT_UUID_COLUMN),
+            resultSet.getLong(ARTIFACT_CRAWL_TIME_COLUMN),
+            resultSet.getBoolean(ARTIFACT_COMMITTED_COLUMN)));
+      }
+    } catch (SQLException sqle) {
+      String errorMessage = "Cannot find conflicting artifact versions";
+      log.error(errorMessage, sqle);
+      log.error("SQL = '{}'.", FIND_ARTIFACT_VERSION_CONFLICTS_QUERY);
+      throw new DbException(errorMessage, sqle);
+    } finally {
+      DbManager.safeCloseResultSet(resultSet);
+      DbManager.safeCloseStatement(ps);
+    }
+
+    return result;
+  }
+
+  /**
+   * Deletes a single artifact row on the given connection, without the
+   * orphaned-namespace/AUID/URL sweep {@link #deleteArtifact(Connection,
+   * String)} performs: the winner of a version conflict holds the same
+   * namespace, AUID and URL sequences as the loser, so none of them can be
+   * orphaned by this delete.
+   */
+  private void deleteArtifactRow(Connection conn, String uuid) throws DbException {
+    PreparedStatement ps = null;
+
+    try {
+      ps = idxDbManager.prepareStatement(conn, DELETE_ARTIFACT_QUERY);
+      ps.setString(1, uuid);
+      idxDbManager.executeUpdate(ps);
+    } catch (SQLException sqle) {
+      String errorMessage = "Cannot delete artifact";
+      log.error(errorMessage, sqle);
+      log.error("SQL = '{}'.", DELETE_ARTIFACT_QUERY);
+      log.error("uuid = {}", uuid);
+      throw new DbException(errorMessage, sqle);
     } finally {
       DbManager.safeCloseStatement(ps);
     }
@@ -3167,8 +3727,14 @@ public class SQLArtifactIndexManagerSql {
       DbManager.commitOrRollback(conn, log);
     } finally {
       DbManager.safeRollbackAndClose(conn);
-      return rowsUpdated;
     }
+
+    // E.2: this return was inside the finally block, which discarded any
+    // DbException thrown above and returned 0 -- indistinguishable from "no
+    // rows matched". updateStorageUrl() is on the commit path
+    // (CopyArtifactTask), so a swallowed failure left an artifact pointing at
+    // a temporary WARC while the copy was reported as done.
+    return rowsUpdated;
   }
 
   private int updateStorageUrl(Connection conn, String uuid, String storageUrl) throws DbException {
@@ -3214,8 +3780,12 @@ public class SQLArtifactIndexManagerSql {
       DbManager.commitOrRollback(conn, log);
     } finally {
       DbManager.safeRollbackAndClose(conn);
-      return rowsDeleted;
     }
+
+    // E.2: see the note in updateStorageUrl(). A DbException here used to be
+    // discarded, and the caller saw the same 0 it sees for "artifact not
+    // present".
+    return rowsDeleted;
   }
 
   private int deleteArtifact(Connection conn, String uuid) throws DbException {
@@ -3271,7 +3841,6 @@ public class SQLArtifactIndexManagerSql {
       try (Statement stmt = conn.createStatement()) {
         stmt.executeUpdate("DELETE FROM " + ARCHIVAL_UNIT_SIZE_TABLE);
         stmt.executeUpdate("DELETE FROM " + ARTIFACT_TABLE);
-        stmt.executeUpdate("DELETE FROM " + LONG_URL_TABLE);
         stmt.executeUpdate("DELETE FROM " + URL_TABLE);
         stmt.executeUpdate("DELETE FROM " + AUID_TABLE);
         stmt.executeUpdate("DELETE FROM " + NAMESPACE_TABLE);

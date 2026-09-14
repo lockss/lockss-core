@@ -71,6 +71,41 @@ public class SQLArtifactIndex extends AbstractArtifactIndex {
 
   public static String ARTIFACT_INDEX_TYPE = "SQL";
 
+  /**
+   * How a reindex resolves two artifacts that claim the same
+   * (namespace, AUID, URL, version) under different UUIDs.
+   *
+   * <p>The artifacts table has a unique index on {@code uuid} only, so nothing
+   * in the schema prevents such a pair from existing; see
+   * {@link SQLArtifactIndexManagerSql#resolveVersionConflict}.
+   *
+   * <p>Lives here, in repocore, rather than in the Spring configuration class
+   * that reads the parameter, because repocore cannot see
+   * {@code org.lockss.config}. Mirrors
+   * {@code RepositoryManager.CheckUnnormalizedMode}.
+   */
+  public enum VersionConflictResolution {
+    /** Keep the artifact with the earliest {@code crawl_time}. */
+    PreferEarliest,
+    /** Keep the artifact with the latest {@code crawl_time}. */
+    PreferLatest
+  }
+
+  /**
+   * Default version-conflict resolution: keep the earliest collection date,
+   * which preserves the original crawl's provenance.
+   */
+  public static final VersionConflictResolution DEFAULT_VERSION_CONFLICT_RESOLUTION =
+      VersionConflictResolution.PreferEarliest;
+
+  /**
+   * Volatile so that a configuration callback on another thread is seen by an
+   * in-progress reindex; initialized to the default so the index behaves
+   * correctly when no callback ever runs (e.g. in tests).
+   */
+  private volatile VersionConflictResolution versionConflictResolution =
+      DEFAULT_VERSION_CONFLICT_RESOLUTION;
+
   private SQLArtifactIndexManagerSql idxdb = null;
 
   private final SemaphoreMap<ArtifactIdentifier.ArtifactStem> versionLock = new SemaphoreMap<>();
@@ -91,6 +126,27 @@ public class SQLArtifactIndex extends AbstractArtifactIndex {
     return idxdb != null;
   }
 
+  /**
+   * Sets the policy used to resolve two artifacts claiming the same
+   * (namespace, AUID, URL, version) during a reindex. Pushed in from the
+   * service's configuration callback, which repocore cannot reach itself.
+   *
+   * @param res The {@link VersionConflictResolution} to use; null selects the
+   *            default.
+   * @return This index, for chaining.
+   */
+  public SQLArtifactIndex setVersionConflictResolution(VersionConflictResolution res) {
+    versionConflictResolution =
+        (res == null) ? DEFAULT_VERSION_CONFLICT_RESOLUTION : res;
+    log.debug("Version conflict resolution set to {}", versionConflictResolution);
+    return this;
+  }
+
+  /** @return The version-conflict resolution policy in effect. */
+  public VersionConflictResolution getVersionConflictResolution() {
+    return versionConflictResolution;
+  }
+
   @Override
   public void start() {
     // Intentionally left blank
@@ -98,7 +154,10 @@ public class SQLArtifactIndex extends AbstractArtifactIndex {
 
   @Override
   public void stop() {
-    // Intentionally left blank
+    if (idxdb != null) {
+      // Stops the background statistics-refresh thread.
+      idxdb.shutdown();
+    }
   }
 
   @Override
@@ -161,39 +220,39 @@ public class SQLArtifactIndex extends AbstractArtifactIndex {
     }
 
     try {
-      idxdb.upsertArtifactForReindex(artifact);
+      idxdb.upsertArtifactForReindex(artifact, versionConflictResolution);
     } catch (DbException e) {
       throw new IOException("Could not add/update artifact to database", e);
     }
   }
 
   @Override
-  public void reindexArtifacts(Iterable<Artifact> artifacts) throws IOException {
+  public int reindexArtifacts(Iterable<Artifact> artifacts) throws IOException {
     try {
-      // TODO: Implement idxdb.upsertArtifactsForReindex(artifacts)
+      SQLArtifactIndexManagerSql.ReindexUpsertOutcome outcome =
+          idxdb.upsertArtifactsForReindex(artifacts, versionConflictResolution);
 
-      Artifact firstArtifact = null;
-
-      for (Artifact artifact : artifacts) {
-        if (firstArtifact == null) {
-          firstArtifact = artifact;
-        }
-
-        idxdb.upsertArtifactForReindex(artifact);
-      }
-
-      // FIXME: The assumption that all the artifacts are in the same namespace and AUID
-      //  (as determined by the first artifact) is only true in "bulk-mode":
-      if (firstArtifact != null) {
+      // FIXME (E.4): The assumption that all the artifacts are in the same namespace
+      //  and AUID (as determined by the first artifact) is only true in "bulk-mode".
+      //  A temporary WARC interleaves AUs, so every AU but the first keeps a stale
+      //  cached size. The general fix is to collect the distinct (namespace, auid)
+      //  set as we go and invalidate each; the per-AU reindex path
+      //  (WarcArtifactDataStore.reindexArtifactsInAu()) is correct by construction.
+      if (outcome.getFirstArtifact() != null) {
         try {
-          invalidateAuSize(firstArtifact.getNamespace(), firstArtifact.getAuid());
+          invalidateAuSize(outcome.getFirstArtifact().getNamespace(),
+                            outcome.getFirstArtifact().getAuid());
         } catch (DbException e) {
+          // Warn and carry on, as indexArtifacts() does. A stale AU-size cache
+          // entry is cosmetic and self-correcting; it must never fail a reindex
+          // whose artifacts are already committed.
           log.warn("Could not invalidate AU size", e);
-          throw e;
         }
       }
+
+      return outcome.getFailed();
     } catch (DbException e) {
-      throw new IOException("Could not add/update artifact to database", e);
+      throw new IOException("Could not reindex artifacts", e);
     }
   }
 
@@ -486,8 +545,16 @@ public class SQLArtifactIndex extends AbstractArtifactIndex {
     } catch (DbException e) {
       throw new IOException("Could not query AU size from database", e);
     } catch (ExecutionException e) {
-      log.error("Could not recompute AU size", e.getCause());
-      throw (IOException) e.getCause();
+      // Unconditionally casting the cause to IOException would throw
+      // ClassCastException and discard the real error whenever the cause is
+      // anything else -- which it now can be, since getAuSizeFuture() completes
+      // the future with whatever it caught.
+      Throwable cause = e.getCause();
+      log.error("Could not recompute AU size", cause);
+      if (cause instanceof IOException ioe) {
+        throw ioe;
+      }
+      throw new IOException("Could not recompute AU size", cause);
     } catch (InterruptedException e) {
       log.error("Interrupted while waiting for AU size recalculation", e);
       throw new IOException("AU size recalculation was interrupted", e);
@@ -518,6 +585,15 @@ public class SQLArtifactIndex extends AbstractArtifactIndex {
     } catch (IOException e) {
       log.error("Couldn't compute AU size", e);
       ausFuture.completeExceptionally(e);
+    } catch (Throwable t) {
+      // Nothing else can ever complete this future: the finally below removes it
+      // from the map, so a concurrent caller that already read it out and is
+      // blocked in auSize() on get() would wait forever -- an unbounded,
+      // uninterruptible hang rather than a failure. Catching Throwable rather
+      // than RuntimeException so an Error can't leave a thread hung either.
+      log.error("Couldn't compute AU size", t);
+      ausFuture.completeExceptionally(t);
+      throw t;
     } finally {
       synchronized (auSizeFutures) {
         auSizeFutures.remove(nsAuid);

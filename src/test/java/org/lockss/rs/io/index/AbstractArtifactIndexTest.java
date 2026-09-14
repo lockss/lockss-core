@@ -67,6 +67,7 @@ import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 import java.util.stream.Stream;
 
+import static org.lockss.config.db.SqlConstants.URL_PREFIX_INDEX_LENGTH;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
@@ -1349,10 +1350,24 @@ public abstract class AbstractArtifactIndexTest<AI extends ArtifactIndex> extend
   // * LONG URL TESTS
   // *******************************************************************************************************************
 
-  private static final int LONG_URL_THRESHOLD = 2500;
+  // Three URL lengths, chosen to straddle the length-dependent seam in the index
+  // implementations: comfortably below it, exactly on it, and far above it.
+  //
+  // That seam used to be at 2500 characters, where the SQL index split a URL across
+  // urls.url and long_urls.long_url. Schema version 5 folded long_urls back into
+  // urls.url, so nothing happens at 2500 any more. What replaced it is
+  // URL_PREFIX_INDEX_LENGTH: idx1_urls is built over left(url, N), so a prefix longer
+  // than N is matched by a truncated range plus an exact recheck, and one no longer than
+  // N by the truncated range alone. A URL of exactly N characters sits on that boundary,
+  // which is where the off-by-one lives.
+  //
+  // The bound is imported rather than copied. A mirrored literal is precisely what let
+  // the old 2500 outlive the mechanism it described, still named THRESHOLD, for a schema
+  // version after there was no threshold.
   private static final String BASE_URL = "http://www.lockss.org/";
   private static final int SHORT_URL_LENGTH = BASE_URL.length();
-  private static final int EXACT_THRESHOLD_LENGTH = LONG_URL_THRESHOLD - BASE_URL.length();
+  private static final int EXACT_THRESHOLD_LENGTH =
+      URL_PREFIX_INDEX_LENGTH - BASE_URL.length();
   private static final int REALLY_LONG_URL_LENGTH = 32764 - BASE_URL.length(); // Max that still works with Solr
 
   private static ArtifactSpec makeArtifactSpec(String ns, String auid, String url, int version) {
