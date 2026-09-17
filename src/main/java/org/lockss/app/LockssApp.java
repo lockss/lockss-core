@@ -1484,6 +1484,9 @@ public class LockssApp {
       System.setProperty(spair.getLeft(), spair.getRight());
     }
 
+    // Registered the BouncyCastle provider now rather than on-demand
+    SslUtil.registerBouncyCastleProvider();
+
     if (opts.isLogCryptoProviders()) {
       SslUtil.logCryptoProviders(true);
     }

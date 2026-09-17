@@ -1,10 +1,10 @@
 /*
- * $Id: StringUtil.java 39864 2015-02-18 09:10:24Z thib_gc $
+ * $Id$
  */
 
 /*
 
-Copyright (c) 2000-2014 Board of Trustees of Leland Stanford Jr. University,
+Copyright (c) 2026 Board of Trustees of Leland Stanford Jr. University,
 all rights reserved.
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
@@ -32,34 +32,37 @@ in this Software without prior written authorization from Stanford University.
 
 package org.lockss.util;
 
-import java.security.Provider;
-import java.security.Security;
+import java.security.*;
+import java.util.*;
 
 import org.bouncycastle.jce.provider.BouncyCastleProvider;
 
-public class SslUtil {
-  private static final Logger log = Logger.getLogger();
+import org.lockss.test.*;
 
-  /**
-   * Registers the BouncyCastle security provider if it isn't already registered.
-   */
-  public static synchronized void registerBouncyCastleProvider() {
-    if (Security.getProvider(BouncyCastleProvider.PROVIDER_NAME) == null) {
-      Security.addProvider(new BouncyCastleProvider());
-      log.info("Registered the BouncyCastle security provider");
-    }
-  }
+public class TestSslUtil extends LockssTestCase {
 
-  public static void logCryptoProviders(boolean verbose) {
-    final Provider[] providers = Security.getProviders();
-    log.info("Logging Security providers");
-    for (final Provider p : providers) {
-      log.info(String.format("%s %s", p.getName(), p.getVersion()));
-      for (final Object o : p.keySet()) {
-	if (verbose) {
-	  log.info(String.format("\t%s : %s", o, p.getProperty((String)o)));
-	}
+  List<Provider> bcProviders() {
+    List<Provider> res = new ArrayList<>();
+    for (Provider p : Security.getProviders()) {
+      if (BouncyCastleProvider.PROVIDER_NAME.equals(p.getName())) {
+        res.add(p);
       }
     }
+    return res;
+  }
+
+  public void testRegisterBouncyCastleProvider() throws Exception {
+    Security.removeProvider(BouncyCastleProvider.PROVIDER_NAME);
+    assertEmpty(bcProviders());
+    Provider first = Security.getProviders()[0];
+
+    SslUtil.registerBouncyCastleProvider();
+    assertEquals(1, bcProviders().size());
+    // Appended, so the JDK's preferred provider is unchanged
+    assertSame(first, Security.getProviders()[0]);
+    assertNotNull(MessageDigest.getInstance("SKEIN-512-512"));
+
+    SslUtil.registerBouncyCastleProvider();
+    assertEquals(1, bcProviders().size());
   }
 }
