@@ -34,10 +34,21 @@ package org.lockss.util;
 
 import java.security.Provider;
 import java.security.Security;
-import java.util.Arrays;
+
+import org.bouncycastle.jce.provider.BouncyCastleProvider;
 
 public class SslUtil {
   private static final Logger log = Logger.getLogger();
+
+  /**
+   * Registers the BouncyCastle security provider if it isn't already registered.
+   */
+  public static synchronized void registerBouncyCastleProvider() {
+    if (Security.getProvider(BouncyCastleProvider.PROVIDER_NAME) == null) {
+      Security.addProvider(new BouncyCastleProvider());
+      log.info("Registered the BouncyCastle security provider");
+    }
+  }
 
   public static void logCryptoProviders(boolean verbose) {
     final Provider[] providers = Security.getProviders();

@@ -47,7 +47,6 @@ import org.bouncycastle.cert.X509CertificateHolder;
 import org.bouncycastle.cert.X509v1CertificateBuilder;
 import org.bouncycastle.cert.jcajce.JcaX509CertificateConverter;
 import org.bouncycastle.crypto.util.PrivateKeyFactory;
-import org.bouncycastle.jce.provider.BouncyCastleProvider;
 import org.bouncycastle.operator.ContentSigner;
 import org.bouncycastle.operator.DefaultDigestAlgorithmIdentifierFinder;
 import org.bouncycastle.operator.DefaultSignatureAlgorithmIdentifierFinder;
@@ -996,7 +995,7 @@ public class KeyStoreUtil {
     KeyPair keyPair;
 
     static {
-      Security.addProvider(new BouncyCastleProvider());
+      SslUtil.registerBouncyCastleProvider();
     }
 
     public CertAndKeyGen(String keyType, String sigAlg) {
