@@ -74,7 +74,7 @@ public class ServiceDescr implements Comparable<ServiceDescr> {
       });
 
   public static final ServiceDescr SVC_PYWB =
-      register(new ServiceDescr("PyWb Service", "pywb") {
+      register(new ServiceDescr("Pywb Service", "pywb") {
         @Override
         public String getServiceUrl(ServiceBinding svcBinding, Properties params) {
           return String.format("%s/%s/*/%s",
