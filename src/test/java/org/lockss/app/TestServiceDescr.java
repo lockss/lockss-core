@@ -87,7 +87,7 @@ public class TestServiceDescr extends LockssTestCase {
 		 ServiceDescr.fromAbbrev("repo"));
     assertEquals(new ServiceDescr("OpenWayback Service", "owb"),
         ServiceDescr.fromAbbrev("owb"));
-    assertEquals(new ServiceDescr("PyWb Service", "pywb"),
+    assertEquals(new ServiceDescr("Pywb Service", "pywb"),
         ServiceDescr.fromAbbrev("pywb"));
 
     try {
@@ -111,7 +111,7 @@ public class TestServiceDescr extends LockssTestCase {
         svcBinding, PropUtil.fromArgs("url", "http://example.lockss.org/"));
     assertEquals("http://test.lockss.org:456/wayback/*/http://example.lockss.org/", owbUrl);
 
-    // PyWb
+    // Pywb
     String pywbUrl = SVC_PYWB.getServiceUrl(
         svcBinding, PropUtil.fromArgs(
             "url", "http://example.lockss.org/",
