@@ -503,7 +503,7 @@ public class TestSQLArtifactIndexDbCollation extends LockssTestCase4 {
         assertTrue(rs.next());
         Object v = rs.getObject(1);
         assertNotNull("legacy committed value is no longer NULL", v);
-        assertFalse("legacy NULL must become uncommitted", v.equals(Boolean.FALSE));
+        assertTrue("legacy NULL must become uncommitted", v.equals(Boolean.FALSE));
       }
       assertEquals("artifacts.committed must be NOT NULL", "NO",
           columnNullable(conn, "artifacts", "committed"));
