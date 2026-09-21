@@ -802,8 +802,14 @@ public class TestLocalWarcArtifactDataStore extends AbstractWarcArtifactDataStor
    * that read.
    */
   private static class LatchedReloadStore extends LocalWarcArtifactDataStore {
-    /** Counted down when the background reload starts. */
-    final CountDownLatch reloadStarted = new CountDownLatch(1);
+    /**
+     * Counted down once per base path when its background reload starts. Sized to the
+     * number of base paths so a test can confirm every base path's reload is running
+     * concurrently (all reach the gate while it is still closed) rather than one after
+     * another (which would never reach this count within the gate's timeout, since the
+     * gate blocks the first one from finishing and letting the next one start).
+     */
+    final CountDownLatch reloadStarted;
 
     /** Blocks the background reload until the test opens it. */
     final CountDownLatch reloadGate = new CountDownLatch(1);
@@ -816,6 +822,7 @@ public class TestLocalWarcArtifactDataStore extends AbstractWarcArtifactDataStor
 
     LatchedReloadStore(Path[] basePaths) throws IOException {
       super(basePaths);
+      reloadStarted = new CountDownLatch(basePaths.length);
     }
 
     @Override
@@ -855,8 +862,71 @@ public class TestLocalWarcArtifactDataStore extends AbstractWarcArtifactDataStor
    */
   private LatchedReloadStore makeLatchedReloadStore(ArtifactIndex index, LocalWarcArtifactDataStore other)
       throws IOException {
+    return makeLatchedReloadStore(index, other.getBasePaths());
+  }
 
-    LatchedReloadStore ds = new LatchedReloadStore(other.getBasePaths());
+  /**
+   * Builds a data store over {@code basePaths} whose background temporary WARC reload is
+   * held until the test opens its gate.
+   */
+  private LatchedReloadStore makeLatchedReloadStore(ArtifactIndex index, Path[] basePaths)
+      throws IOException {
+
+    LatchedReloadStore ds = new LatchedReloadStore(basePaths);
+
+    if (reloadTestExecutor == null) {
+      reloadTestExecutor = Executors.newSingleThreadScheduledExecutor();
+    }
+
+    BaseLockssRepository repo = mock(BaseLockssRepository.class);
+    when(repo.getArtifactIndex()).thenReturn(index);
+    when(repo.getScheduledExecutorService()).thenReturn(reloadTestExecutor);
+    ds.setLockssRepository(repo);
+
+    return ds;
+  }
+
+  /**
+   * A data store whose background reload can be held open at the seam just before {@link
+   * WarcArtifactDataStore#finishTemporaryWarcReload}: after a temporary WARC's artifacts
+   * have all been classified, but before that classification is turned into pooled {@link
+   * WarcFile} stats. Models the window in which a commit or a reload-requeued copy for one
+   * of those artifacts can complete without being reflected in the counts about to be
+   * pooled.
+   */
+  private static class LateReconciliationStore extends LocalWarcArtifactDataStore {
+    /** Counted down when the reload reaches the seam, just before pooling. */
+    final CountDownLatch classifiedGate = new CountDownLatch(1);
+
+    /** Blocks the reload at the seam until the test releases it. */
+    final CountDownLatch releaseGate = new CountDownLatch(1);
+
+    LateReconciliationStore(Path[] basePaths) throws IOException {
+      super(basePaths);
+    }
+
+    @Override
+    protected void beforeFinishTemporaryWarcReload(Path tmpWarc) {
+      classifiedGate.countDown();
+
+      try {
+        if (!releaseGate.await(60, TimeUnit.SECONDS)) {
+          throw new IllegalStateException("Test did not release the gate");
+        }
+      } catch (InterruptedException e) {
+        Thread.currentThread().interrupt();
+      }
+    }
+  }
+
+  /**
+   * Builds a data store over the base paths of {@code other} whose background reload is
+   * held at the seam just before it pools a temporary WARC's classification.
+   */
+  private LateReconciliationStore makeLateReconciliationStore(ArtifactIndex index, LocalWarcArtifactDataStore other)
+      throws IOException {
+
+    LateReconciliationStore ds = new LateReconciliationStore(other.getBasePaths());
 
     if (reloadTestExecutor == null) {
       reloadTestExecutor = Executors.newSingleThreadScheduledExecutor();
@@ -1268,6 +1338,230 @@ public class TestLocalWarcArtifactDataStore extends AbstractWarcArtifactDataStor
           "Artifact was copied into permanent storage more than once");
     } finally {
       stripeBarrier.countDown();
+      reloadedStore.reloadGate.countDown();
+      stopQuietly(reloadedStore);
+    }
+  }
+
+  /**
+   * If a live commit -- including the copy to permanent storage -- completes for an
+   * artifact the reload has already classified as {@code UNCOMMITTED}, but before the
+   * reload pools the temporary WARC's {@link WarcFile}, the pooled stats must reflect the
+   * artifact's true final state rather than the stale classification. Without
+   * reconciliation in {@code finishTemporaryWarcReload()}, such a WarcFile is stuck with
+   * {@code committed != copied}, which {@link WarcFilePool#runGC()} -- which requires them
+   * equal unconditionally -- never reclaims short of a full restart.
+   */
+  @Test
+  public void testFinishTemporaryWarcReloadReconcilesLateCommit() throws Exception {
+    teardownDataStore();
+
+    ArtifactIndex index = new VolatileArtifactIndex();
+    index.init();
+
+    store = makeWarcArtifactDataStore(index);
+    ArtifactSpec spec = addUncommittedArtifact();
+    Path tmpWarcPath = WarcArtifactDataStore.getPathFromStorageUrl(spec.getStorageUrl());
+
+    LateReconciliationStore reloadedStore = makeLateReconciliationStore(index, store);
+
+    try {
+      reloadedStore.init();
+      reloadedStore.start();
+
+      // The reload has classified this artifact as UNCOMMITTED and is sitting at the seam
+      // just before pooling.
+      assertTrue(reloadedStore.classifiedGate.await(30, TimeUnit.SECONDS),
+          "Reload never reached the point just before pooling");
+
+      Artifact indexed = index.getArtifact(spec.getArtifactUuid());
+      Future<Artifact> future = reloadedStore.commitArtifactData(indexed);
+      assertNotNull(future, "Commit refused while the temporary WARC was pending reload");
+
+      Artifact committed = future.get(30, TimeUnit.SECONDS);
+      assertNotNull(committed);
+      assertTrue(committed.getCommitted());
+
+      Path permWarcPath = WarcArtifactDataStore.getPathFromStorageUrl(URI.create(committed.getStorageUrl()));
+      assertFalse(reloadedStore.isTmpStorage(permWarcPath),
+          "Commit did not complete before the reload finished pooling");
+
+      // Now let the reload finish pooling.
+      reloadedStore.releaseGate.countDown();
+      assertTrue(reloadedStore.awaitReloadComplete(60, TimeUnit.SECONDS));
+
+      WarcFile tmpWarcFile = reloadedStore.tmpWarcPool.getWarcFile(tmpWarcPath);
+      assertNotNull(tmpWarcFile, "Temporary WARC was not pooled");
+      assertEquals(0, tmpWarcFile.getStats().getArtifactsUncommitted());
+      assertEquals(1, tmpWarcFile.getStats().getArtifactsCommitted());
+      assertEquals(1, tmpWarcFile.getStats().getArtifactsCopied());
+
+      // With committed == copied and uncommitted == 0, the GC must reclaim it.
+      reloadedStore.tmpWarcPool.runGC();
+      assertNull(reloadedStore.tmpWarcPool.getWarcFile(tmpWarcPath),
+          "Temporary WARC was not reclaimed by the GC despite committed == copied");
+    } finally {
+      reloadedStore.releaseGate.countDown();
+      stopQuietly(reloadedStore);
+    }
+  }
+
+  /**
+   * The same reconciliation, forced via the ordinary crash-recovery path instead of a live
+   * commit: the reload itself finds an artifact {@code PENDING_COPY} (as it would after a
+   * crash between the commit's journal write and its copy), requeues the copy, and that
+   * requeued copy completes before the rest of the WARC's classification finishes and it is
+   * pooled. No live commit is needed to trigger this ordering -- it is the ordinary
+   * requeue-races-the-scan case.
+   */
+  @Test
+  public void testFinishTemporaryWarcReloadReconcilesLateRequeuedCopy() throws Exception {
+    teardownDataStore();
+
+    ArtifactIndex index = new VolatileArtifactIndex();
+    index.init();
+
+    store = makeWarcArtifactDataStore(index);
+    ArtifactSpec spec = addUncommittedArtifact();
+    Path tmpWarcPath = WarcArtifactDataStore.getPathFromStorageUrl(spec.getStorageUrl());
+
+    // Commit through the original store, but hold its copy task back on store's own
+    // stripe: the shared index must still show PENDING_COPY (temporary storage URL) when
+    // the "restarted" store below starts, exactly the state a real crash between the
+    // journal write and the copy would leave behind.
+    CountDownLatch originalCopyBarrier = new CountDownLatch(1);
+    store.stripedExecutor.submit(new StripedRunnable() {
+      @Override
+      public Object getStripe() {
+        return new NamespacedAuid(NS1, AUID1);
+      }
+
+      @Override
+      public void run() {
+        try {
+          originalCopyBarrier.await(60, TimeUnit.SECONDS);
+        } catch (InterruptedException e) {
+          Thread.currentThread().interrupt();
+        }
+      }
+    });
+
+    Artifact indexed = index.getArtifact(spec.getArtifactUuid());
+    Future<Artifact> originalCommit = store.commitArtifactData(indexed);
+    assertNotNull(originalCommit);
+
+    LateReconciliationStore reloadedStore = makeLateReconciliationStore(index, store);
+
+    try {
+      reloadedStore.init();
+      reloadedStore.start();
+
+      // The reload classified this artifact as PENDING_COPY and requeued its copy (on
+      // reloadedStore's own executor, unaffected by store's barrier above), and is sitting
+      // at the seam just before pooling.
+      assertTrue(reloadedStore.classifiedGate.await(30, TimeUnit.SECONDS),
+          "Reload never reached the point just before pooling");
+
+      // Let the requeued copy run to completion while pooling is still paused.
+      assertTrue(reloadedStore.waitForCommitTasks(NS1, AUID1));
+
+      Artifact recopied = index.getArtifact(spec.getArtifactUuid());
+      assertFalse(reloadedStore.isTmpStorage(
+              WarcArtifactDataStore.getPathFromStorageUrl(URI.create(recopied.getStorageUrl()))),
+          "Requeued copy did not complete before the reload finished pooling");
+
+      // Now let the reload finish pooling.
+      reloadedStore.releaseGate.countDown();
+      assertTrue(reloadedStore.awaitReloadComplete(60, TimeUnit.SECONDS));
+
+      WarcFile tmpWarcFile = reloadedStore.tmpWarcPool.getWarcFile(tmpWarcPath);
+      assertNotNull(tmpWarcFile, "Temporary WARC was not pooled");
+      assertEquals(0, tmpWarcFile.getStats().getArtifactsUncommitted());
+      assertEquals(1, tmpWarcFile.getStats().getArtifactsCommitted());
+      assertEquals(1, tmpWarcFile.getStats().getArtifactsCopied());
+
+      reloadedStore.tmpWarcPool.runGC();
+      assertNull(reloadedStore.tmpWarcPool.getWarcFile(tmpWarcPath),
+          "Temporary WARC was not reclaimed by the GC despite committed == copied");
+    } finally {
+      originalCopyBarrier.countDown();
+      reloadedStore.releaseGate.countDown();
+      stopQuietly(reloadedStore);
+    }
+  }
+
+  /**
+   * {@link WarcArtifactDataStore#reloadDataStoreState()} fans out one background reload per
+   * temporary WARC base path. The original work's test harness only ever configured a
+   * single base path, so that fan-out itself -- base paths reloaded concurrently, not one
+   * after another -- went unverified.
+   * <p>
+   * Two independent single-base-path stores write one artifact each, so each artifact's
+   * temporary WARC lands in a base path known deterministically -- this does not depend on
+   * how a multi-base-path store would itself choose among them, which is a separate
+   * concern. A restart is then simulated over both base paths at once.
+   */
+  @Test
+  public void testReloadDataStoreStateProcessesBasePathsConcurrently() throws Exception {
+    teardownDataStore();
+
+    ArtifactIndex index = new VolatileArtifactIndex();
+    index.init();
+
+    File baseDir1 = getTempDir();
+    File baseDir2 = getTempDir();
+
+    LocalWarcArtifactDataStore writer1 = new LocalWarcArtifactDataStore(new File[]{baseDir1});
+    BaseLockssRepository repo1 = mock(BaseLockssRepository.class);
+    when(repo1.getArtifactIndex()).thenReturn(index);
+    writer1.setLockssRepository(repo1);
+
+    LocalWarcArtifactDataStore writer2 = new LocalWarcArtifactDataStore(new File[]{baseDir2});
+    BaseLockssRepository repo2 = mock(BaseLockssRepository.class);
+    when(repo2.getArtifactIndex()).thenReturn(index);
+    writer2.setLockssRepository(repo2);
+
+    ArtifactSpec spec1 = ArtifactSpec.forNsAuUrl(NS1, AUID1, URL1);
+    spec1.setArtifactUuid(UUID.randomUUID().toString());
+    spec1.generateContent();
+    ArtifactData ad1 = spec1.getArtifactData();
+    ad1.setStorageUrl(new URI("test://artifacts.warc"));
+    Artifact stored1 = writer1.addArtifactData(ad1);
+    assertNotNull(stored1);
+    Path tmpWarc1 = WarcArtifactDataStore.getPathFromStorageUrl(URI.create(stored1.getStorageUrl()));
+
+    ArtifactSpec spec2 = ArtifactSpec.forNsAuUrl(NS1, AUID1, URL2);
+    spec2.setArtifactUuid(UUID.randomUUID().toString());
+    spec2.generateContent();
+    ArtifactData ad2 = spec2.getArtifactData();
+    ad2.setStorageUrl(new URI("test://artifacts.warc"));
+    Artifact stored2 = writer2.addArtifactData(ad2);
+    assertNotNull(stored2);
+    Path tmpWarc2 = WarcArtifactDataStore.getPathFromStorageUrl(URI.create(stored2.getStorageUrl()));
+
+    // Simulate a restart that sees both base paths at once.
+    LatchedReloadStore reloadedStore =
+        makeLatchedReloadStore(index, new Path[]{baseDir1.toPath(), baseDir2.toPath()});
+
+    try {
+      reloadedStore.init();
+      reloadedStore.start();
+
+      // Both base paths' reload tasks must reach the gate: if they ran one after another
+      // instead of concurrently, the second would never start while the first sits on the
+      // still-closed gate, and this would time out rather than count down twice.
+      assertTrue(reloadedStore.reloadStarted.await(30, TimeUnit.SECONDS),
+          "Both base paths' background reloads never started concurrently");
+      assertFalse(reloadedStore.awaitReloadComplete(100, TimeUnit.MILLISECONDS),
+          "start() waited for the temporary WARC reload to finish");
+
+      reloadedStore.reloadGate.countDown();
+      assertTrue(reloadedStore.awaitReloadComplete(60, TimeUnit.SECONDS),
+          "Background reload did not finish");
+
+      assertFalse(reloadedStore.isPendingReload(tmpWarc1));
+      assertFalse(reloadedStore.isPendingReload(tmpWarc2));
+    } finally {
       reloadedStore.reloadGate.countDown();
       stopQuietly(reloadedStore);
     }
