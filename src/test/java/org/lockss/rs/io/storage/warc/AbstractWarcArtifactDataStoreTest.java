@@ -74,6 +74,7 @@ import org.lockss.util.test.LockssTestCase5;
 import org.lockss.util.test.VariantTest;
 import org.lockss.util.time.TimeBase;
 import org.lockss.util.time.TimeUtil;
+import org.mockito.ArgumentCaptor;
 import org.mockito.ArgumentMatchers;
 import org.mockito.Mockito;
 import org.springframework.util.LinkedMultiValueMap;
@@ -3230,6 +3231,137 @@ public abstract class AbstractWarcArtifactDataStoreTest<WADS extends WarcArtifac
     // TODO Actually index the artifact data and assert that it matches the spec?
   }
 
+  /**
+   * Test for {@link WarcArtifactDataStore#indexArtifactsFromWarc(ArtifactIndex, Path)}: when the
+   * journal entry for a record carries a storage URL, that URL is used to index the artifact
+   * instead of the one recomputed from the record's offset and length.
+   */
+  @Test
+  public void testIndexArtifactsFromWarcPrefersJournalStorageUrl() throws Exception {
+    runTestIndexArtifactsFromWarcPrefersJournalStorageUrl("fake:journal-storage-url");
+    runTestIndexArtifactsFromWarcPrefersJournalStorageUrl(null);
+  }
+
+  private void runTestIndexArtifactsFromWarcPrefersJournalStorageUrl(String journalStorageUrl) throws Exception {
+    ArtifactSpec spec = new ArtifactSpec()
+        .setArtifactUuid(UUID.randomUUID().toString())
+        .setUrl("artifact-url")
+        .setStorageUrl(new URI("storageUrl"));
+
+    spec.generateContent();
+
+    byte[] warcFileContents = createWarcFileFromSpecs(false, spec);
+
+    WarcArtifactDataStore ds = mock(WarcArtifactDataStore.class);
+    ArtifactIndex index = mock(ArtifactIndex.class);
+    WarcArtifactStateEntry stateEntry = mock(WarcArtifactStateEntry.class);
+
+    Path warcFile = mock(Path.class);
+    Path warcFileName = mock(Path.class);
+    when(warcFileName.toString()).thenReturn("test.warc");
+    when(warcFile.getFileName()).thenReturn(warcFileName);
+    Path warcFileParent = mock(Path.class);
+    doReturn(Path.of("test")).when(warcFileParent).resolve(ArgumentMatchers.any(Path.class));
+    when(warcFile.getParent()).thenReturn(warcFileParent);
+
+    doCallRealMethod().when(ds).isCompressedWarcFile(warcFile);
+    doCallRealMethod().when(ds).indexArtifactsFromWarc(index, warcFile);
+    doCallRealMethod().when(ds).getArchiveReader(ArgumentMatchers.any(Path.class),
+        ArgumentMatchers.any(InputStream.class));
+
+    URI recomputedStorageUrl = URI.create("recomputed:offset-based");
+    when(ds.makeWarcRecordStorageUrl(ArgumentMatchers.any(Path.class), ArgumentMatchers.anyLong(), ArgumentMatchers.anyLong()))
+        .thenReturn(recomputedStorageUrl);
+
+    // indexArtifactsFromWarc calls getJournalForWarc with a synthesizeStateEntry
+    // method reference (not null) as the third argument, so match any value there.
+    Map<String, WarcArtifactStateEntry> journal = Map.of(spec.getArtifactUuid(), stateEntry);
+    when(ds.getJournalForWarc(ArgumentMatchers.eq(warcFile), ArgumentMatchers.eq(WarcArtifactStateEntry.class),
+        ArgumentMatchers.any())).thenReturn(journal);
+
+    when(stateEntry.isDeleted()).thenReturn(false);
+    when(stateEntry.isCopied()).thenReturn(false);
+    when(stateEntry.getEntry()).thenReturn(WarcArtifactState.COPIED);
+    when(stateEntry.getStorageUrl()).thenReturn(journalStorageUrl);
+
+    when(ds.getInputStreamAndSeek(warcFile, 0)).thenReturn(new ByteArrayInputStream(warcFileContents));
+    when(index.artifactExists(spec.getArtifactUuid())).thenReturn(false);
+
+    // Snapshot the batch at call time: indexArtifactsFromWarc reuses and clears the
+    // same list object after handing it to reindexArtifacts, so an ArgumentCaptor
+    // would only ever see the post-clear (empty) state.
+    List<List<Artifact>> indexedBatches = new ArrayList<>();
+    doAnswer(invocation -> {
+      indexedBatches.add(new ArrayList<>(invocation.getArgument(0)));
+      return null;
+    }).when(index).reindexArtifacts(ArgumentMatchers.anyList());
+
+    ds.indexArtifactsFromWarc(index, warcFile);
+
+    assertEquals(1, indexedBatches.size());
+    List<Artifact> indexed = indexedBatches.get(0);
+    assertEquals(1, indexed.size());
+
+    String expectedStorageUrl = journalStorageUrl != null ? journalStorageUrl : recomputedStorageUrl.toString();
+    assertEquals(expectedStorageUrl, indexed.get(0).getStorageUrl());
+  }
+
+  /**
+   * Test for {@link WarcArtifactDataStore#indexArtifactsFromWarc(ArtifactIndex, Path)}: the
+   * length used to build the last record's fallback storage URL must come from what the WARC
+   * reader itself consumed reaching end of content, not from a separate filesystem length()
+   * call (which would race against a concurrent writer appending to the same WARC).
+   */
+  @Test
+  public void testIndexArtifactsFromWarcLastRecordLengthComesFromReaderNotFilesystem() throws Exception {
+    ArtifactSpec spec = new ArtifactSpec()
+        .setArtifactUuid(UUID.randomUUID().toString())
+        .setUrl("artifact-url")
+        .setStorageUrl(new URI("storageUrl"));
+    spec.generateContent();
+
+    byte[] warcFileContents = createWarcFileFromSpecs(false, spec);
+
+    WarcArtifactDataStore ds = mock(WarcArtifactDataStore.class);
+    ArtifactIndex index = mock(ArtifactIndex.class);
+
+    Path warcFile = mock(Path.class);
+    Path warcFileName = mock(Path.class);
+    when(warcFileName.toString()).thenReturn("test.warc");
+    when(warcFile.getFileName()).thenReturn(warcFileName);
+    Path warcFileParent = mock(Path.class);
+    doReturn(Path.of("test")).when(warcFileParent).resolve(ArgumentMatchers.any(Path.class));
+    when(warcFile.getParent()).thenReturn(warcFileParent);
+
+    doCallRealMethod().when(ds).isCompressedWarcFile(warcFile);
+    doCallRealMethod().when(ds).indexArtifactsFromWarc(index, warcFile);
+    doCallRealMethod().when(ds).getArchiveReader(ArgumentMatchers.any(Path.class),
+        ArgumentMatchers.any(InputStream.class));
+
+    when(ds.makeWarcRecordStorageUrl(ArgumentMatchers.any(Path.class), ArgumentMatchers.anyLong(), ArgumentMatchers.anyLong()))
+        .thenReturn(URI.create("test"));
+
+    // No journal for this WARC: exercises the recomputed (fallback) storage URL path.
+    when(ds.getJournalForWarc(ArgumentMatchers.eq(warcFile), ArgumentMatchers.eq(WarcArtifactStateEntry.class),
+        ArgumentMatchers.any())).thenReturn(Map.of());
+
+    when(ds.getInputStreamAndSeek(warcFile, 0)).thenReturn(new ByteArrayInputStream(warcFileContents));
+    when(index.artifactExists(spec.getArtifactUuid())).thenReturn(false);
+
+    ds.indexArtifactsFromWarc(index, warcFile);
+
+    ArgumentCaptor<Long> offsetCaptor = ArgumentCaptor.forClass(Long.class);
+    ArgumentCaptor<Long> lengthCaptor = ArgumentCaptor.forClass(Long.class);
+    verify(ds).makeWarcRecordStorageUrl(ArgumentMatchers.eq(warcFile), offsetCaptor.capture(), lengthCaptor.capture());
+
+    assertEquals(0L, offsetCaptor.getValue().longValue());
+    assertEquals(warcFileContents.length, lengthCaptor.getValue().longValue());
+
+    // The old implementation derived the last record's length from a filesystem stat,
+    // which races against concurrent writers. That call must no longer happen at all.
+    verify(ds, never()).getWarcLength(ArgumentMatchers.any());
+  }
+
   // *******************************************************************************************************************
   // * JOURNAL OPERATIONS
   // *******************************************************************************************************************
@@ -3612,6 +3744,22 @@ public abstract class AbstractWarcArtifactDataStoreTest<WADS extends WarcArtifac
         new WarcArtifactStateEntry()
             .setEntryDate(TimeBase.nowMs())
             .setArtifactState(WarcArtifactState.COPIED));
+
+    // Three records were written above (two for spec1, one for spec2); confirm that
+    // before compacting.
+    List<String> rawEntriesBeforeCompaction = new ArrayList<>();
+    store.forEachJournalEntry(journalFile.toPath(), WarcArtifactStateEntry.class,
+        record -> synthJournalEntry(record), (uuid, entry) -> rawEntriesBeforeCompaction.add(uuid));
+    assertEquals(3, rawEntriesBeforeCompaction.size());
+
+    // This is the method actually under test: it must be called for compaction to happen.
+    store.compactJournalFile(journalFile.toPath());
+
+    // After compaction, only the latest entry per artifact ID should remain.
+    List<String> rawEntriesAfterCompaction = new ArrayList<>();
+    store.forEachJournalEntry(journalFile.toPath(), WarcArtifactStateEntry.class,
+        record -> synthJournalEntry(record), (uuid, entry) -> rawEntriesAfterCompaction.add(uuid));
+    assertEquals(2, rawEntriesAfterCompaction.size());
 
     Map<String, WarcArtifactStateEntry> journal =
       store.readJournalFromWarc(journalFile.toPath(), WarcArtifactStateEntry.class, record -> synthJournalEntry(record));

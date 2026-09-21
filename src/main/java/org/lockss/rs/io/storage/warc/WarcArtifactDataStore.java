@@ -2971,9 +2971,18 @@ public abstract class WarcArtifactDataStore implements ArtifactDataStore, WARCCo
         WarcRecord record = recordIter.next();
 
         // FIXME: May be truncated; detect here
+        //
+        // For the last record, use the reader's own consumed-byte count rather than a
+        // fresh filesystem length() call: hasNext() above already closed this record
+        // (skipping to its true end, including the trailing separator) and attempted to
+        // parse a next one, so reader.getOffset() is exactly the true end-of-content
+        // offset as the parser established it. A filesystem stat taken here instead would
+        // race against a concurrent writer appending to this same WARC (temporary WARCs in
+        // particular can be actively receiving new artifacts while this scan runs) and
+        // silently fold newly-appended bytes into this record's length.
         long recordLength = recordIter.hasNext() ?
           reader.getStartOffset() - startOffset :
-          getWarcLength(warcFile) - startOffset; // FIXME: Probably not correct to assume this
+          reader.getOffset() - startOffset;
 
         URI storageUrl = makeWarcRecordStorageUrl(warcFile, startOffset, recordLength);
 
@@ -3019,7 +3028,12 @@ public abstract class WarcArtifactDataStore implements ArtifactDataStore, WARCCo
 
           // Construct Artifact to index from its ArtifactData
           Artifact artifact = WarcArtifactDataUtil.getArtifact(ad);
-          artifact.setStorageUrl(storageUrl.toString());
+
+          // Prefer the journal entry's recorded storage URL: it was captured directly
+          // at write time rather than reconstructed here. Fall back to the recomputed
+          // URL for legacy entries that predate the field.
+          String journalStorageUrl = artifactState != null ? artifactState.getStorageUrl() : null;
+          artifact.setStorageUrl(journalStorageUrl != null ? journalStorageUrl : storageUrl.toString());
 
           boolean shouldAddToBatch = true;
           switch (artifactState != null ? artifactState.getEntry() : WarcArtifactState.UNKNOWN) {
@@ -3309,9 +3323,12 @@ public abstract class WarcArtifactDataStore implements ArtifactDataStore, WARCCo
         long startOffset = reader.getStartOffset();
         WarcRecord record = recordIter.next();
 
+        // See indexArtifactsFromWarc: use the reader's own consumed-byte count for the
+        // last record rather than a filesystem length() call, which would race against
+        // a concurrent writer appending to this journal file.
         long recordLength = recordIter.hasNext() ?
           reader.getStartOffset() - startOffset :
-          getWarcLength(journalPath) - startOffset;
+          reader.getOffset() - startOffset;
 
         WARCRecordType recordType =
           WARCRecordType.valueOf(record.getHeader(WARCConstants.HEADER_KEY_TYPE).value);
@@ -3349,29 +3366,41 @@ public abstract class WarcArtifactDataStore implements ArtifactDataStore, WARCCo
       // Output journal to temporary file
       try (OutputStream tmpOut = new BufferedOutputStream(new FileOutputStream(tmpFile))) {
         try (InputStream is = getInputStreamAndSeek(journalPath, 0)) {
-          long start = 0;
+          // Tracks 'is' true stream position, so we know how big a gap (if any) to
+          // skip before the next retained record.
+          long consumed = 0;
 
           for (WarcRecordLocation loc : latestEntries) {
-            if (start < loc.getOffset()) {
-              is.skip(loc.getOffset() - start);
+            if (consumed < loc.getOffset()) {
+              is.skip(loc.getOffset() - consumed);
+              consumed = loc.getOffset();
             }
 
+            // 'is' is already positioned at loc.getOffset() above, so start/end here
+            // are relative to that position (0-based), not absolute file offsets --
+            // copyRange does its own skip of its 'start' argument from the stream's
+            // current position (see the correct usage of this same idiom elsewhere
+            // in this class, where the stream is freshly opened at the record).
             long bytesCopied =
-              StreamUtils.copyRange(is, tmpOut, start, loc.getLength() - 1);
+              StreamUtils.copyRange(is, tmpOut, 0, loc.getLength() - 1);
 
-            start += bytesCopied;
+            consumed += bytesCopied;
           }
         }
       }
 
-      // Replace journal file
-      File journalFile = journalPath.toFile();
+      // Replace journal file. Go through the store's own WARC primitives (removeWarc /
+      // initWarcAndGetAppendableOutputStream) rather than java.io.File directly: journalPath
+      // isn't necessarily backed by a real file (e.g. VolatileWarcArtifactDataStore keeps
+      // WARCs in memory), so File#delete()/FileUtils#moveFile() only work for one subclass.
+      removeWarc(journalPath);
 
-      if (!journalFile.delete()) {
-        throw new IOException("Error deleting journal file: " + journalFile.getAbsolutePath());
+      try (InputStream tmpIn = new BufferedInputStream(new FileInputStream(tmpFile));
+           OutputStream out = initWarcAndGetAppendableOutputStream(journalPath)) {
+        IOUtils.copy(tmpIn, out);
+      } finally {
+        tmpFile.delete();
       }
-
-      FileUtils.moveFile(tmpFile, journalFile);
     }
   }
 
