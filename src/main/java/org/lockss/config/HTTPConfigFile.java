@@ -34,10 +34,10 @@ import java.util.*;
 import java.util.zip.GZIPOutputStream;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
-import javax.ws.rs.core.HttpHeaders;
 import org.apache.commons.io.IOUtils;
 import org.apache.commons.io.input.TeeInputStream;
 import org.apache.oro.text.regex.*;
+import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
 
 import org.lockss.util.*;

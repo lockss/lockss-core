@@ -35,9 +35,9 @@
  */
 package org.lockss.ws.reports;
 
-import javax.jws.WebMethod;
-import javax.jws.WebParam;
-import javax.jws.WebService;
+import jakarta.jws.WebMethod;
+import jakarta.jws.WebParam;
+import jakarta.jws.WebService;
 import org.lockss.ws.entities.CounterReportParams;
 import org.lockss.ws.entities.CounterReportResult;
 import org.lockss.ws.entities.LockssWebServicesFault;

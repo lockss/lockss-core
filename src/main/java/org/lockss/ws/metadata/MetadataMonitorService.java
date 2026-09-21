@@ -28,8 +28,8 @@
 package org.lockss.ws.metadata;
 
 import java.util.List;
-import javax.jws.WebMethod;
-import javax.jws.WebService;
+import jakarta.jws.WebMethod;
+import jakarta.jws.WebService;
 import org.lockss.ws.entities.AuMetadataWsResult;
 import org.lockss.ws.entities.KeyIdNamePairListPair;
 import org.lockss.ws.entities.KeyValueListPair;

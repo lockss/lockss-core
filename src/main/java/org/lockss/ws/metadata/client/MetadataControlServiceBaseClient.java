@@ -33,7 +33,7 @@ package org.lockss.ws.metadata.client;
 
 import java.net.URL;
 import javax.xml.namespace.QName;
-import javax.xml.ws.Service;
+import jakarta.xml.ws.Service;
 import org.lockss.ws.AllServicesBaseClient;
 import org.lockss.ws.metadata.MetadataControlService;
 
@@ -68,7 +68,7 @@ public abstract class MetadataControlServiceBaseClient extends
     MetadataControlService port = service.getPort(MetadataControlService.class);
 
     // Set the client connection timeout.
-    ((javax.xml.ws.BindingProvider) port).getRequestContext().put(TIMEOUT_KEY,
+    ((jakarta.xml.ws.BindingProvider) port).getRequestContext().put(TIMEOUT_KEY,
 	Integer.valueOf(TIMEOUT_VALUE*1000));
 
     return port;

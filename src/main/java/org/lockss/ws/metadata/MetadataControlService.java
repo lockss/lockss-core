@@ -27,8 +27,8 @@
  */
 package org.lockss.ws.metadata;
 
-import javax.jws.WebMethod;
-import javax.jws.WebService;
+import jakarta.jws.WebMethod;
+import jakarta.jws.WebService;
 import org.lockss.ws.entities.LockssWebServicesFault;
 import org.lockss.ws.entities.MetadataControlResult;
 

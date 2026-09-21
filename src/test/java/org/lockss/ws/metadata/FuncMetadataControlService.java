@@ -31,7 +31,7 @@ import java.net.Authenticator;
 import java.net.PasswordAuthentication;
 import java.net.URL;
 import javax.xml.namespace.QName;
-import javax.xml.ws.Service;
+import jakarta.xml.ws.Service;
 import org.lockss.account.AccountManager;
 import org.lockss.config.ConfigManager;
 import org.lockss.config.Configuration;

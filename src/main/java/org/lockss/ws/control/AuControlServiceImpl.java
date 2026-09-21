@@ -30,7 +30,7 @@ package org.lockss.ws.control;
 import static org.lockss.servlet.DebugPanel.*;
 import java.util.ArrayList;
 import java.util.List;
-import javax.jws.WebService;
+import jakarta.jws.WebService;
 import org.apache.cxf.phase.PhaseInterceptorChain;
 import org.lockss.account.UserAccount;
 import org.lockss.app.LockssDaemon;

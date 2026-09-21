@@ -31,7 +31,7 @@ import java.util.Collection;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
-import javax.jws.WebService;
+import jakarta.jws.WebService;
 import org.josql.Query;
 import org.josql.QueryExecutionException;
 import org.josql.QueryParseException;

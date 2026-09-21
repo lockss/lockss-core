@@ -32,7 +32,7 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
 import java.util.Map;
-import javax.jws.WebService;
+import jakarta.jws.WebService;
 import org.lockss.app.LockssApp;
 import org.lockss.app.LockssDaemon;
 import org.lockss.metadata.Isbn;
