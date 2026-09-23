@@ -232,21 +232,18 @@ public class SQLArtifactIndex extends AbstractArtifactIndex {
       SQLArtifactIndexManagerSql.ReindexUpsertOutcome outcome =
           idxdb.upsertArtifactsForReindex(artifacts, versionConflictResolution);
 
-      // FIXME (E.4): The assumption that all the artifacts are in the same namespace
-      //  and AUID (as determined by the first artifact) is only true in "bulk-mode".
-      //  A temporary WARC interleaves AUs, so every AU but the first keeps a stale
-      //  cached size. The general fix is to collect the distinct (namespace, auid)
-      //  set as we go and invalidate each; the per-AU reindex path
-      //  (WarcArtifactDataStore.reindexArtifactsInAu()) is correct by construction.
-      if (outcome.getFirstArtifact() != null) {
+      // A temporary WARC interleaves AUs, so invalidate every distinct (namespace,
+      // AUID) pair seen, not just the first artifact's; the per-AU reindex path
+      // (WarcArtifactDataStore.reindexArtifactsInAu()) only ever sees one AU per
+      // call and is correct by construction.
+      for (Pair<String, String> nsAuid : outcome.getNamespaceAuids()) {
         try {
-          invalidateAuSize(outcome.getFirstArtifact().getNamespace(),
-                            outcome.getFirstArtifact().getAuid());
+          invalidateAuSize(nsAuid.getLeft(), nsAuid.getRight());
         } catch (DbException e) {
           // Warn and carry on, as indexArtifacts() does. A stale AU-size cache
           // entry is cosmetic and self-correcting; it must never fail a reindex
           // whose artifacts are already committed.
-          log.warn("Could not invalidate AU size", e);
+          log.warn("Could not invalidate AU size for: {}", nsAuid.getRight(), e);
         }
       }
 

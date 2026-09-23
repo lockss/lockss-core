@@ -32,6 +32,7 @@ POSSIBILITY OF SUCH DAMAGE.
 package org.lockss.rs.io.index.db;
 
 import io.zonky.test.db.postgres.embedded.EmbeddedPostgres;
+import org.apache.commons.lang3.tuple.Pair;
 import org.junit.AfterClass;
 import org.junit.BeforeClass;
 import org.junit.Test;
@@ -55,6 +56,7 @@ import java.sql.SQLException;
 import java.sql.Statement;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Set;
 import java.util.UUID;
 import java.util.stream.Stream;
 
@@ -3003,6 +3005,37 @@ public class TestSQLArtifactIndexDbManager extends LockssTestCase4 {
       assertNotNull("good artifact must survive replay after the optimistic " +
           "attempt aborts: " + a.getUri(), idxdb.getArtifact(a.getUuid()));
     }
+  }
+
+  /**
+   * {@code getNamespaceAuids()} must report every distinct (namespace, AUID) pair
+   * seen across the whole input, not just the first artifact's -- the data
+   * {@code SQLArtifactIndex.reindexArtifacts()} relies on to invalidate every AU's
+   * cached size a temporary WARC's interleaved reindex touches (issue #736).
+   */
+  @Test
+  public void testUpsertArtifactsForReindexReportsAllNamespaceAuidsNotJustFirst() throws Exception {
+    SQLArtifactIndexManagerSql idxdb = new SQLArtifactIndexManagerSql(idxDbManager);
+
+    String ns = "multi-au-ns";
+    String auid1 = "multi-au-auid-1";
+    String auid2 = "multi-au-auid-2";
+    String auid3 = "multi-au-auid-3";
+
+    List<Artifact> batch = new ArrayList<>();
+    batch.addAll(makeGoodReindexArtifacts(ns, auid1, "http://example.com/multi1/", 2));
+    batch.addAll(makeGoodReindexArtifacts(ns, auid2, "http://example.com/multi2/", 2));
+    batch.addAll(makeGoodReindexArtifacts(ns, auid3, "http://example.com/multi3/", 2));
+
+    SQLArtifactIndexManagerSql.ReindexUpsertOutcome outcome =
+        idxdb.upsertArtifactsForReindex(batch,
+            SQLArtifactIndex.VersionConflictResolution.PreferEarliest);
+
+    assertEquals(6, outcome.getAttempted());
+    assertEquals(0, outcome.getFailed());
+    assertEquals(
+        Set.of(Pair.of(ns, auid1), Pair.of(ns, auid2), Pair.of(ns, auid3)),
+        outcome.getNamespaceAuids());
   }
 
   //

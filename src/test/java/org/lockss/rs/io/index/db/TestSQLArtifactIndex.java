@@ -34,15 +34,22 @@ package org.lockss.rs.io.index.db;
 import io.zonky.test.db.postgres.embedded.EmbeddedPostgres;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.Test;
 import org.lockss.config.Configuration;
 import org.lockss.log.L4JLogger;
 import org.lockss.rs.io.index.AbstractArtifactIndexTest;
 import org.lockss.test.ConfigurationUtil;
 import org.lockss.test.MockLockssDaemon;
 import org.lockss.util.StringUtil;
+import org.lockss.util.rest.repo.model.Artifact;
+import org.lockss.util.rest.repo.model.AuSize;
+import org.lockss.util.rest.repo.util.ArtifactSpec;
 import org.postgresql.ds.PGSimpleDataSource;
 
 import javax.sql.DataSource;
+import java.net.URI;
+import java.util.ArrayList;
+import java.util.List;
 import java.io.File;
 import java.sql.Connection;
 import java.sql.DriverManager;
@@ -139,5 +146,62 @@ public class TestSQLArtifactIndex extends AbstractArtifactIndexTest<SQLArtifactI
   @Override
   public void testShutdownIndex() throws Exception {
     // Intentionally left blank
+  }
+
+  /**
+   * {@code reindexArtifacts()} must invalidate the cached AU size of every AU touched
+   * by the batch, not just the first artifact's: a temporary WARC's reindex interleaves
+   * artifacts from more than one AU, so relying on the first artifact alone left every
+   * other AU's cached size stale (issue #736).
+   */
+  @Test
+  public void testReindexArtifactsInvalidatesAllAuSizesNotJustFirst() throws Exception {
+    String ns = "multi-au-ns";
+    String auid1 = "multi-au-auid-1";
+    String auid2 = "multi-au-auid-2";
+
+    // Seed a cached size for both AUs.
+    AuSize seeded = new AuSize();
+    seeded.setTotalLatestVersions(111L);
+    seeded.setTotalAllVersions(222L);
+    seeded.setTotalWarcSize(333L);
+    index.updateAuSize(ns, auid1, seeded);
+    index.updateAuSize(ns, auid2, seeded);
+
+    assertNotNull(index.findAuSize(ns, auid1));
+    assertNotNull(index.findAuSize(ns, auid2));
+
+    List<Artifact> batch = new ArrayList<>();
+    batch.add(new ArtifactSpec()
+        .setArtifactUuid(UUID.randomUUID().toString())
+        .setNamespace(ns)
+        .setAuid(auid1)
+        .setUrl("http://example.com/multi-au/1")
+        .setVersion(1)
+        .setStorageUrl(URI.create("storage_url_1"))
+        .setContentLength(1)
+        .setContentDigest("digest_1")
+        .setCommitted(true)
+        .setCollectionDate(1000L)
+        .getArtifact());
+    batch.add(new ArtifactSpec()
+        .setArtifactUuid(UUID.randomUUID().toString())
+        .setNamespace(ns)
+        .setAuid(auid2)
+        .setUrl("http://example.com/multi-au/2")
+        .setVersion(1)
+        .setStorageUrl(URI.create("storage_url_2"))
+        .setContentLength(1)
+        .setContentDigest("digest_2")
+        .setCommitted(true)
+        .setCollectionDate(1000L)
+        .getArtifact());
+
+    index.reindexArtifacts(batch);
+
+    assertNull(index.findAuSize(ns, auid1),
+        "AU1's cached size must be invalidated");
+    assertNull(index.findAuSize(ns, auid2),
+        "AU2's cached size must be invalidated too, not just the first artifact's AU");
   }
 }
