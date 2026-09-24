@@ -2957,7 +2957,7 @@ public class TestSQLArtifactIndexDbManager extends LockssTestCase4 {
 
     assertEquals(6, outcome.getAttempted());
     assertEquals(1, outcome.getFailed());
-    assertEquals(batch.get(0), outcome.getFirstArtifact());
+    assertEquals(Set.of(Pair.of(ns, auid)), outcome.getNamespaceAuids());
     assertEquals(5, countAllVersions(idxdb, ns, auid));
 
     for (Artifact a : good) {
