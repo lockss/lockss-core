@@ -168,6 +168,15 @@ public abstract class WarcArtifactDataStore implements ArtifactDataStore, WARCCo
   public static final String PARAM_REINDEX_PARSE_THREADS = REINDEX_PREFIX + "parseThreads";
   public static final int DEFAULT_REINDEX_PARSE_THREADS = 4;
   /**
+   * How long {@link #reindexWarcs(ArtifactIndex, List, CSVPrinter, List, ReindexResult)} waits
+   * for cancelled parse workers to actually stop, on the interrupted path, before giving up and
+   * returning anyway. The method's contract is not to return until every worker is done; this
+   * bounds how long that wait can hold up shutdown if a worker is stuck in something
+   * uninterruptible (e.g. blocking I/O).
+   */
+  public static final long REINDEX_WORKER_SHUTDOWN_TIMEOUT = 1;
+  public static final TimeUnit REINDEX_WORKER_SHUTDOWN_TIMEOUT_UNIT = TimeUnit.MINUTES;
+  /**
    * CSV report of the WARCs a reindex pass could not read, written alongside
    * {@link #REINDEXED_WARCS_FILE} and rotated with the same run stamp. The name
    * must keep starting with "reindex": the installer's {@code reindex*} prefix
@@ -3154,7 +3163,40 @@ public abstract class WarcArtifactDataStore implements ArtifactDataStore, WARCCo
         }
       }
     } finally {
-      executor.shutdownNow();
+      awaitReindexWorkerShutdown(executor);
+    }
+  }
+
+  /**
+   * Shuts down {@code executor} and waits for its workers to actually terminate, up to
+   * {@link #REINDEX_WORKER_SHUTDOWN_TIMEOUT}.
+   * <p>
+   * {@link ExecutorService#shutdownNow()} alone only requests cancellation; it does not wait
+   * for in-flight workers to stop. Without waiting, {@link #reindexWarcs} could return -- on the
+   * interrupted path, after having already interrupted the remaining workers -- while a worker
+   * is still parsing a WARC or writing to the index or the ledger, breaking the phase barrier
+   * the method's contract promises the caller (see {@link #reindexArtifacts(ArtifactIndex)}).
+   * <p>
+   * The interrupted path calls this after already setting this thread's own interrupt flag, so
+   * the flag is cleared before the wait -- otherwise {@code awaitTermination} would throw
+   * immediately instead of actually waiting -- and restored afterward.
+   */
+  private static void awaitReindexWorkerShutdown(ExecutorService executor) {
+    executor.shutdownNow();
+
+    boolean interrupted = Thread.interrupted();
+
+    try {
+      if (!executor.awaitTermination(REINDEX_WORKER_SHUTDOWN_TIMEOUT, REINDEX_WORKER_SHUTDOWN_TIMEOUT_UNIT)) {
+        log.warn("WARC reindex worker(s) did not terminate within {} {} of being cancelled",
+                  REINDEX_WORKER_SHUTDOWN_TIMEOUT, REINDEX_WORKER_SHUTDOWN_TIMEOUT_UNIT);
+      }
+    } catch (InterruptedException e) {
+      interrupted = true;
+    } finally {
+      if (interrupted) {
+        Thread.currentThread().interrupt();
+      }
     }
   }
 
