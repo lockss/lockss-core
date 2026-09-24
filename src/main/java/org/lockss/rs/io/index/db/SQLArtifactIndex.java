@@ -228,9 +228,32 @@ public class SQLArtifactIndex extends AbstractArtifactIndex {
 
   @Override
   public int reindexArtifacts(Iterable<Artifact> artifacts) throws IOException {
+    List<Artifact> artifactList = new ArrayList<>();
+
+    for (Artifact artifact : artifacts) {
+      artifactList.add(artifact);
+    }
+
+    // Reindexing can now run on multiple WARCs concurrently (see #737), each on its own
+    // connection. resolveVersionConflict() in SQLArtifactIndexManagerSql checks for a
+    // competing artifact and inserts in the same transaction, but that check-then-insert is
+    // not otherwise serialized across connections: two workers racing to reindex conflicting
+    // versions of the same (namespace, AUID, URL) can each see no competitor and both insert.
+    // Acquire the same per-stem version lock the ordinary write path already uses (see
+    // BaseLockssRepository's use of acquireVersionLock/releaseVersionLock) for every distinct
+    // stem in this batch before upserting any of it, in a fixed order, to avoid deadlocking
+    // against another batch acquiring the same stems in a different order.
+    List<ArtifactIdentifier.ArtifactStem> stems = distinctSortedStems(artifactList);
+    List<ArtifactIdentifier.ArtifactStem> acquired = new ArrayList<>(stems.size());
+
     try {
+      for (ArtifactIdentifier.ArtifactStem stem : stems) {
+        acquireVersionLock(stem);
+        acquired.add(stem);
+      }
+
       SQLArtifactIndexManagerSql.ReindexUpsertOutcome outcome =
-          idxdb.upsertArtifactsForReindex(artifacts, versionConflictResolution);
+          idxdb.upsertArtifactsForReindex(artifactList, versionConflictResolution);
 
       // FIXME (E.4): The assumption that all the artifacts are in the same namespace
       //  and AUID (as determined by the first artifact) is only true in "bulk-mode".
@@ -253,7 +276,29 @@ public class SQLArtifactIndex extends AbstractArtifactIndex {
       return outcome.getFailed();
     } catch (DbException e) {
       throw new IOException("Could not reindex artifacts", e);
+    } finally {
+      for (int i = acquired.size() - 1; i >= 0; i--) {
+        releaseVersionLock(acquired.get(i));
+      }
     }
+  }
+
+  /**
+   * Returns the distinct {@link ArtifactIdentifier.ArtifactStem}s of the given artifacts, in a
+   * fixed (sorted) order so that callers locking every stem in a batch always acquire them in
+   * the same order regardless of the batch's own artifact order.
+   */
+  private static List<ArtifactIdentifier.ArtifactStem> distinctSortedStems(
+      List<Artifact> artifacts) {
+    Map<String, ArtifactIdentifier.ArtifactStem> byKey = new TreeMap<>();
+
+    for (Artifact artifact : artifacts) {
+      ArtifactIdentifier id = artifact.getIdentifier();
+      String key = id.getNamespace() + "\u0000" + id.getAuid() + "\u0000" + id.getUri();
+      byKey.putIfAbsent(key, id.getArtifactStem());
+    }
+
+    return new ArrayList<>(byKey.values());
   }
 
   @Override

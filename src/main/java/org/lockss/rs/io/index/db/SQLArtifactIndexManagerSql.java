@@ -3495,6 +3495,16 @@ public class SQLArtifactIndexManagerSql {
    *         must be skipped.
    * @throws DbException if the database cannot be queried or updated.
    */
+  /**
+   * Test seam: invoked after {@link #findVersionConflicts} returns and before this method's
+   * caller acts on the result, i.e. between the read and the write of the check-then-insert this
+   * method is half of. Lets a test force two callers to interleave here on purpose, to
+   * demonstrate that this method does not serialize itself against a concurrent caller checking
+   * the same tuple -- see {@code SQLArtifactIndex#reindexArtifacts} for the serialization that
+   * must happen around calls into this method instead. A no-op in production.
+   */
+  volatile Runnable testHookAfterFindVersionConflicts = () -> {};
+
   boolean resolveVersionConflict(Connection conn, long namespaceSeq,
       long auidSeq, long urlSeq, Artifact artifact,
       SQLArtifactIndex.VersionConflictResolution conflictPolicy)
@@ -3506,6 +3516,8 @@ public class SQLArtifactIndexManagerSql {
 
     List<VersionConflict> rows = findVersionConflicts(conn, namespaceSeq,
         auidSeq, urlSeq, artifactId.getVersion());
+
+    testHookAfterFindVersionConflicts.run();
 
     // Partition on uuid: the incoming artifact's own row (0 or 1 rows, since
     // uuid is uniquely indexed) and the competitors under other uuids.
