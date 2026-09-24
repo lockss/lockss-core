@@ -495,6 +495,35 @@ public class SQLArtifactIndexDbManagerSql extends DbManagerSql {
       "ALTER TABLE " + ARTIFACT_TABLE + " ALTER COLUMN "
       + ARTIFACT_COMMITTED_COLUMN + " SET NOT NULL";
 
+  // archival_unit_size had no namespace_seq column, unlike artifacts, so
+  // auid_seq alone (itself global across namespaces, via auids.auid) was the
+  // only key: two different namespaces with the identical AUID would collide
+  // in this table (#661). The application worked around this by keying
+  // lookups on a synthetic "namespace|auid" string instead of a real AUID, at
+  // the cost of a throwaway auids row per cached AU that no artifact actually
+  // uses. This is purely a size cache -- rows are recomputed from artifacts on
+  // demand -- so the fix clears it rather than attempting to recover a real
+  // namespace from the synthetic string, and adds the column properly.
+  private static final String DELETE_ARCHIVAL_UNIT_SIZE_ROWS_QUERY =
+      "DELETE FROM " + ARCHIVAL_UNIT_SIZE_TABLE;
+
+  private static final String ADD_ARCHIVAL_UNIT_SIZE_NAMESPACE_SEQ_COLUMN_QUERY =
+      "ALTER TABLE " + ARCHIVAL_UNIT_SIZE_TABLE
+      + " ADD COLUMN " + NAMESPACE_SEQ_COLUMN + " BIGINT NOT NULL REFERENCES "
+      + NAMESPACE_TABLE + " (" + NAMESPACE_SEQ_COLUMN + ") ON DELETE CASCADE";
+
+  // Version 7 indices: namespace_seq alone (mirroring artifacts' idx1), and a
+  // uniqueness constraint on (namespace_seq, auid_seq) -- there must be at
+  // most one cached size per AU -- which no earlier version enforced even on
+  // auid_seq alone.
+  private static final String[] VERSION_7_INDEX_CREATE_QUERIES = new String[]{
+      "CREATE INDEX idx1_" + ARCHIVAL_UNIT_SIZE_TABLE + " ON "
+          + ARCHIVAL_UNIT_SIZE_TABLE + "(" + NAMESPACE_SEQ_COLUMN + ")",
+      "CREATE UNIQUE INDEX idx2_" + ARCHIVAL_UNIT_SIZE_TABLE + " ON "
+          + ARCHIVAL_UNIT_SIZE_TABLE + "(" + NAMESPACE_SEQ_COLUMN + ","
+          + AUID_SEQ_COLUMN + ")"
+  };
+
   /**
    * Constructor.
    *
@@ -760,6 +789,31 @@ public class SQLArtifactIndexDbManagerSql extends DbManagerSql {
 
     executeDdlQuery(conn, NORMALIZE_NULL_COMMITTED_QUERY);
     executeDdlQuery(conn, ARTIFACT_COMMITTED_NOT_NULL_QUERY);
+
+    log.debug2("Done.");
+  }
+
+  /**
+   * Adds a real {@code namespace_seq} column to {@code archival_unit_size},
+   * matching how {@code artifacts} is keyed, instead of the previous
+   * synthetic-string workaround for the same problem (#661). This table is
+   * purely a size cache, so the fix clears it rather than attempting to
+   * recover a real namespace from the pre-migration synthetic AUID strings;
+   * callers already treat a missing cache entry as "not yet computed."
+   *
+   * @param conn A Connection with the database connection to be used.
+   * @throws SQLException if any problem occurred accessing the database.
+   */
+  void updateDatabaseFrom6To7(Connection conn) throws SQLException {
+    log.debug2("Invoked");
+
+    if (conn == null) {
+      throw new IllegalArgumentException("Null connection");
+    }
+
+    executeDdlQuery(conn, DELETE_ARCHIVAL_UNIT_SIZE_ROWS_QUERY);
+    executeDdlQuery(conn, ADD_ARCHIVAL_UNIT_SIZE_NAMESPACE_SEQ_COLUMN_QUERY);
+    executeDdlQueries(conn, VERSION_7_INDEX_CREATE_QUERIES);
 
     log.debug2("Done.");
   }

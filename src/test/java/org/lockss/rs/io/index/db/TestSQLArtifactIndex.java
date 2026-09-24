@@ -34,12 +34,14 @@ package org.lockss.rs.io.index.db;
 import io.zonky.test.db.postgres.embedded.EmbeddedPostgres;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.Test;
 import org.lockss.config.Configuration;
 import org.lockss.log.L4JLogger;
 import org.lockss.rs.io.index.AbstractArtifactIndexTest;
 import org.lockss.test.ConfigurationUtil;
 import org.lockss.test.MockLockssDaemon;
 import org.lockss.util.StringUtil;
+import org.lockss.util.rest.repo.model.AuSize;
 import org.postgresql.ds.PGSimpleDataSource;
 
 import javax.sql.DataSource;
@@ -49,6 +51,9 @@ import java.sql.DriverManager;
 import java.sql.SQLException;
 import java.sql.Statement;
 import java.util.UUID;
+
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNull;
 
 /**
  * Tests for {@link SQLArtifactIndex}.
@@ -125,7 +130,7 @@ public class TestSQLArtifactIndex extends AbstractArtifactIndexTest<SQLArtifactI
     // Initialize the DbManager with the test database
     idxDbManager = new SQLArtifactIndexDbManager();
     idxDbManager.initService(theDaemon);
-    idxDbManager.setTargetDatabaseVersion(5);
+    idxDbManager.setTargetDatabaseVersion(7);
     idxDbManager.startService();
 
     theDaemon.setSQLArtifactIndexDbManager(idxDbManager);
@@ -139,5 +144,45 @@ public class TestSQLArtifactIndex extends AbstractArtifactIndexTest<SQLArtifactI
   @Override
   public void testShutdownIndex() throws Exception {
     // Intentionally left blank
+  }
+
+  /**
+   * Regression test for issue #661: {@code archival_unit_size} rows were keyed by
+   * {@code NamespacedAuid.key(namespace, auid)}, a "|"-delimited string concatenation with no
+   * escaping. Two distinct (namespace, auid) pairs that produce the same concatenated string --
+   * e.g. ("a|b", "c") and ("a", "b|c"), both "a|b|c" -- collided in the AU size table. Storing
+   * namespace and auid as separate columns removes the collision.
+   */
+  @Test
+  public void testAuSizeIsScopedByNamespaceNotDelimitedConcatenation() throws Exception {
+    SQLArtifactIndex sqlIndex = index;
+
+    String namespace1 = "a|b";
+    String auid1 = "c";
+
+    String namespace2 = "a";
+    String auid2 = "b|c";
+
+    AuSize size1 = new AuSize();
+    size1.setTotalLatestVersions(100L);
+    size1.setTotalAllVersions(200L);
+    size1.setTotalWarcSize(300L);
+
+    AuSize size2 = new AuSize();
+    size2.setTotalLatestVersions(1000L);
+    size2.setTotalAllVersions(2000L);
+    size2.setTotalWarcSize(3000L);
+
+    sqlIndex.updateAuSize(namespace1, auid1, size1);
+    sqlIndex.updateAuSize(namespace2, auid2, size2);
+
+    assertEquals(size1, sqlIndex.findAuSize(namespace1, auid1));
+    assertEquals(size2, sqlIndex.findAuSize(namespace2, auid2));
+
+    // Invalidating one pair's AU size must not affect the other's entry
+    sqlIndex.invalidateAuSize(namespace1, auid1);
+
+    assertNull(sqlIndex.findAuSize(namespace1, auid1));
+    assertEquals(size2, sqlIndex.findAuSize(namespace2, auid2));
   }
 }
