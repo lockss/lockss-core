@@ -180,17 +180,21 @@ public class SQLArtifactIndexManagerSql {
       + AUID_COLUMN + " = EXCLUDED." + AUID_COLUMN
       + " RETURNING " + AUID_SEQ_COLUMN;
 
-  // Query for the AU sizes of an AU associated with an AUID
+  // Query for the AU sizes of an AU, keyed by (namespace, auid): archival_unit_size
+  // carries namespace_seq directly (#661), rather than relying on auid_seq alone,
+  // which is global across namespaces.
   private static final String GET_AU_SIZE_QUERY = "select "
       + "s." + AU_LATEST_VERSIONS_SIZE_COLUMN
       + ", s." + AU_ALL_VERSIONS_SIZE_COLUMN
       + ", s." + AU_DISK_SIZE_COLUMN
       + ", s." + LAST_UPDATE_TIME_COLUMN
-      + " from " + AUID_TABLE + " a"
+      + " from " + NAMESPACE_TABLE + " ns"
+      + ", " + AUID_TABLE + " a"
       + ", " + ARCHIVAL_UNIT_SIZE_TABLE + " s"
-      + " where a." + AUID_COLUMN + " = ?"
-      + " and a." + AUID_SEQ_COLUMN + " = s."
-      + AUID_SEQ_COLUMN;
+      + " where ns." + NAMESPACE_COLUMN + " = ?"
+      + " and a." + AUID_COLUMN + " = ?"
+      + " and s." + NAMESPACE_SEQ_COLUMN + " = ns." + NAMESPACE_SEQ_COLUMN
+      + " and s." + AUID_SEQ_COLUMN + " = a." + AUID_SEQ_COLUMN;
 
   private static final String GET_ARTIFACT_BY_UUID_QUERY = "SELECT "
       + "a." + ARTIFACT_UUID_COLUMN
@@ -702,20 +706,24 @@ public class SQLArtifactIndexManagerSql {
   private static final String DELETE_ORPHANED_URL_QUERY = "DELETE FROM " + URL_TABLE
       + " WHERE NOT EXISTS ( SELECT DISTINCT ON (" + URL_SEQ_COLUMN + ") " + URL_SEQ_COLUMN + " FROM " + ARTIFACT_TABLE + " )";
 
-  // Query to delete AU sizes of an AU associated with an AUID
+  // Query to delete the AU size cache entry of an AU, identified by
+  // (namespace_seq, auid_seq) -- auid_seq alone is not unique across
+  // namespaces (#661).
   private static final String DELETE_AU_SIZE_QUERY =
       "delete from " + ARCHIVAL_UNIT_SIZE_TABLE
-          + " where " + AUID_SEQ_COLUMN + " = ?";
+          + " where " + NAMESPACE_SEQ_COLUMN + " = ?"
+          + " and " + AUID_SEQ_COLUMN + " = ?";
 
-  // Query to add AU sizes of an AU
+  // Query to add the AU size cache entry of an AU.
   private static final String ADD_AU_SIZE_QUERY = "insert into "
       + ARCHIVAL_UNIT_SIZE_TABLE
-      + "(" + AUID_SEQ_COLUMN
+      + "(" + NAMESPACE_SEQ_COLUMN
+      + "," + AUID_SEQ_COLUMN
       + "," + AU_LATEST_VERSIONS_SIZE_COLUMN
       + "," + AU_ALL_VERSIONS_SIZE_COLUMN
       + "," + AU_DISK_SIZE_COLUMN
       + "," + LAST_UPDATE_TIME_COLUMN
-      + ") values (?,?,?,?,?)";
+      + ") values (?,?,?,?,?,?)";
 
   private static final String INSERT_ARTIFACT_QUERY = "INSERT INTO "
       + ARTIFACT_TABLE
@@ -2554,8 +2562,8 @@ public class SQLArtifactIndexManagerSql {
     }
   }
 
-  public AuSize findAuSize(String auid) throws DbException {
-    log.debug2("auid = {}", auid);
+  public AuSize findAuSize(String namespace, String auid) throws DbException {
+    log.debug2("namespace = {}, auid = {}", namespace, auid);
 
     Connection conn = null;
 
@@ -2563,10 +2571,11 @@ public class SQLArtifactIndexManagerSql {
       // Get a connection to the database
       conn = getConnection();
 
-      return findAuSize(conn, auid);
+      return findAuSize(conn, namespace, auid);
     } catch (DbException dbe) {
       String message = "Cannot find AU size";
       log.error(message, dbe);
+      log.error("namespace = {}", namespace);
       log.error("auid = {}", auid);
       throw dbe;
     } finally {
@@ -2574,8 +2583,9 @@ public class SQLArtifactIndexManagerSql {
     }
   }
 
-  private AuSize findAuSize(Connection conn, String auid) throws DbException {
-    log.debug2("auid = {}", auid);
+  private AuSize findAuSize(Connection conn, String namespace, String auid)
+      throws DbException {
+    log.debug2("namespace = {}, auid = {}", namespace, auid);
 
     AuSize result = null;
     PreparedStatement getAuSize = null;
@@ -2587,7 +2597,8 @@ public class SQLArtifactIndexManagerSql {
       getAuSize = idxDbManager.prepareStatement(conn, GET_AU_SIZE_QUERY);
 
       // Populate the query
-      getAuSize.setString(1, auid);
+      getAuSize.setString(1, namespace);
+      getAuSize.setString(2, auid);
 
       // Get the AU size of the AU associated with this AUID
       resultSet = idxDbManager.executeQuery(getAuSize);
@@ -2608,6 +2619,7 @@ public class SQLArtifactIndexManagerSql {
     } catch (SQLException e) {
       log.error(errorMessage, e);
       log.error("SQL = '{}'.", GET_AU_SIZE_QUERY);
+      log.error("namespace = {}", namespace);
       log.error("auid = {}", auid);
       throw new DbException(errorMessage, e);
     } finally {
@@ -2619,9 +2631,10 @@ public class SQLArtifactIndexManagerSql {
     return result;
   }
 
-  public Long updateAuSize(String auid, AuSize auSize)
+  public Long updateAuSize(String namespace, String auid, AuSize auSize)
       throws DbException {
 
+    log.debug2("namespace = {}", namespace);
     log.debug2("auid = {}", auid);
     log.debug2("auSize = {}", auSize);
 
@@ -2633,7 +2646,7 @@ public class SQLArtifactIndexManagerSql {
       conn = getConnection();
 
       // Update the AU size
-      result = updateAuSize(conn, auid, auSize);
+      result = updateAuSize(conn, namespace, auid, auSize);
 
       // Commit the transaction.
       DbManager.commitOrRollback(conn, log);
@@ -3857,8 +3870,8 @@ public class SQLArtifactIndexManagerSql {
     }
   }
 
-  public void deleteAuSize(String auid) throws DbException {
-    log.debug2("auid = {}", auid);
+  public void deleteAuSize(String namespace, String auid) throws DbException {
+    log.debug2("namespace = {}, auid = {}", namespace, auid);
 
     Connection conn = null;
 
@@ -3867,7 +3880,7 @@ public class SQLArtifactIndexManagerSql {
       conn = getConnection();
 
       // Update the AU size
-      deleteAuSize(conn, auid);
+      deleteAuSize(conn, namespace, auid);
 
       // Commit the transaction.
       DbManager.commitOrRollback(conn, log);
@@ -3876,30 +3889,33 @@ public class SQLArtifactIndexManagerSql {
     }
   }
 
-  private Long updateAuSize(Connection conn, String auid, AuSize auSize)
-      throws DbException {
+  private Long updateAuSize(Connection conn, String namespace, String auid,
+      AuSize auSize) throws DbException {
 
+    log.debug2("namespace = {}", namespace);
     log.debug2("auid = {}", auid);
     log.debug2("auSize = {}", auSize);
 
     Long auidSeq = null;
 
     try {
-      // Find the AUID sequence number, or add an entry for it
+      // Find the namespace and AUID sequence numbers, or add entries for them
+      Long namespaceSeq = findOrCreateNamespaceSeq(conn, namespace);
       auidSeq = findOrCreateAuidSeq(conn, auid);
 
       // TODO: Replace with UPDATE operation
 
       // Delete any existing AuSize of the AU associated with this AUID
-      int deletedCount = deleteAuSize(conn, auidSeq);
+      int deletedCount = deleteAuSize(conn, namespaceSeq, auidSeq);
       log.trace("deletedCount = {}", deletedCount);
 
       // Add the new AuSize of the AU associated with this AUID
-      int addedCount = addAuSize(conn, auidSeq, auSize);
+      int addedCount = addAuSize(conn, namespaceSeq, auidSeq, auSize);
       log.trace("addedCount = {}", addedCount);
     } catch (DbException e) {
       String message = "Cannot update AU size";
       log.error(message, e);
+      log.error("namespace = {}", namespace);
       log.error("auid = {}", auid);
       log.error("auSize = {}", auSize);
       throw e;
@@ -3909,22 +3925,24 @@ public class SQLArtifactIndexManagerSql {
     return auidSeq;
   }
 
-  private long deleteAuSize(Connection conn, String auid)
+  private long deleteAuSize(Connection conn, String namespace, String auid)
       throws DbException {
-    log.debug2("auid = {}", auid);
+    log.debug2("namespace = {}, auid = {}", namespace, auid);
 
     Long auidSeq = null;
 
     try {
-      // Find the AUID sequence number, or add an entry for it
+      // Find the namespace and AUID sequence numbers, or add entries for them
+      Long namespaceSeq = findOrCreateNamespaceSeq(conn, namespace);
       auidSeq = findOrCreateAuidSeq(conn, auid);
 
       // Delete any existing AuSize of the AU associated with this AUID
-      int deletedCount = deleteAuSize(conn, auidSeq);
+      int deletedCount = deleteAuSize(conn, namespaceSeq, auidSeq);
       log.trace("deletedCount = {}", deletedCount);
     } catch (DbException e) {
       String message = "Cannot update AU size";
       log.error(message, e);
+      log.error("namespace = {}", namespace);
       log.error("auid = {}", auid);
       throw e;
     }
@@ -3936,13 +3954,15 @@ public class SQLArtifactIndexManagerSql {
   /**
    * Deletes from the database the AU sizes of an AU.
    *
-   * @param conn    A Connection with the database connection to be used.
-   * @param auidSeq A Long with the database identifier of the AUID.
+   * @param conn         A Connection with the database connection to be used.
+   * @param namespaceSeq A Long with the database identifier of the namespace.
+   * @param auidSeq      A Long with the database identifier of the AUID.
    * @return an int with the count of database rows deleted.
    * @throws DbException if any problem occurred accessing the database.
    */
-  private int deleteAuSize(Connection conn, Long auidSeq) throws DbException {
-    log.debug2("auidSeq = {}", auidSeq);
+  private int deleteAuSize(Connection conn, Long namespaceSeq, Long auidSeq)
+      throws DbException {
+    log.debug2("namespaceSeq = {}, auidSeq = {}", namespaceSeq, auidSeq);
 
     int result = -1;
     PreparedStatement deleteAuSize = null;
@@ -3954,13 +3974,15 @@ public class SQLArtifactIndexManagerSql {
           DELETE_AU_SIZE_QUERY);
 
       // Populate the query.
-      deleteAuSize.setLong(1, auidSeq);
+      deleteAuSize.setLong(1, namespaceSeq);
+      deleteAuSize.setLong(2, auidSeq);
 
       // Execute the query
       result = idxDbManager.executeUpdate(deleteAuSize);
     } catch (SQLException sqle) {
       log.error(errorMessage, sqle);
       log.error("SQL = '{}'.", DELETE_AU_SIZE_QUERY);
+      log.error("namespaceSeq = {}", namespaceSeq);
       log.error("auidSeq = {}", auidSeq);
       throw new DbException(errorMessage, sqle);
     } finally {
@@ -3974,15 +3996,16 @@ public class SQLArtifactIndexManagerSql {
   /**
    * Adds to the database the sizes of an AU.
    *
-   * @param conn    A Connection with the database connection to be used.
-   * @param auidSeq A Long with the database identifier of the AUID.
-   * @param auSize  An {@link AuSize} with the AU's content sizes.
+   * @param conn         A Connection with the database connection to be used.
+   * @param namespaceSeq A Long with the database identifier of the namespace.
+   * @param auidSeq      A Long with the database identifier of the AUID.
+   * @param auSize       An {@link AuSize} with the AU's content sizes.
    * @return an int with the count of database rows added.
    * @throws DbException if any problem occurred accessing the database.
    */
-  private int addAuSize(Connection conn, Long auidSeq, AuSize auSize)
-      throws DbException {
-    log.debug2("auidSeq = {}", auidSeq);
+  private int addAuSize(Connection conn, Long namespaceSeq, Long auidSeq,
+      AuSize auSize) throws DbException {
+    log.debug2("namespaceSeq = {}, auidSeq = {}", namespaceSeq, auidSeq);
     log.debug2("auSize = {}", auSize);
 
     PreparedStatement addAuSize = null;
@@ -3993,11 +4016,12 @@ public class SQLArtifactIndexManagerSql {
       addAuSize = idxDbManager.prepareStatement(conn, ADD_AU_SIZE_QUERY);
 
       // Populate the query.
-      addAuSize.setLong(1, auidSeq);
-      addAuSize.setLong(2, auSize.getTotalLatestVersions());
-      addAuSize.setLong(3, auSize.getTotalAllVersions());
-      addAuSize.setLong(4, auSize.getTotalWarcSize());
-      addAuSize.setLong(5, TimeBase.nowMs());
+      addAuSize.setLong(1, namespaceSeq);
+      addAuSize.setLong(2, auidSeq);
+      addAuSize.setLong(3, auSize.getTotalLatestVersions());
+      addAuSize.setLong(4, auSize.getTotalAllVersions());
+      addAuSize.setLong(5, auSize.getTotalWarcSize());
+      addAuSize.setLong(6, TimeBase.nowMs());
 
       // Execute the query
       int count = idxDbManager.executeUpdate(addAuSize);
@@ -4006,6 +4030,7 @@ public class SQLArtifactIndexManagerSql {
     } catch (SQLException sqle) {
       log.error(errorMessage, sqle);
       log.error("SQL = '{}'.", ADD_AU_SIZE_QUERY);
+      log.error("namespaceSeq = {}", namespaceSeq);
       log.error("auidSeq = {}", auidSeq);
       log.error("auSize = {}", auSize);
       throw new DbException(errorMessage, sqle);

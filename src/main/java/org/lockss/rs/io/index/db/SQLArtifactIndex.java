@@ -528,11 +528,17 @@ public class SQLArtifactIndex extends AbstractArtifactIndex {
   }
 
   public AuSize findAuSize(String namespace, String auid) throws DbException {
-    return idxdb.findAuSize(NamespacedAuid.key(namespace, auid));
+    return idxdb.findAuSize(namespace, auid);
   }
 
   @Override
   public AuSize auSize(String namespace, String auid) throws IOException {
+    if (namespace == null || auid == null) {
+      // Namespace and AUID are now separate NOT NULL columns backing AU size storage
+      // (see #661); there is nothing to look up or persist for a null AU.
+      return new AuSize();
+    }
+
     try {
       AuSize result = findAuSize(namespace, auid);
 
@@ -604,13 +610,11 @@ public class SQLArtifactIndex extends AbstractArtifactIndex {
   }
 
   public Long updateAuSize(String namespace, String auid, AuSize auSize) throws DbException {
-    String nsAuid = NamespacedAuid.key(namespace, auid);
-    return idxdb.updateAuSize(nsAuid, auSize);
+    return idxdb.updateAuSize(namespace, auid, auSize);
   }
 
   public void invalidateAuSize(String namespace, String auid) throws DbException {
-    String nsAuid = NamespacedAuid.key(namespace, auid);
     log.debug2("Invalidating AU size [ns: {}, auid: {}]", namespace, auid);
-    idxdb.deleteAuSize(nsAuid);
+    idxdb.deleteAuSize(namespace, auid);
   }
 }
