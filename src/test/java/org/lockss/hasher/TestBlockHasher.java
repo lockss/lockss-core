@@ -1434,6 +1434,32 @@ public class TestBlockHasher extends LockssTestCase {
     testSeveralContentSeveralVersionsWithThrowing(10000);
   }
 
+  // A version with a stored checksum but no content should be marked
+  // suspect, not abort the hash.
+  public void testLocalHashChecksumButNoContent() throws Exception {
+    enableLocalHash("SHA-1");
+    RecordingEventHandler handRec = new RecordingEventHandler();
+    MockArchivalUnit mau = setupContentTree();
+    MockCachedUrlSet cus = (MockCachedUrlSet)mau.getAuCachedUrlSet();
+    addVersionAndChecksum(mau, urls[4], "foo",
+                          "SHA-1:0beec7b5ea3f0fdbc95d0dd47f3c5bc275da8a33");
+    CachedUrl noContent =
+      addVersionAndChecksum(mau, urls[4], null,
+                            "SHA-1:0beec7b5ea3f0fdbc95d0dd47f3c5bc275da8a33");
+    assertFalse(noContent.hasContent());
+    MessageDigest[] digs = { dig };
+    byte[][] inits = {null};
+    BlockHasher hasher = new MyBlockHasher(cus, digs, inits, handRec);
+    hasher.setFiltered(false);
+    hashToEnd(hasher, 100);
+    assertTrue(hasher.finished());
+    LocalHashResult lhr = hasher.getLocalHashResult();
+    assertEquals(1, lhr.getMatchingVersions());
+    assertEquals(1, lhr.getNewlySuspectVersions());
+    AuSuspectUrlVersions asuv = AuUtil.getSuspectUrlVersions(mau);
+    assertTrue(asuv.isSuspect(urls[4], noContent.getVersion()));
+  }
+
   public void testInitBytes(int stepSize) throws Exception {
     String chal = "challenge";
     RecordingEventHandler handRec = new RecordingEventHandler();
