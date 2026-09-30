@@ -61,6 +61,11 @@ import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 
 import static org.mockito.Mockito.mock;
@@ -277,6 +282,79 @@ public class TestWarcArtifactDataStoreReindexConcurrency extends LockssCoreTestC
                "a temporary WARC was parsed before every permanent WARC had finished: " + events);
   }
 
+  /**
+   * Regression test: if a cancelled reindex
+   * worker never confirms it stopped, the run must be marked aborted rather than letting
+   * the caller proceed to the next phase or finalize (rotate) the ledger while that worker
+   * could still be running.
+   * <p>
+   * One WARC's parse never returns and does not honor interruption. The reindexing thread
+   * is interrupted from outside once that worker has started, which cancels the other
+   * worker(s) normally but cannot stop the stuck one. With {@link StuckWorkerStore}'s
+   * shortened shutdown wait, {@code reindexArtifacts()} must still return promptly, and its
+   * result must be marked aborted -- and {@link WarcArtifactDataStore#REINDEX_FAILURES_FILE}
+   * (always written by a completed run) must not have been written, since that only happens
+   * after the aborted-run check.
+   */
+  @Test
+  public void testReindexAbortsWhenAWorkerDoesNotTerminate() throws Exception {
+    Path stuckWarc = writeAuWarcAt(basePath1, "auA", "stuck", 1);
+    writeAuWarc(basePath1, "auB", "fine", 1);
+
+    ConfigurationUtil.addFromArgs(WarcArtifactDataStore.PARAM_REINDEX_PARSE_THREADS, "4");
+
+    StuckWorkerStore stuckStore = new StuckWorkerStore(new File[]{basePath1, basePath2}, stuckWarc);
+    BaseLockssRepository repo = mock(BaseLockssRepository.class);
+    when(repo.getArtifactIndex()).thenReturn(index);
+    when(repo.getRepositoryStateDirPath()).thenReturn(stateDir.toPath());
+    stuckStore.setLockssRepository(repo);
+    stuckStore.init();
+
+    ExecutorService runner = Executors.newSingleThreadExecutor();
+
+    try {
+      Future<ReindexResult> future = runner.submit(() -> stuckStore.reindexArtifacts(index));
+
+      assertTrue(stuckStore.stuckStarted.await(30, TimeUnit.SECONDS),
+                 "Stuck worker never started");
+
+      // Interrupt the reindexing thread itself. The stuck worker will not honor the
+      // cancellation this triggers, so awaitReindexWorkerShutdown -- with the test's
+      // shortened timeout -- must report that it could not confirm every worker stopped.
+      runner.shutdownNow();
+
+      ReindexResult result = future.get(30, TimeUnit.SECONDS);
+
+      assertTrue(result.isAborted(), "Result was not marked aborted");
+      assertNotNull(result.getAbortReason());
+
+      // An aborted result must not read as a clean success, even when nothing else failed:
+      // BaseLockssRepository.reindexArtifactsInListedAus() marks an AU "done" (never
+      // retried) precisely when isSuccessful() is true, and reindexArtifacts() decides
+      // whether to delete the reindexing-state resume token from hasFailures().
+      assertFalse(result.isSuccessful(), "An aborted result must not report itself successful");
+      assertTrue(result.hasFailures(), "An aborted result must not report itself failure-free");
+
+      Path failuresPath = stateDir.toPath().resolve(WarcArtifactDataStore.REINDEX_FAILURES_FILE);
+      assertFalse(Files.exists(failuresPath),
+          "Aborted run must not have written the failure report, since that only happens"
+              + " after finishReindexRun()'s aborted-run check");
+    } finally {
+      runner.shutdownNow();
+
+      // Let the simulated stuck worker exit, and wait for it to actually do so, rather than
+      // leaking a daemon thread that ignores interruption for the rest of the JVM's life.
+      stuckStore.released = true;
+      Thread stuckThread = stuckStore.stuckThread;
+      if (stuckThread != null) {
+        stuckThread.join(TimeUnit.SECONDS.toMillis(30));
+        assertFalse(stuckThread.isAlive(), "Simulated stuck worker thread did not exit");
+      }
+
+      stuckStore.stop();
+    }
+  }
+
   // *******************************************************************************
   // * ISOLATION UNDER CONCURRENCY
   // *******************************************************************************
@@ -462,6 +540,62 @@ public class TestWarcArtifactDataStoreReindexConcurrency extends LockssCoreTestC
       synchronized (events) {
         events.clear();
       }
+    }
+  }
+
+  /**
+   * A data store whose parse of a chosen WARC never returns and does not honor
+   * interruption -- standing in for a worker stuck in something uninterruptible (e.g. some
+   * blocking native I/O) -- so a test can exercise what happens when a cancelled reindex
+   * worker never confirms it stopped. Also shortens the shutdown wait so the test does not
+   * have to wait out the real one-minute timeout.
+   */
+  private static class StuckWorkerStore extends LocalWarcArtifactDataStore {
+    final Path stuckWarc;
+    final CountDownLatch stuckStarted = new CountDownLatch(1);
+
+    /**
+     * Set by the test once its assertions are done, so the simulated stuck worker can exit
+     * instead of leaking a daemon thread for the rest of the JVM's life. Polled rather than
+     * waited on via a latch so the worker keeps ignoring the interrupt cancellation sends (a
+     * real uninterruptible operation would not see it either), while still noticing the test's
+     * release promptly.
+     */
+    volatile boolean released = false;
+
+    /** The worker thread stuck on stuckWarc, so the test can join it during cleanup. */
+    volatile Thread stuckThread = null;
+
+    StuckWorkerStore(File[] basePaths, Path stuckWarc) throws IOException {
+      super(basePaths);
+      this.stuckWarc = stuckWarc;
+    }
+
+    @Override
+    protected long getReindexWorkerShutdownTimeoutMs() {
+      return 100;
+    }
+
+    @Override
+    public long indexArtifactsFromWarc(ArtifactIndex index, Path warcFile, ReindexResult result)
+        throws IOException {
+      if (warcFile.equals(stuckWarc)) {
+        stuckThread = Thread.currentThread();
+        stuckStarted.countDown();
+
+        while (!released) {
+          try {
+            Thread.sleep(20);
+          } catch (InterruptedException e) {
+            // Ignore and keep polling for release: a real uninterruptible operation would not
+            // see this interrupt either.
+          }
+        }
+
+        throw new IOException("Stuck worker released for test cleanup");
+      }
+
+      return super.indexArtifactsFromWarc(index, warcFile, result);
     }
   }
 

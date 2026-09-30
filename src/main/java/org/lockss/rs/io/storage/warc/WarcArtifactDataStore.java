@@ -176,6 +176,17 @@ public abstract class WarcArtifactDataStore implements ArtifactDataStore, WARCCo
    */
   public static final long REINDEX_WORKER_SHUTDOWN_TIMEOUT = 1;
   public static final TimeUnit REINDEX_WORKER_SHUTDOWN_TIMEOUT_UNIT = TimeUnit.MINUTES;
+
+  /**
+   * The {@link #REINDEX_WORKER_SHUTDOWN_TIMEOUT}/{@link #REINDEX_WORKER_SHUTDOWN_TIMEOUT_UNIT}
+   * pair, in milliseconds. A protected method rather than using the constants directly, so a
+   * test can shorten this instead of waiting out the real one-minute timeout to exercise what
+   * happens when it elapses.
+   */
+  protected long getReindexWorkerShutdownTimeoutMs() {
+    return REINDEX_WORKER_SHUTDOWN_TIMEOUT_UNIT.toMillis(REINDEX_WORKER_SHUTDOWN_TIMEOUT);
+  }
+
   /**
    * CSV report of the WARCs a reindex pass could not read, written alongside
    * {@link #REINDEXED_WARCS_FILE} and rotated with the same run stamp. The name
@@ -2939,13 +2950,20 @@ public abstract class WarcArtifactDataStore implements ArtifactDataStore, WARCCo
       // concurrency: no temporary WARC is even submitted until phase 1 is complete.
       reindexWarcs(index, permanentWarcs, printer, indexedWarcs, result);
 
-      // Phase 2.
-      reindexWarcs(index, temporaryWarcs, printer, indexedWarcs, result);
+      // Phase 2. Skipped if phase 1 could not confirm its workers actually stopped: with
+      // that unconfirmed, a phase-1 worker could still be running, so starting phase 2
+      // would not honor the permanent-before-temporary ordering this method exists to
+      // guarantee.
+      if (!result.isAborted()) {
+        reindexWarcs(index, temporaryWarcs, printer, indexedWarcs, result);
+      }
     }
 
     // Write the failure report, rotate it and the ledger under one run stamp, and
     // log the summary. Deliberately after the printer is closed: the old code
-    // renamed the ledger while its writer was still open.
+    // renamed the ledger while its writer was still open. finishReindexRun() itself
+    // refuses to rotate an aborted run, since an unconfirmed worker could still be
+    // writing to the ledger this would rotate.
     finishReindexRun(result);
 
     return result;
@@ -3163,7 +3181,13 @@ public abstract class WarcArtifactDataStore implements ArtifactDataStore, WARCCo
         }
       }
     } finally {
-      awaitReindexWorkerShutdown(executor);
+      // If a cancelled worker never confirms it stopped, this run's phase barrier cannot be
+      // trusted: that worker could still be writing to the index or the shared ledger after
+      // this method returns. Mark the run aborted so the caller does not start the next
+      // phase or finalize (rotate) the ledger while that is possible.
+      if (!awaitReindexWorkerShutdown(executor)) {
+        result.markAborted("WARC reindex worker(s) did not terminate after being cancelled");
+      }
     }
   }
 
@@ -3181,23 +3205,30 @@ public abstract class WarcArtifactDataStore implements ArtifactDataStore, WARCCo
    * the flag is cleared before the wait -- otherwise {@code awaitTermination} would throw
    * immediately instead of actually waiting -- and restored afterward.
    */
-  private static void awaitReindexWorkerShutdown(ExecutorService executor) {
+  private boolean awaitReindexWorkerShutdown(ExecutorService executor) {
     executor.shutdownNow();
 
     boolean interrupted = Thread.interrupted();
+    boolean terminated = false;
+    long timeoutMs = getReindexWorkerShutdownTimeoutMs();
 
     try {
-      if (!executor.awaitTermination(REINDEX_WORKER_SHUTDOWN_TIMEOUT, REINDEX_WORKER_SHUTDOWN_TIMEOUT_UNIT)) {
-        log.warn("WARC reindex worker(s) did not terminate within {} {} of being cancelled",
-                  REINDEX_WORKER_SHUTDOWN_TIMEOUT, REINDEX_WORKER_SHUTDOWN_TIMEOUT_UNIT);
+      terminated = executor.awaitTermination(timeoutMs, TimeUnit.MILLISECONDS);
+
+      if (!terminated) {
+        log.warn("WARC reindex worker(s) did not terminate within {} ms of being cancelled",
+                  timeoutMs);
       }
     } catch (InterruptedException e) {
+      // Termination was never confirmed either way; treat as not terminated.
       interrupted = true;
     } finally {
       if (interrupted) {
         Thread.currentThread().interrupt();
       }
     }
+
+    return terminated;
   }
 
   /**
@@ -3306,6 +3337,15 @@ public abstract class WarcArtifactDataStore implements ArtifactDataStore, WARCCo
    * @return the run stamp used, or {@code null} if there was nothing to rotate.
    */
   public String finishReindexRun(ReindexResult result) throws IOException {
+    if (result.isAborted()) {
+      // Do not rotate: a worker that never confirmed it stopped could still be writing to
+      // the ledger this would rename out from under it. Leave everything in place for an
+      // operator to investigate and rerun the reindex.
+      log.error("Reindex aborted: {}; not rotating the reindexed-WARCs ledger this run",
+                result.getAbortReason());
+      return null;
+    }
+
     Path stateDir = repo.getRepositoryStateDirPath();
     Path reindexedWarcsPath = stateDir.resolve(REINDEXED_WARCS_FILE);
     Path failuresPath = stateDir.resolve(REINDEX_FAILURES_FILE);
