@@ -407,6 +407,54 @@ public class TestBaseLockssRepositoryTargetedReindex extends LockssTestCase5 {
   }
 
   // *******************************************************************************
+  // * FULL-REINDEX RESUME TOKEN (#737 follow-up)
+  // *******************************************************************************
+
+  /**
+   * Regression test for the #737 review's follow-up finding: reindexArtifacts() deletes the
+   * whole-store "reindexing in progress" resume token unconditionally on its normal return
+   * path, including an aborted one. An aborted run leaves temporary WARCs unprocessed, so the
+   * token -- which tells the next startup a pass is still owed -- must survive.
+   * <p>
+   * Stubs the data store's reindexArtifacts() directly, rather than driving a real aborted
+   * concurrent reindex (see WarcArtifactDataStore's own
+   * testReindexAbortsWhenAWorkerDoesNotTerminate for that), since this test is only about
+   * what BaseLockssRepository.reindexArtifacts() itself does with the result it's handed.
+   */
+  @Test
+  public void testReindexArtifactsPreservesResumeTokenWhenAborted() throws Exception {
+    ReindexResult abortedResult = new ReindexResult();
+    abortedResult.markAborted("simulated: a worker did not confirm it stopped");
+
+    Mockito.doReturn(abortedResult).when(store).reindexArtifacts(index);
+
+    ReindexResult result = repo.reindexArtifacts();
+    assertTrue(result.isAborted());
+
+    File tokenFile = stateDir.toPath()
+        .resolve(BaseLockssRepository.REINDEXING_STATE_FILE).toFile();
+    assertTrue(tokenFile.exists(),
+        "The reindexing resume token must survive an aborted run, so the next startup retries it");
+  }
+
+  /** The contrasting case: an ordinary completed run still deletes the token as before. */
+  @Test
+  public void testReindexArtifactsDeletesResumeTokenWhenNotAborted() throws Exception {
+    ReindexResult successResult = new ReindexResult();
+    successResult.addWarcSucceeded(3);
+
+    Mockito.doReturn(successResult).when(store).reindexArtifacts(index);
+
+    ReindexResult result = repo.reindexArtifacts();
+    assertFalse(result.isAborted());
+
+    File tokenFile = stateDir.toPath()
+        .resolve(BaseLockssRepository.REINDEXING_STATE_FILE).toFile();
+    assertFalse(tokenFile.exists(),
+        "The reindexing resume token must be deleted after a completed, non-aborted run");
+  }
+
+  // *******************************************************************************
   // * UTILITIES
   // *******************************************************************************
 

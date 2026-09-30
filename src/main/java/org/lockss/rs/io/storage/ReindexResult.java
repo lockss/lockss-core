@@ -120,6 +120,23 @@ public class ReindexResult {
   private int warcsAttempted = 0;
   @Getter
   private int warcsSucceeded = 0;
+  @Getter
+  private boolean aborted = false;
+  @Getter
+  private String abortReason = null;
+
+  /**
+   * Records that this run cannot be trusted to have established its usual phase barrier --
+   * e.g. a cancelled reindex worker did not confirm it had actually stopped -- and so must not
+   * proceed to a later phase, or be finalized (ledger rotated), while that worker could still be
+   * running. See {@link org.lockss.rs.io.storage.warc.WarcArtifactDataStore#finishReindexRun}.
+   */
+  public void markAborted(String reason) {
+    if (!aborted) {
+      aborted = true;
+      abortReason = reason;
+    }
+  }
 
   /** Records that a WARC file was reindexed successfully. */
   public void addWarcSucceeded(long numIndexed) {
@@ -175,6 +192,9 @@ public class ReindexResult {
       artifactsSkipped += other.artifactsSkipped;
       warcsAttempted += other.warcsAttempted;
       warcsSucceeded += other.warcsSucceeded;
+      if (other.aborted) {
+        markAborted(other.abortReason);
+      }
     }
     return this;
   }
@@ -200,9 +220,17 @@ public class ReindexResult {
     return !isSuccessful();
   }
 
-  /** True iff nothing failed. Note that skipped artifacts do not make a run unsuccessful. */
+  /**
+   * True iff nothing failed and the run was not aborted. Note that skipped artifacts do not
+   * make a run unsuccessful.
+   * <p>
+   * The {@code !aborted} half matters to {@code BaseLockssRepository.reindexArtifactsInListedAus()}:
+   * without it, an AU whose reindex aborted (e.g. a worker never confirmed it stopped) but
+   * otherwise recorded no failures would be marked done and never retried, even though its
+   * temporary WARCs may not have been processed.
+   */
   public boolean isSuccessful() {
-    return warcFailures.isEmpty() && auFailures.isEmpty() && missingAus.isEmpty();
+    return !aborted && warcFailures.isEmpty() && auFailures.isEmpty() && missingAus.isEmpty();
   }
 
   private static String describe(Throwable cause) {
