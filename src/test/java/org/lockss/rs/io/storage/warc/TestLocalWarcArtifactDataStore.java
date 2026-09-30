@@ -64,6 +64,7 @@ import org.springframework.web.util.UriComponentsBuilder;
 import java.io.*;
 import java.net.URI;
 import java.net.URL;
+import java.nio.file.Files;
 import java.nio.file.NoSuchFileException;
 import java.nio.file.Path;
 import java.nio.file.Paths;
@@ -941,6 +942,85 @@ public class TestLocalWarcArtifactDataStore extends AbstractWarcArtifactDataStor
   }
 
   /**
+   * A {@link VolatileArtifactIndex} that returns an independent {@link Artifact#copyOf()} from
+   * every {@link #getArtifact(String)} call, instead of the shared mutable instance the plain
+   * volatile index hands back. Needed for {@link #testJournalReloadRefetchesArtifactAfterAcquiringLock}:
+   * against the plain volatile index, a "stale" reference mutates in place along with the
+   * live one, so the bug that test exists to catch cannot be observed at all. A real
+   * {@link org.lockss.rs.io.index.db.SQLArtifactIndex} already has this snapshot property,
+   * since it reconstructs a fresh {@link Artifact} from a database row on every call.
+   */
+  private static class SnapshotArtifactIndex extends VolatileArtifactIndex {
+    @Override
+    public Artifact getArtifact(String artifactUuid) {
+      Artifact artifact = super.getArtifact(artifactUuid);
+      return (artifact != null) ? artifact.copyOf() : null;
+    }
+  }
+
+  /**
+   * A data store whose journal-based temporary WARC reload commits a target artifact (via
+   * the shared index, not through this store) at the exact seam between that artifact's
+   * provisional lookup and the acquisition of its lock -- the window fixed by re-fetching
+   * the artifact after the lock is held. See {@link WarcArtifactDataStore#beforeJournalReloadArtifactLock}.
+   */
+  private static class ArtifactRaceOnReloadStore extends LocalWarcArtifactDataStore {
+    private final ArtifactIndex index;
+    private final String targetUuid;
+    private boolean fired = false;
+
+    ArtifactRaceOnReloadStore(Path[] basePaths, ArtifactIndex index, String targetUuid)
+        throws IOException {
+      super(basePaths);
+      this.index = index;
+      this.targetUuid = targetUuid;
+    }
+
+    @Override
+    protected void beforeJournalReloadArtifactLock(String uuid) {
+      if (uuid.equals(targetUuid) && !fired) {
+        fired = true;
+        try {
+          index.commitArtifact(targetUuid);
+        } catch (IOException e) {
+          throw new RuntimeException(e);
+        }
+      }
+    }
+  }
+
+  /**
+   * A data store whose {@link #getArtifactData(Artifact)} pools a target temporary WARC (by
+   * directly adding it to {@code tmpWarcPool}, standing in for the background reload actually
+   * finishing) at the exact seam between the first pool check and the acquisition of the
+   * reload lock -- the window fixed by re-checking the pool after the lock is held. See
+   * {@link WarcArtifactDataStore#beforeTempWarcReloadRecheck}.
+   */
+  private static class PoolsDuringRecheckStore extends LocalWarcArtifactDataStore {
+    private final Path targetWarc;
+    private boolean fired = false;
+
+    PoolsDuringRecheckStore(Path[] basePaths, Path targetWarc) throws IOException {
+      super(basePaths);
+      this.targetWarc = targetWarc;
+    }
+
+    @Override
+    protected void beforeTempWarcReloadRecheck(Path warcFilePath) {
+      if (warcFilePath.equals(targetWarc) && !fired) {
+        fired = true;
+        try {
+          WarcFile warcFile = new WarcFile(targetWarc, isCompressedWarcFile(targetWarc));
+          warcFile.setLength(Files.size(targetWarc));
+          tmpWarcPool.addAsFullWarcFile(warcFile);
+        } catch (IOException e) {
+          throw new RuntimeException(e);
+        }
+      }
+    }
+  }
+
+  /**
    * Adds a single uncommitted artifact and returns its spec. The artifact's temporary WARC
    * is what a restarted data store has to reload.
    */
@@ -957,6 +1037,107 @@ public class TestLocalWarcArtifactDataStore extends AbstractWarcArtifactDataStor
     spec.setStorageUrl(URI.create(storedRef.getStorageUrl()));
 
     return spec;
+  }
+
+  /**
+   * Regression test: the journal-based reload's
+   * classification of an artifact must reflect a commit that lands between the artifact's
+   * provisional lookup and the acquisition of its lock, not the stale pre-lock snapshot.
+   * <p>
+   * Forces isExpired = true (via a zero uncommitted-artifact expiration) so the stale,
+   * still-uncommitted view of the artifact would be classified EXPIRED and deleted from the
+   * index, while the fresh, now-committed view is classified PENDING_COPY and kept.
+   */
+  @Test
+  public void testJournalReloadRefetchesArtifactAfterAcquiringLock() throws Exception {
+    teardownDataStore();
+
+    ArtifactIndex index = new SnapshotArtifactIndex();
+    index.init();
+
+    store = makeWarcArtifactDataStore(index);
+    ArtifactSpec spec = addUncommittedArtifact();
+
+    Artifact indexed = index.getArtifact(spec.getArtifactUuid());
+    assertNotNull(indexed);
+    assertFalse(indexed.getCommitted());
+
+    Path tmpWarcPath = WarcArtifactDataStore.getPathFromStorageUrl(spec.getStorageUrl());
+    assertTrue(isFile(tmpWarcPath));
+
+    // Record a journal entry for this artifact so the journal-based reload's fast path --
+    // the one under test -- applies instead of the full WARC-body scan fallback.
+    store.writeJournalEntryForArtifact(indexed,
+        new WarcArtifactStateEntry(spec.getArtifactUuid(), WarcArtifactState.UNCOMMITTED)
+            .setEntryDate(TimeBase.nowMs()));
+
+    ArtifactRaceOnReloadStore raceStore =
+        new ArtifactRaceOnReloadStore(store.getBasePaths(), index, spec.getArtifactUuid());
+    raceStore.setUncommittedArtifactExpiration(-1L);
+
+    try {
+      boolean handled = raceStore.reloadOrRemoveTemporaryWarcFromJournal(index, tmpWarcPath);
+      assertTrue(handled, "Expected the journal-based reload path to handle this WARC");
+      assertTrue(raceStore.fired, "Test hook never fired");
+
+      // The commit landed between the lookup and the lock; the reload must have classified
+      // the artifact against the fresh (committed) view, not the stale one.
+      Artifact after = index.getArtifact(spec.getArtifactUuid());
+      assertNotNull(after,
+          "Reload deleted an artifact that was committed just before its lock was acquired");
+      assertTrue(after.getCommitted());
+    } finally {
+      stopQuietly(raceStore);
+    }
+  }
+
+  /**
+   * Regression test: a read of an artifact in a temporary
+   * WARC must recheck the WARC-file pool after acquiring the WARC's reload lock, not act on
+   * the pre-lock pool lookup alone.
+   * <p>
+   * Simulates the background reload finishing (pooling the WARC) in the window between the
+   * read's first pool check and its acquisition of the reload lock. Without the recheck, the
+   * read would misreport this WARC -- which just became available -- as expired.
+   */
+  @Test
+  public void testGetArtifactDataRechecksPoolAfterAcquiringReloadLock() throws Exception {
+    teardownDataStore();
+
+    ArtifactIndex index = new VolatileArtifactIndex();
+    index.init();
+
+    store = makeWarcArtifactDataStore(index);
+    ArtifactSpec spec = addUncommittedArtifact();
+
+    Path tmpWarcPath = WarcArtifactDataStore.getPathFromStorageUrl(spec.getStorageUrl());
+    assertTrue(isFile(tmpWarcPath));
+
+    PoolsDuringRecheckStore raceStore =
+        new PoolsDuringRecheckStore(store.getBasePaths(), tmpWarcPath);
+    BaseLockssRepository repo = mock(BaseLockssRepository.class);
+    when(repo.getArtifactIndex()).thenReturn(index);
+    raceStore.setLockssRepository(repo);
+
+    try {
+      Artifact indexed = index.getArtifact(spec.getArtifactUuid());
+      assertNotNull(indexed);
+
+      // Not pooled yet, and this store never ran a reload (so nothing is marked pending
+      // either) -- the hook below pools it partway through the read, simulating the
+      // background reload finishing in the gap between the two checks.
+      assertNull(raceStore.tmpWarcPool.getWarcFile(tmpWarcPath));
+
+      try (ArtifactData ad = raceStore.getArtifactData(indexed)) {
+        assertNotNull(ad);
+        spec.assertArtifactData(ad);
+      }
+
+      assertTrue(raceStore.fired, "Test hook never fired");
+      assertFalse(TempWarcInUseTracker.INSTANCE.isInUse(tmpWarcPath));
+    } finally {
+      stopQuietly(raceStore);
+    }
   }
 
   private void stopQuietly(LocalWarcArtifactDataStore ds) {

@@ -1413,10 +1413,21 @@ public abstract class WarcArtifactDataStore implements ArtifactDataStore, WARCCo
       String uuid = e.getKey();
       Long entryMs = uncommittedEntryDate.get(uuid);
 
-      Artifact artifact = index.getArtifact(uuid);
-      ArtifactIdentifier aid = (artifact != null) ? artifact.getIdentifier() : null;
+      Artifact provisionalArtifact = index.getArtifact(uuid);
+      ArtifactIdentifier aid = (provisionalArtifact != null) ? provisionalArtifact.getIdentifier() : null;
+
+      beforeJournalReloadArtifactLock(uuid);
 
       try (SemaphoreLock lock = (aid != null) ? lockArtifact(aid) : null) {
+        // Re-fetch under the lock rather than reusing provisionalArtifact: a commit
+        // that lands between the lookup above and acquiring this lock (the same lock
+        // commitArtifactData() takes, keyed by identifier equality) would otherwise be
+        // classified against a stale Artifact -- deleting a newly-committed index
+        // entry as EXPIRED, or requeuing a PENDING_COPY that just finished. Mirrors the
+        // WARC-scan reload path, which locks first (using the identifier from the WARC
+        // record header, not the index) and only then reads the artifact.
+        Artifact artifact = (aid != null) ? index.getArtifact(uuid) : provisionalArtifact;
+
         // Re-derive against the live (index, storage URL) tuple so a stale journal
         // entry (e.g. crash between copy completion and the COPIED journal write)
         // doesn't cause a spurious requeue or block GC.
@@ -1617,6 +1628,15 @@ public abstract class WarcArtifactDataStore implements ArtifactDataStore, WARCCo
    * be pooled. No-op in production.
    */
   protected void beforeFinishTemporaryWarcReload(Path tmpWarc) {
+  }
+
+  /**
+   * Test seam: called for each artifact UUID that {@link #reloadOrRemoveTemporaryWarcFromJournal}
+   * is about to classify, after it has looked the artifact up in the index but before it acquires
+   * that artifact's lock -- the window in which a concurrent commit can land without being
+   * reflected in the Artifact object this pass is about to classify. No-op in production.
+   */
+  protected void beforeJournalReloadArtifactLock(String uuid) {
   }
 
   /**
@@ -2272,6 +2292,15 @@ public abstract class WarcArtifactDataStore implements ArtifactDataStore, WARCCo
   }
 
   /**
+   * Test seam: called when {@link #getArtifactData(Artifact)} finds no pooled {@link WarcFile}
+   * for a temporary WARC, before it acquires that WARC's reload lock to decide whether it is
+   * expired or still pending -- the window in which the background reload can finish pooling
+   * the WARC. No-op in production.
+   */
+  protected void beforeTempWarcReloadRecheck(Path warcFilePath) {
+  }
+
+  /**
    * Retrieves the {@link ArtifactData} of an {@link Artifact} by resolving its storage URL.
    *
    * @param artifact An {@link Artifact} instance containing a reference to the artifact data to retrieve from storage.
@@ -2322,21 +2351,41 @@ public abstract class WarcArtifactDataStore implements ArtifactDataStore, WARCCo
             // deleted, in which case this artifact must be expired. Hold the WARC's reload
             // lock so the reload cannot decide to remove the file between the check below
             // and the markUseStart that pins it.
+            beforeTempWarcReloadRecheck(warcFilePath);
+
             try (SemaphoreLock reloadLock = tmpWarcReloadLocks.getLock(warcFilePath)) {
-              if (!isPendingReload(warcFilePath)) {
-                log.error(expiredErrorMsg);
-                throw new LockssNoSuchArtifactIdException(expiredErrorMsg);
+              // Re-check the pool under the reload lock: the reload may have pooled this
+              // WARC (and cleared its pending flag) between the check above and acquiring
+              // this lock. Without this, a WARC that just became available would be
+              // misreported as expired instead of taking the ordinary pooled-file path.
+              warcFile = tmpWarcPool.getWarcFile(warcFilePath);
+
+              if (warcFile != null) {
+                synchronized (warcFile) {
+                  if (warcFile.isMarkedForGC()) {
+                    log.error(expiredErrorMsg);
+                    throw new LockssNoSuchArtifactIdException(expiredErrorMsg);
+                  } else {
+                    TempWarcInUseTracker.INSTANCE.markUseStart(warcFilePath);
+                    owesUseEnd = true;
+                  }
+                }
+              } else {
+                if (!isPendingReload(warcFilePath)) {
+                  log.error(expiredErrorMsg);
+                  throw new LockssNoSuchArtifactIdException(expiredErrorMsg);
+                }
+
+                // Reference the file directly rather than waiting for the reload to reach
+                // it. The in-use mark keeps both the reload and the GC from removing the
+                // file while it is being read.
+                log.debug2("Reading artifact from a temporary WARC still pending reload [uuid: {}, warc: {}]",
+                    artifactUuid, warcFilePath);
+
+                TempWarcInUseTracker.INSTANCE.markUseStart(warcFilePath);
+                owesUseEnd = true;
+                isPendingReloadRead = true;
               }
-
-              // Reference the file directly rather than waiting for the reload to reach
-              // it. The in-use mark keeps both the reload and the GC from removing the
-              // file while it is being read.
-              log.debug2("Reading artifact from a temporary WARC still pending reload [uuid: {}, warc: {}]",
-                  artifactUuid, warcFilePath);
-
-              TempWarcInUseTracker.INSTANCE.markUseStart(warcFilePath);
-              owesUseEnd = true;
-              isPendingReloadRead = true;
             } catch (InterruptedException e) {
               throw new InterruptedIOException("Interrupted while waiting to acquire temporary WARC reload lock");
             }
