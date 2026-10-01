@@ -385,6 +385,18 @@ public class TestPluginManager extends LockssTestCase4 {
   }
 
   @Test
+  public void testRegisterBuiltinPlugins() throws Exception {
+    mgr.startService();
+    Set<String> ids = new HashSet<>();
+    for (Plugin plug : mgr.getRegisteredPlugins()) {
+      ids.add(plug.getPluginId());
+    }
+    assertEquals(SetUtil.set("org.lockss.plugin.NamedPlugin",
+                             "org.lockss.plugin.DirTreePlugin"),
+                 ids);
+  }
+
+  @Test
   public void testInitPluginRegistry() {
     mgr.startService();
     String n1 = "org.lockss.test.MockPlugin";
