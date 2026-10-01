@@ -854,7 +854,7 @@ public abstract class BaseArchivalUnit implements ArchivalUnit {
   }
 
   public boolean isCrawlable() {
-    return true;
+    return !AuUtil.isPubDown(this);
   }
 
   public ArchiveFileTypes getArchiveFileTypes() {

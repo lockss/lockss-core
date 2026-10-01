@@ -408,12 +408,12 @@ public class ArchivalUnitStatus
 	if (cmStatus != null && cmStatus.isRunningNCCrawl(au)) {
 	  stat = new OrderedObject("Crawling", STATUS_ORDER_CRAWLING);
 	} else {
-	  if (auState.getLastCrawlTime() > 0 || AuUtil.isPubDown(au)) {
-	    stat = new OrderedObject("Waiting for Poll",
-				     STATUS_ORDER_WAIT_POLL);
-	  } else {
+	  if (au.isCrawlable() && auState.getLastCrawlTime() <= 0) {
 	    stat = new OrderedObject("Waiting for Crawl",
 				     STATUS_ORDER_WAIT_CRAWL);
+	  } else {
+	    stat = new OrderedObject("Waiting for Poll",
+				     STATUS_ORDER_WAIT_POLL);
 	  }
 	}
       } else {
@@ -991,7 +991,7 @@ public class ArchivalUnitStatus
       Object recentPollStat = null;
       if (AuUtil.getProtocolVersion(au) == Poll.V3_PROTOCOL) {
         if (state.getV3Agreement() < 0) {
-          if (state.getLastCrawlTime() < 0  && !AuUtil.isPubDown(au)) {
+          if (au.isCrawlable() && state.getLastCrawlTime() <= 0) {
             stat = "Waiting for Crawl";
           } else {
             stat = "Waiting for Poll";
@@ -1064,8 +1064,8 @@ public class ArchivalUnitStatus
           "Publisher");
       res.add(new StatusTable.SummaryInfo("Available From Publisher",
           ColumnDescriptor.TYPE_STRING,
-          (AuUtil.isPubDown(au)
-              ? "No" : "Yes")));
+          (au.isCrawlable()
+              ? "Yes" : "No")));
       SubstanceChecker.State subState = state.getSubstanceState();
 
       String coverageDepth =
@@ -1130,7 +1130,7 @@ public class ArchivalUnitStatus
             ColumnDescriptor.TYPE_STRING,
             wmsg));
       }
-      if (debug) {
+      if (debug && au.isCrawlable()) {
         String crawlPool = au.getFetchRateLimiterKey();
         if (crawlPool == null) {
           crawlPool = "(none)";
@@ -1255,83 +1255,88 @@ public class ArchivalUnitStatus
       res.add(new StatusTable.SummaryInfo(null,
           ColumnDescriptor.TYPE_STRING,
           audef));
-      List serveLinks = new ArrayList();
 
-      StatusTable.DisplayedValue saudv = new StatusTable.DisplayedValue("ServeContent").addFootnote(FOOT_SERVE_AU);
-      Object saulink =
+      if (AuUtil.isReplayableAu(au)) {
+
+        List serveLinks = new ArrayList();
+
+        StatusTable.DisplayedValue saudv = new StatusTable.DisplayedValue("ServeContent").addFootnote(FOOT_SERVE_AU);
+        Object saulink =
           new StatusTable.SrvLink(saudv,
-              AdminServletManager.SERVLET_SERVE_CONTENT,
-              PropUtil.fromArgs("auid", au.getAuId()));
-      serveLinks.add(saulink);
+                                  AdminServletManager.SERVLET_SERVE_CONTENT,
+                                  PropUtil.fromArgs("auid", au.getAuId()));
+        serveLinks.add(saulink);
 
-      StatusTable.DisplayedValue scdv = new StatusTable.DisplayedValue("ServeContent (OpenURL)").addFootnote(FOOT_SERVE_CONTENT);
-      Object sclink =
+        StatusTable.DisplayedValue scdv = new StatusTable.DisplayedValue("ServeContent (OpenURL)").addFootnote(FOOT_SERVE_CONTENT);
+        Object sclink =
           new StatusTable.SrvLink(scdv,
-              AdminServletManager.SERVLET_SERVE_CONTENT,
-              PropUtil.fromArgs("auid", au.getAuId(),
-                  "use_openurl", "true"));
-      serveLinks.add(", ");
-      serveLinks.add(sclink);
+                                  AdminServletManager.SERVLET_SERVE_CONTENT,
+                                  PropUtil.fromArgs("auid", au.getAuId(),
+                                                    "use_openurl", "true"));
+        serveLinks.add(", ");
+        serveLinks.add(sclink);
 
-      ServiceBinding owbBinding =
+        ServiceBinding owbBinding =
           theDaemon.getServiceBinding(ServiceDescr.SVC_OPENWAYBACK);
-      ServiceBinding pywbBinding =
+        ServiceBinding pywbBinding =
           theDaemon.getServiceBinding(ServiceDescr.SVC_PYWB);
 
-      String replayUrl = null;
+        String replayUrl = null;
 
-      // Find first start URL with content to use as the default replay URL
-      for (String startUrl : au.getStartUrls()) {
-        // Use first start URL if we cannot find one with content
-        // Q: Do we really want this behavior? If not what should we do
-        //  if no start URLs have content (yet)?
-        if (StringUtil.isNullString(replayUrl)) {
-          replayUrl = startUrl;
-        }
-
-        CachedUrl cu = null;
-        try {
-          cu = au.makeCachedUrl(startUrl);
-          if (cu.hasContent()) {
+        // Find first start URL with content to use as the default replay URL
+        for (String startUrl : au.getStartUrls()) {
+          // Use first start URL if we cannot find one with content
+          // Q: Do we really want this behavior? If not what should we do
+          //  if no start URLs have content (yet)?
+          if (StringUtil.isNullString(replayUrl)) {
             replayUrl = startUrl;
-            break;
           }
-        } finally {
-          AuUtil.safeRelease(cu);
+
+          CachedUrl cu = null;
+          try {
+            cu = au.makeCachedUrl(startUrl);
+            if (cu.hasContent()) {
+              replayUrl = startUrl;
+              break;
+            }
+          } finally {
+            AuUtil.safeRelease(cu);
+          }
         }
-      }
 
-      if (pywbBinding != null) {
-        RepositoryManager repoMgr = theDaemon.getRepositoryManager();
-        String namespace = repoMgr.getV2Repository().getNamespace();
+        if (pywbBinding != null) {
+          RepositoryManager repoMgr = theDaemon.getRepositoryManager();
+          String namespace = repoMgr.getV2Repository().getNamespace();
 
-        StatusTable.DisplayedValue pydv = new StatusTable.DisplayedValue("Pywb").addFootnote(FOOT_SERVE_PYWB);
-        Object pywbLink = new StatusTable.SvcLink(pydv,
-            ServiceDescr.SVC_PYWB.getServiceUrl(
-                pywbBinding, PropUtil.fromArgs(
-                    "url", replayUrl,
-                    "namespace", namespace)));
+          StatusTable.DisplayedValue pydv = new StatusTable.DisplayedValue("Pywb").addFootnote(FOOT_SERVE_PYWB);
+          Object pywbLink = new StatusTable.SvcLink(pydv,
+                                                    ServiceDescr.SVC_PYWB.getServiceUrl(
+                                                                                        pywbBinding, PropUtil.fromArgs(
+                                                                                                                       "url", replayUrl,
+                                                                                                                       "namespace", namespace)));
 
-        serveLinks.add(", ");
-        serveLinks.add(pywbLink);
-      }
+          serveLinks.add(", ");
+          serveLinks.add(pywbLink);
+        }
 
-      if (owbBinding != null) {
-        StatusTable.DisplayedValue owdv = new StatusTable.DisplayedValue("OpenWayback").addFootnote(FOOT_SERVE_OPENWAYBACK);
-        Object owbLink = new StatusTable.SvcLink(owdv,
-            ServiceDescr.SVC_OPENWAYBACK.getServiceUrl(
-                owbBinding, PropUtil.fromArgs(
-                    "url", replayUrl)));
+        if (owbBinding != null) {
+          StatusTable.DisplayedValue owdv = new StatusTable.DisplayedValue("OpenWayback").addFootnote(FOOT_SERVE_OPENWAYBACK);
+          Object owbLink = new StatusTable.SvcLink(owdv,
+                                                   ServiceDescr.SVC_OPENWAYBACK.getServiceUrl(
+                                                                                              owbBinding, PropUtil.fromArgs(
+                                                                                                                            "url", replayUrl)));
 
-        serveLinks.add(", ");
-        serveLinks.add(owbLink);
-      }
+          serveLinks.add(", ");
+          serveLinks.add(owbLink);
+        }
 
-      StatusTable.SummaryInfo serveSum =
+        StatusTable.SummaryInfo serveSum =
           new StatusTable.SummaryInfo(null, ColumnDescriptor.TYPE_STRING,
-              serveLinks);
-//       serveSum.setValueFootnote(FOOT_SERVE_AU_VS_CONTENT);
-      res.add(serveSum);
+                                      serveLinks);
+        //       serveSum.setValueFootnote(FOOT_SERVE_AU_VS_CONTENT);
+        res.add(serveSum);
+
+      }
 
       List peerLinks = new ArrayList();
       peerLinks.add(PeerRepair.makeAuRef("Repair candidates", au.getAuId()));
