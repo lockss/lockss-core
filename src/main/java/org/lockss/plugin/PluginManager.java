@@ -4009,8 +4009,8 @@ public class PluginManager
     "org.lockss.plugin.NamedPlugin",
   };
 
-  /** Register built-in plugins so they can be used to configure UA
-   * via the UI */
+  /** Register built-in plugins so their AUs can be configured via the
+   * UI */
   private void registerBuiltinPlugins() {
     for (String id : BUILTIN_PLUGINS) {
       ensurePluginLoaded(pluginKeyFromId(id));
