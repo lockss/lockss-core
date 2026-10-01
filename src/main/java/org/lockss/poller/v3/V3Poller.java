@@ -2206,7 +2206,7 @@ public class V3Poller implements Poll {
 
   private boolean
   publisherAvailableForRepair() {
-    return getAu().isCrawlable() && !AuUtil.isPubDown(getAu());
+    return getAu().isCrawlable();
   }
 
   /**
