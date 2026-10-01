@@ -376,12 +376,20 @@ public class TestPluginManager extends LockssTestCase4 {
     assertEquals(1, ((APlugin)plug).getInitArgs().size());
   }
 
+  Collection<Plugin> nonBuiltinRegisteredPlugins(PluginManager mgr) {
+    Collection<Plugin> regPlugs = new HashSet<>(mgr.getRegisteredPlugins());
+    for (String id : PluginManager.BUILTIN_PLUGINS) {
+      regPlugs.remove(mgr.getPluginFromId(id));
+    }
+    return regPlugs;
+  }
+
   @Test
   public void testInitPluginRegistry() {
     mgr.startService();
     String n1 = "org.lockss.test.MockPlugin";
     String n2 = ThrowingMockPlugin.class.getName();
-    assertEmpty(mgr.getRegisteredPlugins());
+    assertEmpty(nonBuiltinRegisteredPlugins(mgr));
     Properties p = new Properties();
     p.setProperty(PluginManager.PARAM_PLUGIN_REGISTRY, n1 + ";" + n2);
     ConfigurationUtil.addFromProps(p);
@@ -392,20 +400,20 @@ public class TestPluginManager extends LockssTestCase4 {
     assertNotNull(p2);
     assertTrue(p2.toString(), p2 instanceof ThrowingMockPlugin);
     assertEquals(SetUtil.set(p1, p2),
-		 SetUtil.theSet(mgr.getRegisteredPlugins()));
+		 SetUtil.theSet(nonBuiltinRegisteredPlugins(mgr)));
     p.setProperty(PluginManager.PARAM_PLUGIN_REGISTRY, n1);
     ConfigurationUtil.addFromProps(p);
     assertEquals(SetUtil.set(p1, p2),
-		 SetUtil.theSet(mgr.getRegisteredPlugins()));
+		 SetUtil.theSet(nonBuiltinRegisteredPlugins(mgr)));
     p.setProperty(PluginManager.PARAM_PLUGIN_REGISTRY, n1 + ";" + n2);
     ConfigurationUtil.addFromProps(p);
     assertEquals(SetUtil.set(p1, p2),
-		 SetUtil.theSet(mgr.getRegisteredPlugins()));
+		 SetUtil.theSet(nonBuiltinRegisteredPlugins(mgr)));
     p.setProperty(PluginManager.PARAM_PLUGIN_REGISTRY, n1 + ";" + n2);
     p.setProperty(PluginManager.PARAM_PLUGIN_RETRACT, n2);
     ConfigurationUtil.addFromProps(p);
     assertEquals(SetUtil.set(p1),
-		 SetUtil.theSet(mgr.getRegisteredPlugins()));
+		 SetUtil.theSet(nonBuiltinRegisteredPlugins(mgr)));
     assertNull(mgr.getPlugin(PluginManager.pluginKeyFromId(n2)));
     assertSame(p1, mgr.getPlugin(PluginManager.pluginKeyFromId(n1)));
     p.setProperty(PluginManager.PARAM_PLUGIN_REGISTRY, n1 + ";" + n2);

@@ -553,6 +553,7 @@ public class PluginManager
 	log.warning("Couldn't disable URLConnection cache", e);
       }
     }
+    registerBuiltinPlugins();
     triggerTitleSort();
   }
 
@@ -4001,6 +4002,19 @@ public class PluginManager
    */
   public ImportPlugin getImportPlugin() {
     return (ImportPlugin)getInternalPlugin(ImportPlugin.PLUGIN_ID);
+  }
+
+  static String BUILTIN_PLUGINS[] = {
+    "org.lockss.plugin.DirTreePlugin",
+    "org.lockss.plugin.NamedPlugin",
+  };
+
+  /** Register built-in plugins so they can be used to configure UA
+   * via the UI */
+  private void registerBuiltinPlugins() {
+    for (String id : BUILTIN_PLUGINS) {
+      ensurePluginLoaded(pluginKeyFromId(id));
+    }
   }
 
   // Trigger a new content crawl on the registry AU if required.
