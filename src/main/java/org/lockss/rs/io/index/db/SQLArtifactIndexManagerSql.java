@@ -2756,6 +2756,8 @@ public class SQLArtifactIndexManagerSql {
     PreparedStatement ps = null;
     Set<Pair<String,String>> nsAuids = new HashSet<>();
     int count = 0;
+    long startTime = TimeBase.nowMs();
+    Artifact firstArt = null;
 
     // Sequence numbers created for the rows accumulated in the current (not yet
     // committed) batch. They are published to the shared LRU caches only after
@@ -2771,6 +2773,9 @@ public class SQLArtifactIndexManagerSql {
       ps = idxDbManager.prepareStatement(conn, UPSERT_ARTIFACT_QUERY);
 
       for (Artifact artifact : artifacts) {
+        if (firstArt == null) {
+          firstArt = artifact;
+        }
         nsAuids.add(Pair.of(artifact.getNamespace(), artifact.getAuid()));
 
         Long namespaceSeq = pending_ns_seqs.get(artifact.getNamespace());
@@ -2844,6 +2849,10 @@ public class SQLArtifactIndexManagerSql {
       analyzeTableOutOfBand(ARTIFACT_TABLE);
     }
 
+    long elapsed = TimeBase.msSince(startTime);
+    log.debug("addArtifacts() took {} for {} artifacts in {}",
+              StringUtil.timeIntervalToString(elapsed),
+              count, (firstArt != null ? firstArt.getAuid() : "Unknown AUID"));
     return nsAuids;
   }
 
