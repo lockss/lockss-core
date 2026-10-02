@@ -158,8 +158,8 @@ public class RegistryArchivalUnit extends BaseArchivalUnit {
       // below.
       return null;
     }
+    CachedUrl cu = makeCachedUrl(m_registryUrl);
     try {
-      CachedUrl cu = makeCachedUrl(m_registryUrl);
       if (!cu.hasContent()) return null;
       URL cuUrl = CuUrl.fromCu(cu);
       Parser parser = new Parser(cuUrl.toString());
@@ -182,6 +182,8 @@ public class RegistryArchivalUnit extends BaseArchivalUnit {
 	log.warning("recomputeRegName", e);
       }
       return null;
+    } finally {
+      AuUtil.safeRelease(cu);
     }
   }
 
