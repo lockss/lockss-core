@@ -34,9 +34,12 @@ import org.lockss.log.L4JLogger;
 import org.lockss.rs.BaseLockssRepository;
 import org.lockss.rs.io.storage.ArtifactDataStore;
 import org.lockss.rs.io.storage.warc.WarcArtifactDataStore;
+import org.lockss.util.Constants;
+import org.lockss.util.StringUtil;
 import org.lockss.util.concurrent.CopyOnWriteMap;
 import org.lockss.util.rest.repo.model.*;
 import org.lockss.util.storage.StorageInfo;
+import org.lockss.util.time.TimeBase;
 
 import java.io.IOException;
 import java.io.InterruptedIOException;
@@ -380,9 +383,15 @@ public class DispatchingArtifactIndex extends AbstractArtifactIndex {
       // are being copied into Solr
       ArtifactDataStore store = repository.getArtifactDataStore();
       if (store instanceof WarcArtifactDataStore warcStore) {
+        long startTime = TimeBase.nowMs();
         if (!warcStore.waitForCommitTasks(namespace, auid)) {
           log.warn("waitForCommitTasks() was interrupted");
           throw new InterruptedIOException("finishBulk interrupted");
+        }
+        long elapsed = TimeBase.msSince(startTime);
+        if (elapsed > Constants.SECOND) {
+          log.debug("finishBulk() waited {} for background copies of {}",
+                    StringUtil.timeIntervalToString(elapsed), auid);
         }
       }
 

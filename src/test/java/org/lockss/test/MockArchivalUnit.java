@@ -776,7 +776,7 @@ public class MockArchivalUnit implements ArchivalUnit {
   }
 
   public boolean isCrawlable() {
-    return true;
+    return !AuUtil.isPubDown(this);
   }
 
   public void setBulkContent(boolean val) {
