@@ -232,9 +232,13 @@ public class BaseLockssRepository implements LockssRepository, JmsFactorySource 
                     .resolve(WarcArtifactDataStore.DATASTORE_STATE_DIR));
     }
 
-    // Exit reindexing state. Deliberately on the normal return path only: if the
-    // reindex threw, the token must survive so the pass resumes at next startup.
-    FileUtil.safeDeleteFile(reindexingStateFile);
+    // Exit reindexing state. Deliberately skipped both if the reindex threw (the token
+    // must survive so the pass resumes at next startup) and if it merely aborted (see
+    // ReindexResult#isAborted): an aborted run left temporary WARCs unprocessed, and this
+    // token is what tells the next startup a pass is still owed.
+    if (result == null || !result.isAborted()) {
+      FileUtil.safeDeleteFile(reindexingStateFile);
+    }
 
     return result;
   }

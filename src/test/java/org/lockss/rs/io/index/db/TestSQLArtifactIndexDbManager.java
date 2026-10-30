@@ -56,6 +56,8 @@ import java.sql.Statement;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.TimeUnit;
 import java.util.stream.Stream;
 
 /**
@@ -1663,6 +1665,88 @@ public class TestSQLArtifactIndexDbManager extends LockssTestCase4 {
       // Clean up for the next policy.
       idxdb.deleteArtifact(existing.getArtifactUuid());
     }
+  }
+
+  /**
+   * P1 fix from the #737 (reindex threading) review: {@code SQLArtifactIndex#reindexArtifacts}
+   * must serialize concurrent callers that target the same (namespace, AUID, URL, version) stem
+   * before either can reach {@link SQLArtifactIndexManagerSql#resolveVersionConflict}, because
+   * that method's own check-then-insert is not otherwise serialized across connections -- two
+   * callers can each see no competitor and both insert.
+   *
+   * <p>{@link SQLArtifactIndexManagerSql#testHookAfterFindVersionConflicts} pauses every caller
+   * right after it reads the (initially empty) set of competitors, widening whatever race window
+   * exists. Two threads race two different artifacts claiming the same stem, released together.
+   * If {@code reindexArtifacts} did not lock the stem first, both would pass the read before
+   * either paused thread resumed to insert, and both inserts would land. With the lock in place,
+   * the second thread cannot even reach the hook until the first has fully committed and
+   * released, so exactly one artifact must survive regardless of scheduling.
+   *
+   * <p>The namespace, AUID, and URL rows are seeded before either thread starts (via an
+   * unrelated version of the same stem) so that {@code findOrCreateNamespaceSeq}/
+   * {@code findOrCreateAuidSeq}/{@code findOrCreateUrlSeq} hit an already-committed row in both
+   * threads. Without this, the two threads' upserts of that shared row would themselves race on
+   * Postgres's own row lock and serialize the whole call incidentally, which would pass even
+   * without the fix and prove nothing about {@code resolveVersionConflict} specifically.
+   */
+  @Test
+  public void testConcurrentReindexOfConflictingArtifactsDoesNotDuplicate() throws Exception {
+    SQLArtifactIndexManagerSql idxdb = new SQLArtifactIndexManagerSql(idxDbManager);
+
+    // Seed the namespace/AUID/URL rows via an unrelated version of the same stem, before
+    // installing the hook, so the race below is isolated to resolveVersionConflict + insert.
+    ArtifactSpec seed = makeConflictSpec(1330125997952L);
+    seed.setVersion(99);
+    idxdb.addArtifact(seed.getArtifact());
+
+    idxdb.testHookAfterFindVersionConflicts = () -> {
+      try {
+        Thread.sleep(300);
+      } catch (InterruptedException e) {
+        Thread.currentThread().interrupt();
+      }
+    };
+
+    SQLArtifactIndex index = new SQLArtifactIndex(idxdb);
+
+    ArtifactSpec specA = makeConflictSpec(1330125997952L);
+    ArtifactSpec specB = makeConflictSpec(1754813456762L);
+
+    CountDownLatch startLatch = new CountDownLatch(1);
+    List<Throwable> errors = java.util.Collections.synchronizedList(new ArrayList<>());
+
+    Thread threadA = new Thread(() -> {
+      try {
+        startLatch.await();
+        index.reindexArtifacts(List.of(specA.getArtifact()));
+      } catch (Throwable t) {
+        errors.add(t);
+      }
+    }, "reindex-a");
+
+    Thread threadB = new Thread(() -> {
+      try {
+        startLatch.await();
+        index.reindexArtifacts(List.of(specB.getArtifact()));
+      } catch (Throwable t) {
+        errors.add(t);
+      }
+    }, "reindex-b");
+
+    threadA.start();
+    threadB.start();
+    startLatch.countDown();
+
+    threadA.join(TimeUnit.SECONDS.toMillis(30));
+    threadB.join(TimeUnit.SECONDS.toMillis(30));
+
+    assertTrue("reindex thread(s) did not finish",
+        !threadA.isAlive() && !threadB.isAlive());
+    assertTrue("reindex thread(s) threw: " + errors, errors.isEmpty());
+
+    // The seed (version 99) plus exactly one survivor of the version-1 conflict.
+    assertEquals("exactly one artifact must survive a conflicting concurrent reindex",
+        2, countAllVersions(idxdb, CONFLICT_NS, CONFLICT_AUID));
   }
 
   /**
