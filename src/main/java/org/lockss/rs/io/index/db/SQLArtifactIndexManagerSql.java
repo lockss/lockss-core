@@ -140,6 +140,10 @@ public class SQLArtifactIndexManagerSql {
    * value and a dead tuple per conflict, which is irrelevant here because
    * namespaces are created a handful of times in a repository's life. The URL
    * upsert makes the opposite trade for the opposite reason.
+   *
+   * <p>Only reached when {@link #FIND_NAMESPACE_SEQ_QUERY} found no row:
+   * {@code DO UPDATE} on an existing row holds a row lock until the
+   * transaction commits, which serialized concurrent reindex batches.
    */
   private static final String UPSERT_NAMESPACE_QUERY = "INSERT INTO "
       + NAMESPACE_TABLE
@@ -1162,12 +1166,67 @@ public class SQLArtifactIndexManagerSql {
       return cachedNamespaceSeq;
     }
 
-    // Atomic upsert; see findOrCreateUrlSeq() for why the former
-    // retry-on-duplicate-key loop could not work.
-    Long namespaceSeq = addNamespace(conn, namespace);
+    // Look before inserting. The upsert's DO UPDATE takes a row lock on an
+    // existing namespace row that lasts until the enclosing transaction
+    // commits, and the reindex path holds a transaction open across a batch
+    // of a thousand artifacts: with several reindex workers, every other
+    // worker blocked here on its first artifact until the holder's batch
+    // committed. A plain SELECT that finds the row takes no lock. The upsert
+    // remains for the row-does-not-exist case, where two transactions may
+    // race to create it; see findOrCreateUrlSeq() for why a retry loop on a
+    // duplicate-key violation could not have handled that race.
+    Long namespaceSeq = findNamespaceSeq(conn, namespace);
+
+    if (namespaceSeq == null) {
+      namespaceSeq = addNamespace(conn, namespace);
+    }
 
     log.debug2("namespaceSeq = {}", namespaceSeq);
     return namespaceSeq;
+  }
+
+  private Long findNamespaceSeq(Connection conn, String namespace)
+      throws DbException {
+    return findSeq(conn, FIND_NAMESPACE_SEQ_QUERY, NAMESPACE_SEQ_COLUMN,
+        namespace, "namespace");
+  }
+
+  private Long findAuidSeq(Connection conn, String auid) throws DbException {
+    return findSeq(conn, FIND_AUID_SEQ_QUERY, AUID_SEQ_COLUMN, auid, "auid");
+  }
+
+  /**
+   * Runs a single-parameter lookup of a sequence number by its natural key.
+   *
+   * @return the sequence number, or {@code null} if no row holds the key.
+   */
+  private Long findSeq(Connection conn, String sqlQuery, String seqColumn,
+      String key, String keyName) throws DbException {
+    Long seq = null;
+    PreparedStatement ps = null;
+    ResultSet resultSet = null;
+
+    try {
+      ps = idxDbManager.prepareStatement(conn, sqlQuery);
+      ps.setString(1, key);
+      resultSet = idxDbManager.executeQuery(ps);
+
+      if (resultSet.next()) {
+        seq = resultSet.getLong(seqColumn);
+        log.trace("Found {} = {} for {} = {}", seqColumn, seq, keyName, key);
+      }
+    } catch (SQLException sqle) {
+      String errorMessage = "Cannot find " + keyName;
+      log.error(errorMessage, sqle);
+      log.error("SQL = '{}'.", sqlQuery);
+      log.error("{} = {}", keyName, key);
+      throw new DbException(errorMessage, sqle);
+    } finally {
+      DbManager.safeCloseResultSet(resultSet);
+      DbManager.safeCloseStatement(ps);
+    }
+
+    return seq;
   }
 
   private Long addNamespace(Connection conn, String namespace) throws DbException {
@@ -1311,9 +1370,14 @@ public class SQLArtifactIndexManagerSql {
       return cachedAuidSeq;
     }
 
-    // Atomic upsert; see findOrCreateUrlSeq() for why the former
-    // retry-on-duplicate-key loop could not work.
-    Long auidSeq = addAuid(conn, auid);
+    // Look before inserting, for the reason given in
+    // findOrCreateNamespaceSeq(): the upsert's DO UPDATE row lock would
+    // serialize concurrent reindex workers on the same AU for a whole batch.
+    Long auidSeq = findAuidSeq(conn, auid);
+
+    if (auidSeq == null) {
+      auidSeq = addAuid(conn, auid);
+    }
 
     log.debug2("auidSeq = {}", auidSeq);
     return auidSeq;
@@ -3312,14 +3376,25 @@ public class SQLArtifactIndexManagerSql {
   private Connection flushReindexBatch(Connection conn, List<Artifact> batch,
       SQLArtifactIndex.VersionConflictResolution conflictPolicy, int[] failedHolder)
       throws DbException {
+    // Sequence numbers resolved by this batch, published to the shared LRU
+    // caches only once the batch has committed: the sequence of a row this
+    // transaction created is not real until then. Before this the reindex
+    // path never fed the caches, so every artifact paid the namespace and
+    // AUID lookups that the caches exist to avoid.
+    Map<String, Long> nsSeqs = new HashMap<>();
+    Map<String, Long> auidSeqs = new HashMap<>();
+    Map<String, Long> urlSeqs = new HashMap<>();
+
     try {
       for (Artifact artifact : batch) {
-        upsertArtifactForReindex(conn, artifact, conflictPolicy);
+        upsertArtifactForReindex(conn, artifact, conflictPolicy,
+            nsSeqs, auidSeqs, urlSeqs);
       }
 
       // Every artifact in the batch upserted cleanly: commit once for the
       // whole batch (a single WAL flush under synchronous_commit=on).
       DbManager.commitOrRollback(conn, log);
+      publishSeqLrus(nsSeqs, auidSeqs, urlSeqs);
       return conn;
     } catch (DbException | RuntimeException e) {
       // The optimistic attempt failed somewhere in the batch. A server-side
@@ -3334,9 +3409,15 @@ public class SQLArtifactIndexManagerSql {
       Connection freshConn = getConnection();
 
       for (Artifact artifact : batch) {
+        nsSeqs.clear();
+        auidSeqs.clear();
+        urlSeqs.clear();
+
         try {
-          upsertArtifactForReindex(freshConn, artifact, conflictPolicy);
+          upsertArtifactForReindex(freshConn, artifact, conflictPolicy,
+              nsSeqs, auidSeqs, urlSeqs);
           DbManager.commitOrRollback(freshConn, log);
+          publishSeqLrus(nsSeqs, auidSeqs, urlSeqs);
         } catch (DbException | RuntimeException e2) {
           failedHolder[0]++;
           log.error("Could not reindex artifact, skipping it [uuid: {}, url: {}]",
@@ -3359,11 +3440,53 @@ public class SQLArtifactIndexManagerSql {
   private void upsertArtifactForReindex(Connection conn, Artifact artifact,
       SQLArtifactIndex.VersionConflictResolution conflictPolicy)
       throws DbException {
-    long namespaceSeq = findOrCreateNamespaceSeq(conn, artifact.getNamespace());
-    long auidSeq = findOrCreateAuidSeq(conn, artifact.getAuid());
-    long urlSeq = findOrCreateUrlSeq(conn, artifact.getUri());
+    upsertArtifactForReindex(conn, artifact, conflictPolicy,
+        new HashMap<>(), new HashMap<>(), new HashMap<>());
+  }
+
+  /**
+   * Resolves the artifact's sequence numbers and upserts it, recording the
+   * sequence numbers in the given maps so the caller can publish them to the
+   * LRU caches after its transaction commits.
+   */
+  private void upsertArtifactForReindex(Connection conn, Artifact artifact,
+      SQLArtifactIndex.VersionConflictResolution conflictPolicy,
+      Map<String, Long> nsSeqs, Map<String, Long> auidSeqs,
+      Map<String, Long> urlSeqs)
+      throws DbException {
+    // A sequence this transaction already resolved is visible on this
+    // connection whether or not it has committed, so the batch's own maps are
+    // consulted before the shared caches and the database. Without this the
+    // first batch after a cold start would pay the namespace and AUID lookups
+    // for every one of its artifacts, since the shared caches are only fed
+    // once the batch commits.
+    long namespaceSeq = resolveSeq(nsSeqs, artifact.getNamespace(),
+        () -> findOrCreateNamespaceSeq(conn, artifact.getNamespace()));
+    long auidSeq = resolveSeq(auidSeqs, artifact.getAuid(),
+        () -> findOrCreateAuidSeq(conn, artifact.getAuid()));
+    long urlSeq = resolveSeq(urlSeqs, artifact.getUri(),
+        () -> findOrCreateUrlSeq(conn, artifact.getUri()));
+
     upsertArtifactForReindex(conn, auidSeq, namespaceSeq, urlSeq, artifact,
         conflictPolicy);
+  }
+
+  @FunctionalInterface
+  private interface SeqLookup {
+    Long get() throws DbException;
+  }
+
+  /** Returns the cached sequence for {@code key}, or looks it up and caches it. */
+  private static long resolveSeq(Map<String, Long> cache, String key,
+      SeqLookup lookup) throws DbException {
+    Long seq = cache.get(key);
+
+    if (seq == null) {
+      seq = lookup.get();
+      cache.put(key, seq);
+    }
+
+    return seq;
   }
 
   private void upsertArtifactForReindex(Connection conn, long auidSeq, long namespaceSeq, long urlSeq, Artifact artifact,
