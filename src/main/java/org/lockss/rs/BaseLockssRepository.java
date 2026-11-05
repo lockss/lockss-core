@@ -291,6 +291,9 @@ public class BaseLockssRepository implements LockssRepository, JmsFactorySource 
 
     long start = TimeBase.nowMs();
 
+    log.info("Targeted reindex started at {}: {} AUs listed, {} already done [file: {}]",
+             new java.util.Date(start), auids.size(), done.size(), listPath);
+
     FileUtils.forceMkdirParent(donePath.toFile());
 
     try (BufferedWriter doneWriter =
