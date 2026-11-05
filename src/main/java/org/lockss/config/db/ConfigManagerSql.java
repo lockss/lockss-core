@@ -76,6 +76,16 @@ public class ConfigManagerSql {
       + "," + PLUGIN_ID_COLUMN
       + ") values (default,?)";
 
+  // Race-free plugin insert for PostgreSQL, driving off the unique index on
+  // plugin(plugin_id). DO UPDATE (rather than DO NOTHING) so that the loser
+  // of a concurrent create still gets the row back through RETURNING. Only
+  // reached when the find-first lookup missed, so the row lock it takes is
+  // not held on the common path.
+  private static final String UPSERT_PLUGIN_QUERY = INSERT_PLUGIN_QUERY
+      + " on conflict (" + PLUGIN_ID_COLUMN + ") do update set "
+      + PLUGIN_ID_COLUMN + " = excluded." + PLUGIN_ID_COLUMN
+      + " returning " + PLUGIN_SEQ_COLUMN;
+
   // Query to find an Archival Unit by its plugin and key.
   private static final String FIND_ARCHIVAL_UNIT_QUERY = "select "
       + ARCHIVAL_UNIT_SEQ_COLUMN
@@ -92,6 +102,17 @@ public class ConfigManagerSql {
       + "," + CREATION_TIME_COLUMN
       + "," + LAST_UPDATE_TIME_COLUMN
       + ") values (default,?,?,?,?)";
+
+  // Race-free Archival Unit insert for PostgreSQL, driving off the unique
+  // index on archival_unit(plugin_seq, archival_unit_key) (schema version 6).
+  // The SET touches only the key column so an existing row keeps its
+  // creation_time and last_update_time.
+  private static final String UPSERT_ARCHIVAL_UNIT_QUERY =
+      INSERT_ARCHIVAL_UNIT_QUERY
+      + " on conflict (" + PLUGIN_SEQ_COLUMN + "," + ARCHIVAL_UNIT_KEY_COLUMN
+      + ") do update set "
+      + ARCHIVAL_UNIT_KEY_COLUMN + " = excluded." + ARCHIVAL_UNIT_KEY_COLUMN
+      + " returning " + ARCHIVAL_UNIT_SEQ_COLUMN;
 
   // Query to find the configurations of all the Archival Units that have a
   // configuration.
@@ -931,18 +952,29 @@ public class ConfigManagerSql {
     PreparedStatement insertPlugin = null;
     ResultSet resultSet = null;
     String errorMessage = "Cannot add plugin";
+    boolean upsert = configDbManager.isTypePostgresql();
+    String sql = upsert ? UPSERT_PLUGIN_QUERY : INSERT_PLUGIN_QUERY;
 
     try {
-      // Prepare the query.
-      insertPlugin = configDbManager.prepareStatement(conn,
-	  INSERT_PLUGIN_QUERY, Statement.RETURN_GENERATED_KEYS);
+      if (upsert) {
+	// Upsert: a concurrent creator of the same plugin cannot make this
+	// fail, and RETURNING makes it a result-producing statement.
+	insertPlugin = configDbManager.prepareStatement(conn,
+	    UPSERT_PLUGIN_QUERY);
+	insertPlugin.setString(1, pluginId);
+	resultSet = configDbManager.executeQuery(insertPlugin);
+      } else {
+	// Prepare the query.
+	insertPlugin = configDbManager.prepareStatement(conn,
+	    INSERT_PLUGIN_QUERY, Statement.RETURN_GENERATED_KEYS);
 
-      // Populate the query. Skip auto-increment column #0.
-      insertPlugin.setString(1, pluginId);
+	// Populate the query. Skip auto-increment column #0.
+	insertPlugin.setString(1, pluginId);
 
-      // Add the plugin.
-      configDbManager.executeUpdate(insertPlugin);
-      resultSet = insertPlugin.getGeneratedKeys();
+	// Add the plugin.
+	configDbManager.executeUpdate(insertPlugin);
+	resultSet = insertPlugin.getGeneratedKeys();
+      }
 
       // Check whether a result was not obtained.
       if (!resultSet.next()) {
@@ -958,12 +990,12 @@ public class ConfigManagerSql {
       log.trace("Added pluginSeq = {}", pluginSeq);
     } catch (SQLException sqle) {
       log.error(errorMessage, sqle);
-      log.error("SQL = '{}'.", INSERT_PLUGIN_QUERY);
+      log.error("SQL = '{}'.", sql);
       log.error("pluginId = {}", pluginId);
       throw new DbException(errorMessage, sqle);
     } catch (DbException dbe) {
       log.error(errorMessage, dbe);
-      log.error("SQL = '{}'.", INSERT_PLUGIN_QUERY);
+      log.error("SQL = '{}'.", sql);
       log.error("pluginId = {}", pluginId);
       throw dbe;
     } finally {
@@ -1124,21 +1156,35 @@ public class ConfigManagerSql {
     PreparedStatement insertAu = null;
     ResultSet resultSet = null;
     String errorMessage = "Cannot add AU";
+    boolean upsert = configDbManager.isTypePostgresql();
+    String sql = upsert ? UPSERT_ARCHIVAL_UNIT_QUERY : INSERT_ARCHIVAL_UNIT_QUERY;
 
     try {
-      // Prepare the query.
-      insertAu = configDbManager.prepareStatement(conn,
-	  INSERT_ARCHIVAL_UNIT_QUERY, Statement.RETURN_GENERATED_KEYS);
+      if (upsert) {
+	// Upsert: a concurrent creator of the same AU cannot make this fail,
+	// and RETURNING makes it a result-producing statement.
+	insertAu = configDbManager.prepareStatement(conn,
+	    UPSERT_ARCHIVAL_UNIT_QUERY);
+	insertAu.setLong(1, pluginSeq);
+	insertAu.setString(2, auKey);
+	insertAu.setLong(3, creationTime);
+	insertAu.setLong(4, lastUpdateTime);
+	resultSet = configDbManager.executeQuery(insertAu);
+      } else {
+	// Prepare the query.
+	insertAu = configDbManager.prepareStatement(conn,
+	    INSERT_ARCHIVAL_UNIT_QUERY, Statement.RETURN_GENERATED_KEYS);
 
-      // Populate the query. Skip auto-increment column #0.
-      insertAu.setLong(1, pluginSeq);
-      insertAu.setString(2, auKey);
-      insertAu.setLong(3, creationTime);
-      insertAu.setLong(4, lastUpdateTime);
+	// Populate the query. Skip auto-increment column #0.
+	insertAu.setLong(1, pluginSeq);
+	insertAu.setString(2, auKey);
+	insertAu.setLong(3, creationTime);
+	insertAu.setLong(4, lastUpdateTime);
 
-      // Add the Archival Unit.
-      configDbManager.executeUpdate(insertAu);
-      resultSet = insertAu.getGeneratedKeys();
+	// Add the Archival Unit.
+	configDbManager.executeUpdate(insertAu);
+	resultSet = insertAu.getGeneratedKeys();
+      }
 
       // Check whether a result was not obtained.
       if (!resultSet.next()) {
@@ -1154,7 +1200,7 @@ public class ConfigManagerSql {
       log.trace("Added auSeq = {}", auSeq);
     } catch (SQLException sqle) {
       log.error(errorMessage, sqle);
-      log.error("SQL = '{}'.", INSERT_ARCHIVAL_UNIT_QUERY);
+      log.error("SQL = '{}'.", sql);
       log.error("pluginSeq = {}", pluginSeq);
       log.error("auKey = {}", auKey);
       log.error("creationTime = {}", creationTime);
@@ -1162,7 +1208,7 @@ public class ConfigManagerSql {
       throw new DbException(errorMessage, sqle);
     } catch (DbException dbe) {
       log.error(errorMessage, dbe);
-      log.error("SQL = '{}'.", INSERT_ARCHIVAL_UNIT_QUERY);
+      log.error("SQL = '{}'.", sql);
       log.error("pluginSeq = {}", pluginSeq);
       log.error("auKey = {}", auKey);
       log.error("creationTime = {}", creationTime);
