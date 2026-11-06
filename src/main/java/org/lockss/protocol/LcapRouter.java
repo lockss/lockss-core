@@ -152,7 +152,11 @@ public class LcapRouter
     // If no destination was specified in the message, set it to the
     // destination ID specified in this call
     if (msg.getDestinationId() == null) {
+      log.debug2("Null destination ID, replacing with " + id);
       msg.setDestinationId(id);
+    }
+    if (msg.getDestinationId() == null) {
+      log.warning("Null destination ID", new Throwable("Null destination ID"));
     }
     PeerMessage pm = makePeerMessage(msg);
     if (migrateFrom == null) {
