@@ -3265,12 +3265,13 @@ public class SQLArtifactIndexManagerSql {
   public static final class ReindexUpsertOutcome {
     private final int attempted;
     private final int failed;
-    private final Artifact firstArtifact;
+    private final Set<Pair<String, String>> namespaceAuids;
 
-    ReindexUpsertOutcome(int attempted, int failed, Artifact firstArtifact) {
+    ReindexUpsertOutcome(int attempted, int failed,
+                         Set<Pair<String, String>> namespaceAuids) {
       this.attempted = attempted;
       this.failed = failed;
-      this.firstArtifact = firstArtifact;
+      this.namespaceAuids = namespaceAuids;
     }
 
     /** @return How many artifacts were attempted. */
@@ -3284,11 +3285,13 @@ public class SQLArtifactIndexManagerSql {
     }
 
     /**
-     * @return The first artifact seen, or {@code null} if the input iterable
-     *         was empty.
+     * @return The distinct (namespace, AUID) pairs seen across every artifact in the
+     *         input, empty if it was empty. A temporary WARC's reindex interleaves
+     *         artifacts from more than one AU, so callers invalidating AU-size caches
+     *         must use this.
      */
-    public Artifact getFirstArtifact() {
-      return firstArtifact;
+    public Set<Pair<String, String>> getNamespaceAuids() {
+      return namespaceAuids;
     }
   }
 
@@ -3321,13 +3324,14 @@ public class SQLArtifactIndexManagerSql {
    * @param conflictPolicy How to resolve another artifact already claiming
    *                       an incoming artifact's (namespace, AUID, URL, version).
    * @return An outcome recording how many artifacts were attempted, how many
-   *         failed, and the first artifact seen (for AU-size invalidation).
+   *         failed, and every distinct (namespace, AUID) pair seen (for
+   *         AU-size invalidation).
    */
   public ReindexUpsertOutcome upsertArtifactsForReindex(Iterable<Artifact> artifacts,
       SQLArtifactIndex.VersionConflictResolution conflictPolicy)
       throws DbException {
     int attempted = 0;
-    Artifact firstArtifact = null;
+    Set<Pair<String, String>> namespaceAuids = new HashSet<>();
     int[] failedHolder = new int[1];
 
     Connection conn = null;
@@ -3339,9 +3343,7 @@ public class SQLArtifactIndexManagerSql {
       for (Artifact artifact : artifacts) {
         attempted++;
 
-        if (firstArtifact == null) {
-          firstArtifact = artifact;
-        }
+        namespaceAuids.add(Pair.of(artifact.getNamespace(), artifact.getAuid()));
 
         batch.add(artifact);
 
@@ -3366,7 +3368,7 @@ public class SQLArtifactIndexManagerSql {
                 failed, attempted);
     }
 
-    return new ReindexUpsertOutcome(attempted, failed, firstArtifact);
+    return new ReindexUpsertOutcome(attempted, failed, namespaceAuids);
   }
 
   /**
