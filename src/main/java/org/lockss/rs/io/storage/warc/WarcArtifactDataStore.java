@@ -98,6 +98,7 @@ import java.net.URISyntaxException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.nio.file.NoSuchFileException;
 import java.nio.file.Paths;
 import java.nio.file.StandardOpenOption;
 import java.time.Instant;
@@ -253,6 +254,60 @@ public abstract class WarcArtifactDataStore implements ArtifactDataStore, WARCCo
   protected Path[] basePaths;
   protected WarcFilePool tmpWarcPool;
   protected Map<NamespacedAuid, List<Path>> appendablePermanentWarcsMap = new HashMap<>();
+
+  /**
+   * Temporary WARCs that were present when {@link #start()} ran and that the background
+   * reload has not finished processing. A WARC in this set has no {@link WarcFile} in
+   * {@link #tmpWarcPool} yet, so a read of an artifact stored in it is served by reading
+   * the file directly; see {@link #getArtifactData(Artifact)}. Membership is what
+   * distinguishes "not reloaded yet" from "reloaded and garbage collected".
+   */
+  private final Set<Path> pendingReloadWarcs = ConcurrentHashMap.newKeySet();
+
+  /**
+   * Serializes the tail of a temporary WARC's reload (the decision to remove the file or
+   * add it to the pool) against a direct read of the same file. Never acquire an artifact
+   * lock while holding one of these: {@link #getArtifactData(Artifact)} takes the artifact
+   * lock first, and the reverse order would deadlock.
+   */
+  private final SemaphoreMap<Path> tmpWarcReloadLocks = new SemaphoreMap<>();
+
+  /**
+   * The true current {@link WarcArtifactState} of an artifact committed or copied by {@link
+   * #commitArtifactData(Artifact)} / {@link CopyArtifactTask#copyArtifact()} while its
+   * temporary WARC was still pending reload, keyed by that WARC's path and then artifact
+   * UUID.
+   * <p>
+   * The reload's per-artifact classification and a commit or copy are mutually exclusive
+   * for the *same* artifact (all three take that artifact's lock), so the classification is
+   * always accurate at the instant it runs. But the reload's counts are only turned into a
+   * pooled {@link WarcFile}'s stats once *every* artifact in the WARC has been classified,
+   * and a commit or copy for a different artifact already classified can complete in the gap
+   * between that classification and the pooling -- most plausibly a copy the reload itself
+   * just requeued, racing the rest of the WARC's classification and the pooling that follows
+   * it. Recorded here (under this WARC's {@link #tmpWarcReloadLocks} entry, alongside the
+   * check that found no pooled {@link WarcFile} yet -- a later write for the same artifact,
+   * e.g. commit's {@code PENDING_COPY} followed by copy's {@code COPIED}, simply overwrites
+   * the earlier one, since only the final state matters) so {@link
+   * #finishTemporaryWarcReload} can correct its counts before pooling. Without this, such a
+   * WarcFile's {@code committed} and {@code copied} counts could permanently disagree, and
+   * {@link WarcFilePool#runGC()} -- which requires them equal unconditionally -- would never
+   * reclaim it short of a full restart.
+   */
+  private final Map<Path, Map<String, WarcArtifactState>> pendingReloadLateTransitions =
+      new ConcurrentHashMap<>();
+
+  /** Completes when the background temporary WARC reload has finished; null if none ran. */
+  private volatile CompletableFuture<Void> reloadFuture;
+
+  /** Runs the background temporary WARC reload; null if none ran. */
+  private volatile ExecutorService reloadExecutor;
+
+  /** Set by {@link #stop()} so the background reload bails out between WARCs. */
+  private volatile boolean reloadCancelled;
+
+  /** How long {@link #stop()} waits for the background reload to notice it should stop. */
+  protected static final long RELOAD_SHUTDOWN_TIMEOUT = 5 * TimeUtil.SECOND;
 
   private final Map<ArtifactIdentifier, CopyArtifactTask> queuedCopyTasks = new ConcurrentHashMap<>();
 
@@ -495,6 +550,13 @@ public abstract class WarcArtifactDataStore implements ArtifactDataStore, WARCCo
     setDataStoreState(DataStoreState.INITIALIZED);
   }
 
+  /**
+   * Starts the data store.
+   * <p>
+   * Does not wait for the temporary WARCs left by a previous run to be reloaded: they are
+   * enumerated here, but reloading them proceeds in the background. See
+   * {@link #reloadDataStoreState()}.
+   */
   @Override
   public void start() {
     log.debug("Starting data store");
@@ -511,6 +573,11 @@ public abstract class WarcArtifactDataStore implements ArtifactDataStore, WARCCo
   @Override
   public void stop() {
     if (dataStoreState != DataStoreState.STOPPED) {
+      // Stop the background temporary WARC reload before shutting down the executor its
+      // requeued copy tasks are submitted to.
+      reloadCancelled = true;
+      shutdownReloadExecutor();
+
       stripedExecutor.shutdown();
 
       try {
@@ -548,35 +615,151 @@ public abstract class WarcArtifactDataStore implements ArtifactDataStore, WARCCo
   }
 
   /**
-   * Synchronously reloads temporary WARC state from disk, processing each
-   * configured temporary WARC base path in parallel. {@link #start()} blocks
-   * on this so {@code getArtifactData} cannot race ahead of the pool being
-   * populated.
+   * Reloads temporary WARC state from disk.
+   * <p>
+   * The temporary WARCs left behind by a previous run are enumerated synchronously -- that
+   * is a directory listing, and {@link #start()} must not return without it -- but the
+   * reload of each WARC runs in the background. Reloading a WARC normally means replaying
+   * its small journal, but when the journal is missing (the process was killed while a
+   * very large artifact was being written, before its journal entry was appended) it means
+   * reading the whole WARC body, which can take minutes on corpora with multi-gigabyte
+   * artifacts. That must not hold up startup.
+   * <p>
+   * Enumerating up front also bounds what the background reload may touch: a temporary
+   * WARC created by a write arriving after {@link #start()} returns is not in the snapshot,
+   * so the reload can never mistake a live, checked-out WARC for one left by a previous
+   * run.
+   * <p>
+   * Until the background reload reaches a WARC, that WARC has no {@link WarcFile} in
+   * {@link #tmpWarcPool}; reads of artifacts stored in it are served by reading the file
+   * directly. See {@link #pendingReloadWarcs} and {@link #getArtifactData(Artifact)}.
    */
   protected void reloadDataStoreState() {
     Path[] basePaths = getTmpWarcBasePaths();
     log.debug("Reloading data store state from {} temporary WARC base path(s)", basePaths.length);
+
+    reloadCancelled = false;
+
     if (basePaths.length == 0) {
       return;
     }
+
     ArtifactIndex index = getArtifactIndex();
-    CompletableFuture<?>[] futures = new CompletableFuture<?>[basePaths.length];
-    for (int i = 0; i < basePaths.length; i++) {
-      final Path basePath = basePaths[i];
-      futures[i] = CompletableFuture.runAsync(() -> {
-        try {
-          reloadTemporaryWarcs(index, basePath);
-        } catch (IOException e) {
-          throw new CompletionException(e);
-        }
-      });
+
+    // Enumerate the temporary WARCs of every base path before returning, and mark them
+    // pending so getArtifactData() can tell them apart from WARCs that were reloaded and
+    // GCed. Note the ordering: a WARC leaves this set only after its reload has either
+    // removed the file or added it to the pool, so a reader always sees it in one place
+    // or the other.
+    Map<Path, List<Path>> tmpWarcsByBasePath = new LinkedHashMap<>();
+
+    for (Path basePath : basePaths) {
+      try {
+        List<Path> tmpWarcs = findWarcs(basePath)
+            .stream()
+            .filter(path -> !isWarcJournalPath(path))
+            .toList();
+
+        tmpWarcsByBasePath.put(basePath, tmpWarcs);
+        pendingReloadWarcs.addAll(tmpWarcs);
+      } catch (IOException e) {
+        // Skipping this base path leaves its WARCs unreloaded until the next restart,
+        // which is preferable to refusing to start.
+        log.error("Could not enumerate temporary WARCs, skipping [basePath: {}]", basePath, e);
+      }
     }
+
+    if (tmpWarcsByBasePath.isEmpty()) {
+      log.debug("No temporary WARCs to reload");
+      return;
+    }
+
+    log.info("Reloading {} temporary WARC(s) in the background",
+        tmpWarcsByBasePath.values().stream().mapToInt(List::size).sum());
+
+    // One thread per base path, so every task starts immediately: a task left queued
+    // would be dropped by shutdownNow() and its future would never complete.
+    ExecutorService executor = Executors.newFixedThreadPool(tmpWarcsByBasePath.size(), runnable -> {
+      Thread thread = new Thread(runnable, "tmp-warc-reload");
+      thread.setDaemon(true);
+      return thread;
+    });
+
+    reloadExecutor = executor;
+
+    CompletableFuture<?>[] futures = tmpWarcsByBasePath.entrySet().stream()
+        .map(entry -> CompletableFuture.runAsync(
+            () -> reloadTemporaryWarcs(index, entry.getKey(), entry.getValue()), executor))
+        .toArray(CompletableFuture<?>[]::new);
+
+    reloadFuture = CompletableFuture.allOf(futures)
+        .whenComplete((result, error) -> {
+          if (error != null) {
+            log.error("Could not complete data store reload", error);
+          } else {
+            log.info("Finished reloading temporary WARCs");
+          }
+          executor.shutdown();
+        });
+  }
+
+  /**
+   * Returns whether a temporary WARC was present at startup and has not yet been processed
+   * by the background reload started by {@link #reloadDataStoreState()}.
+   *
+   * @param tmpWarc A {@link Path} to the temporary WARC file.
+   * @return A {@code boolean} indicating whether the WARC is awaiting reload.
+   */
+  protected boolean isPendingReload(Path tmpWarc) {
+    return pendingReloadWarcs.contains(tmpWarc);
+  }
+
+  /**
+   * Waits for the background temporary WARC reload to finish.
+   *
+   * @param timeout The maximum time to wait.
+   * @param unit    The {@link TimeUnit} of {@code timeout}.
+   * @return A {@code boolean} indicating whether the reload finished within the timeout.
+   */
+  protected boolean awaitReloadComplete(long timeout, TimeUnit unit) throws InterruptedException {
+    CompletableFuture<Void> future = reloadFuture;
+
+    if (future == null) {
+      return true;
+    }
+
     try {
-      CompletableFuture.allOf(futures).join();
-    } catch (CompletionException e) {
-      Throwable cause = (e.getCause() != null) ? e.getCause() : e;
-      log.error("Could not complete data store reload", cause);
-      throw new IllegalStateException("Could not complete data store reload", cause);
+      future.get(timeout, unit);
+    } catch (TimeoutException e) {
+      return false;
+    } catch (CancellationException | ExecutionException e) {
+      // The reload finished, unsuccessfully; it logged its own error
+      return true;
+    }
+
+    return true;
+  }
+
+  /**
+   * Stops the background temporary WARC reload. A WARC body scan already under way is not
+   * interruptible, so this waits only briefly before abandoning it.
+   */
+  private void shutdownReloadExecutor() {
+    ExecutorService executor = reloadExecutor;
+
+    if (executor == null) {
+      return;
+    }
+
+    executor.shutdownNow();
+
+    try {
+      if (!executor.awaitTermination(RELOAD_SHUTDOWN_TIMEOUT, TimeUnit.MILLISECONDS)) {
+        log.warn("Temporary WARC reload still running at shutdown; abandoning it");
+      }
+    } catch (InterruptedException e) {
+      Thread.currentThread().interrupt();
+      log.warn("Interrupted while waiting for the temporary WARC reload to stop");
     }
   }
 
@@ -1150,13 +1333,9 @@ public abstract class WarcArtifactDataStore implements ArtifactDataStore, WARCCo
    * either uncommitted-but-expired, committed-and-moved-to-permanent-storage, or deleted.
    */
   public void reloadTemporaryWarcs(ArtifactIndex index, Path tmpWarcBasePath) throws IOException {
-    long startMs = TimeBase.nowMs();
-
     if (index == null) {
       throw new IllegalArgumentException("Null artifact index");
     }
-
-    log.info("Reloading temporary WARCs from {}", tmpWarcBasePath);
 
     Collection<Path> warcPaths = findWarcs(tmpWarcBasePath);
     // Exclude journal files
@@ -1167,10 +1346,35 @@ public abstract class WarcArtifactDataStore implements ArtifactDataStore, WARCCo
 
     log.debug("Found {} temporary WARCs: {}", tmpWarcs.size(), tmpWarcs);
 
+    reloadTemporaryWarcs(index, tmpWarcBasePath, tmpWarcs);
+  }
+
+  /**
+   * Reloads the given temporary WARCs of a base path. Called on a background thread by
+   * {@link #reloadDataStoreState()} with the WARCs enumerated at startup, so that WARCs
+   * created by writes arriving after {@link #start()} returned are never touched.
+   *
+   * @param index           The {@link ArtifactIndex} used to determine artifact state.
+   * @param tmpWarcBasePath The temporary WARC base path the WARCs belong to.
+   * @param tmpWarcs        The temporary WARCs to reload.
+   */
+  protected void reloadTemporaryWarcs(ArtifactIndex index, Path tmpWarcBasePath, List<Path> tmpWarcs) {
+    long startMs = TimeBase.nowMs();
+
+    log.info("Reloading temporary WARCs from {}", tmpWarcBasePath);
+
     // Iterate over the temporary WARC files that were found. Drive reload from each
     // WARC's journal (small file, fast) and fall back to scanning the WARC body only
     // when the journal is missing or empty.
     for (Path tmpWarc : tmpWarcs) {
+      if (reloadCancelled) {
+        // The remaining WARCs stay pending; the data store is going away and the next
+        // start() enumerates them again.
+        log.info("Data store stopping; abandoning the reload of the remaining temporary WARCs of {}",
+            tmpWarcBasePath);
+        return;
+      }
+
       try {
         if (!reloadOrRemoveTemporaryWarcFromJournal(index, tmpWarc)) {
           reloadOrRemoveTemporaryWarcByScan(index, tmpWarc);
@@ -1179,6 +1383,12 @@ public abstract class WarcArtifactDataStore implements ArtifactDataStore, WARCCo
         log.error("Encountered an error while reloading artifacts from WARC [tmpWarc: {}]", tmpWarc, e);
 
         // Q: Is there anything else we can do?
+      } finally {
+        // Only now, after this WARC has either been removed or added to the pool, may a
+        // reader stop treating it as pending. On error it also stops being pending: there
+        // is no WarcFile for it and none is coming, so a read of it should fail rather
+        // than hang around in the direct-read path forever.
+        pendingReloadWarcs.remove(tmpWarc);
       }
     }
 
@@ -1249,21 +1459,37 @@ public abstract class WarcArtifactDataStore implements ArtifactDataStore, WARCCo
     int recTotal = 0, recUncommitted = 0, recCommitted = 0, recCopied = 0;
     long latestExpirationMs = 0L;
     boolean isWarcFileRemovable = true;
+    // What this pass classified each artifact as, so finishTemporaryWarcReload() can
+    // measure a late transition recorded in pendingReloadLateTransitions against what it's
+    // a change *from*.
+    Map<String, WarcArtifactState> classifiedStates = new HashMap<>();
 
     for (Map.Entry<String, WarcArtifactState> e : journalState.entrySet()) {
       String uuid = e.getKey();
       Long entryMs = uncommittedEntryDate.get(uuid);
 
-      Artifact artifact = index.getArtifact(uuid);
-      ArtifactIdentifier aid = (artifact != null) ? artifact.getIdentifier() : null;
+      Artifact provisionalArtifact = index.getArtifact(uuid);
+      ArtifactIdentifier aid = (provisionalArtifact != null) ? provisionalArtifact.getIdentifier() : null;
+
+      beforeJournalReloadArtifactLock(uuid);
 
       try (SemaphoreLock lock = (aid != null) ? lockArtifact(aid) : null) {
+        // Re-fetch under the lock rather than reusing provisionalArtifact: a commit
+        // that lands between the lookup above and acquiring this lock (the same lock
+        // commitArtifactData() takes, keyed by identifier equality) would otherwise be
+        // classified against a stale Artifact -- deleting a newly-committed index
+        // entry as EXPIRED, or requeuing a PENDING_COPY that just finished. Mirrors the
+        // WARC-scan reload path, which locks first (using the identifier from the WARC
+        // record header, not the index) and only then reads the artifact.
+        Artifact artifact = (aid != null) ? index.getArtifact(uuid) : provisionalArtifact;
+
         // Re-derive against the live (index, storage URL) tuple so a stale journal
         // entry (e.g. crash between copy completion and the COPIED journal write)
         // doesn't cause a spurious requeue or block GC.
         boolean isExpired = (entryMs != null) && isArtifactExpired(entryMs);
         WarcArtifactState state = getWarcArtifactState(artifact, isExpired);
         recTotal++;
+        classifiedStates.put(uuid, state);
 
         switch (state) {
           case UNCOMMITTED:
@@ -1277,9 +1503,7 @@ public abstract class WarcArtifactDataStore implements ArtifactDataStore, WARCCo
 
           case PENDING_COPY:
             recCommitted++;
-            CopyArtifactTask task = new CopyArtifactTask(artifact);
-            queuedCopyTasks.put(artifact.getIdentifier(), task);
-            stripedExecutor.submit(task);
+            requeueCopy(artifact);
             isWarcFileRemovable = false; // copy must finish before this WARC can drain
             break;
 
@@ -1314,27 +1538,11 @@ public abstract class WarcArtifactDataStore implements ArtifactDataStore, WARCCo
 
     log.debug2("tmpWarc: {}, isWarcFileRemovable: {}", tmpWarc, isWarcFileRemovable);
 
-    if (isWarcFileRemovable) {
-      try {
-        log.debug("Removing temporary WARC file [tmpWarc: {}]", tmpWarc);
-        removeWarc(tmpWarc);
-        removeWarc(journalPath);
-      } catch (IOException e) {
-        log.warn("Could not remove a removable temporary WARC file", e);
-      }
-      return true;
-    }
+    beforeFinishTemporaryWarcReload(tmpWarc);
 
-    // Add the WARC file back to pool with all of the right stats
-    WarcFile warcFile = new WarcFile(tmpWarc, isCompressedWarcFile(tmpWarc));
-    warcFile.setLength(getWarcLengthOrZero(tmpWarc));
-    warcFile.getStats()
-        .setArtifactsTotal(recTotal)
-        .setArtifactsUncommitted(recUncommitted)
-        .setArtifactsCommitted(recCommitted)
-        .setArtifactsCopied(recCopied)
-        .setLatestExpiration(latestExpirationMs);
-    tmpWarcPool.addAsFullWarcFile(warcFile);
+    finishTemporaryWarcReload(tmpWarc, isWarcFileRemovable,
+        recTotal, recUncommitted, recCommitted, recCopied, latestExpirationMs, classifiedStates);
+
     return true;
   }
 
@@ -1375,6 +1583,7 @@ public abstract class WarcArtifactDataStore implements ArtifactDataStore, WARCCo
     int recTotal = 0, recUncommitted = 0, recCommitted = 0, recCopied = 0;
     long latestExpirationMs = 0L;
     long uncommittedExpiration = getUncommittedArtifactExpiration();
+    Map<String, WarcArtifactState> classifiedStates = new HashMap<>();
 
     // Open WARC file
     try (InputStream warcStream = markAndGetInputStream(tmpWarc)) {
@@ -1402,6 +1611,7 @@ public abstract class WarcArtifactDataStore implements ArtifactDataStore, WARCCo
               ? isArtifactExpired(journalEntry.getEntryDate())
               : isArtifactExpired(record.getHeader());
           WarcArtifactState state = getWarcArtifactState(artifact, isExpired);
+          classifiedStates.put(aid.getUuid(), state);
 
           switch (state) {
             case UNCOMMITTED:
@@ -1414,9 +1624,7 @@ public abstract class WarcArtifactDataStore implements ArtifactDataStore, WARCCo
             case PENDING_COPY:
               recCommitted++;
               // Requeue the copy of this artifact from temporary to permanent storage
-              CopyArtifactTask task = new CopyArtifactTask(artifact);
-              queuedCopyTasks.put(artifact.getIdentifier(), task);
-              stripedExecutor.submit(task);
+              requeueCopy(artifact);
               break;
 
             case EXPIRED:
@@ -1462,20 +1670,168 @@ public abstract class WarcArtifactDataStore implements ArtifactDataStore, WARCCo
 
     log.debug2("tmpWarc: {}, isWarcFileRemovable: {}", tmpWarc, isWarcFileRemovable);
 
-    // Remove file depending on results
-    if (isWarcFileRemovable) {
-      try {
-        log.debug("Removing temporary WARC file [tmpWarc: {}]", tmpWarc);
-        removeWarc(tmpWarc);
-        removeWarc(getJournalPath(tmpWarc));
-      } catch (IOException e) {
-        log.warn("Could not remove a removable temporary WARC file", e);
-        // Try again later - avoid reprocessing by marking as already processed and removable?
+    beforeFinishTemporaryWarcReload(tmpWarc);
+
+    finishTemporaryWarcReload(tmpWarc, isWarcFileRemovable,
+        recTotal, recUncommitted, recCommitted, recCopied, latestExpirationMs, classifiedStates);
+  }
+
+  /**
+   * Test seam: called after a temporary WARC's artifacts have been classified but before
+   * {@link #finishTemporaryWarcReload} pools or removes it -- the window in which a commit
+   * or copy for one of its artifacts can land without being reflected in the counts about to
+   * be pooled. No-op in production.
+   */
+  protected void beforeFinishTemporaryWarcReload(Path tmpWarc) {
+  }
+
+  /**
+   * Test seam: called for each artifact UUID that {@link #reloadOrRemoveTemporaryWarcFromJournal}
+   * is about to classify, after it has looked the artifact up in the index but before it acquires
+   * that artifact's lock -- the window in which a concurrent commit can land without being
+   * reflected in the Artifact object this pass is about to classify. No-op in production.
+   */
+  protected void beforeJournalReloadArtifactLock(String uuid) {
+  }
+
+  /**
+   * Requeues the copy of a committed artifact from temporary to permanent storage.
+   * <p>
+   * Skips artifacts whose copy is already queued: with the reload running in the
+   * background, a client commit can land between the crash and the reload of the WARC
+   * holding the artifact, in which case {@link #commitArtifactData(Artifact)} has already
+   * queued the copy and a second task would copy the record into permanent storage twice.
+   * Both this method and {@code commitArtifactData} run while holding the artifact's lock,
+   * so the check cannot race with a commit.
+   *
+   * @param artifact The {@link Artifact} whose copy to requeue.
+   * @return A {@code boolean} indicating whether a copy task was queued.
+   */
+  protected boolean requeueCopy(Artifact artifact) {
+    ArtifactIdentifier artifactId = artifact.getIdentifier();
+
+    if (queuedCopyTasks.containsKey(artifactId)) {
+      log.debug2("Copy already queued for artifact, not requeuing [uuid: {}]", artifactId.getUuid());
+      return false;
+    }
+
+    CopyArtifactTask task = new CopyArtifactTask(artifact);
+    queuedCopyTasks.put(artifactId, task);
+
+    try {
+      stripedExecutor.submit(task);
+    } catch (RejectedExecutionException e) {
+      // Expected during shutdown: a WARC body scan in progress is not interruptible, so
+      // stop() may already have shut stripedExecutor down by the time this reload thread
+      // gets here (see RELOAD_SHUTDOWN_TIMEOUT). This is not a reload failure, so undo the
+      // queuedCopyTasks entry -- left in place, it would look like this artifact's copy is
+      // already queued the next time start() reloads this WARC, and no task will ever run
+      // to remove it -- and report it distinctly from a real per-WARC processing error.
+      queuedCopyTasks.remove(artifactId, task);
+      log.debug("Data store is shutting down; not requeuing copy [uuid: {}]", artifactId.getUuid());
+      return false;
+    }
+
+    return true;
+  }
+
+  /**
+   * The {@code {uncommitted, committed, copied}} counter contribution of a single artifact
+   * classified as {@code state}, matching the per-state accounting in {@link
+   * #reloadOrRemoveTemporaryWarcFromJournal} / {@link #reloadOrRemoveTemporaryWarcByScan}.
+   * Used by {@link #finishTemporaryWarcReload} to reconcile a late transition by subtracting
+   * one state's contribution and adding another's. States with no counter contribution
+   * (e.g. {@code DELETED}) contribute all zeroes.
+   */
+  private static int[] stateReloadCounts(WarcArtifactState state) {
+    if (state == null) {
+      return new int[]{0, 0, 0};
+    }
+
+    return switch (state) {
+      case UNCOMMITTED -> new int[]{1, 0, 0};
+      case PENDING_COPY -> new int[]{0, 1, 0};
+      case COPIED -> new int[]{0, 1, 1};
+      default -> new int[]{0, 0, 0};
+    };
+  }
+
+  /**
+   * Completes the reload of a temporary WARC: either removes the file, or adds it to the
+   * temporary WARC pool carrying the stats gathered by the reload, so {@link
+   * WarcFilePool#runGC()} sees the same accounting the live write, commit and copy paths
+   * maintain and does not reap it on its next tick.
+   * <p>
+   * A removable WARC that is <em>in use</em> is not removed: a reader that found it still
+   * pending reload is reading the file directly, exactly the case {@link
+   * WarcFilePool#runGC()} defers on. It goes into the pool instead, where the GC reaps it
+   * once the read finishes. This method holds the WARC's reload lock across that decision
+   * so a reader cannot mark the file in use after the check but before the removal; it
+   * takes no artifact locks, which would invert the lock order used by
+   * {@link #getArtifactData(Artifact)}.
+   *
+   * @param tmpWarc              A {@link Path} to the temporary WARC that was reloaded.
+   * @param isWarcFileRemovable  Whether every record in it may be removed.
+   * @param recTotal             Records seen.
+   * @param recUncommitted       Records of uncommitted artifacts.
+   * @param recCommitted         Records of committed artifacts.
+   * @param recCopied            Records of artifacts already copied to permanent storage.
+   * @param latestExpirationMs   The latest expiration among the uncommitted artifacts.
+   * @param classifiedStates     What this reload pass classified each artifact as, so a late
+   *                             transition recorded in {@link #pendingReloadLateTransitions}
+   *                             can be measured against what it's a change *from*.
+   */
+  private void finishTemporaryWarcReload(Path tmpWarc, boolean isWarcFileRemovable,
+                                         int recTotal, int recUncommitted, int recCommitted,
+                                         int recCopied, long latestExpirationMs,
+                                         Map<String, WarcArtifactState> classifiedStates) throws IOException {
+    try (SemaphoreLock reloadLock = tmpWarcReloadLocks.getLock(tmpWarc)) {
+      // A commit or copy for one of this WARC's artifacts can complete after the counting
+      // pass above classified it but before this lock was acquired (the classification and
+      // the commit/copy are mutually exclusive per artifact, since all three take that
+      // artifact's lock, but nothing serializes the classification against *this* pooling
+      // step). Correct the counts so the pooled WarcFile's stats reflect what actually
+      // happened, not a stale snapshot: see pendingReloadLateTransitions.
+      Map<String, WarcArtifactState> lateTransitions = pendingReloadLateTransitions.remove(tmpWarc);
+
+      if (lateTransitions != null) {
+        for (Map.Entry<String, WarcArtifactState> transition : lateTransitions.entrySet()) {
+          WarcArtifactState from = classifiedStates.get(transition.getKey());
+          WarcArtifactState to = transition.getValue();
+
+          if (from == to) {
+            // The counting pass already saw the artifact's true final state (it ran late
+            // enough on its own); nothing to adjust.
+            continue;
+          }
+
+          int[] fromCounts = stateReloadCounts(from);
+          int[] toCounts = stateReloadCounts(to);
+          recUncommitted += toCounts[0] - fromCounts[0];
+          recCommitted += toCounts[1] - fromCounts[1];
+          recCopied += toCounts[2] - fromCounts[2];
+        }
       }
-    } else {
+
+      if (isWarcFileRemovable) {
+        if (TempWarcInUseTracker.INSTANCE.isInUse(tmpWarc)) {
+          log.debug("Temporary WARC is removable but in use; leaving it to the GC [tmpWarc: {}]", tmpWarc);
+        } else {
+          try {
+            log.debug("Removing temporary WARC file [tmpWarc: {}]", tmpWarc);
+            removeWarc(tmpWarc);
+            removeWarc(getJournalPath(tmpWarc));
+            return;
+          } catch (IOException e) {
+            // Fall through and pool it so the GC retries the removal later
+            log.warn("Could not remove a removable temporary WARC file", e);
+          }
+        }
+      }
+
       // We do not want to resume writing to any existing temporary WARC files, but we need to
       // add them to the WARC file pool for them to resume their GC lifecycle. Populate stats
-      // from what we just scanned so runGC does not see an all-zero stub and reap the file.
+      // from what we just reloaded so runGC does not see an all-zero stub and reap the file.
       WarcFile warcFile = new WarcFile(tmpWarc, isCompressedWarcFile(tmpWarc));
       warcFile.setLength(getWarcLengthOrZero(tmpWarc));
       warcFile.getStats()
@@ -1485,6 +1841,8 @@ public abstract class WarcArtifactDataStore implements ArtifactDataStore, WARCCo
           .setArtifactsCopied(recCopied)
           .setLatestExpiration(latestExpirationMs);
       tmpWarcPool.addAsFullWarcFile(warcFile);
+    } catch (InterruptedException e) {
+      throw new InterruptedIOException("Interrupted while waiting to acquire temporary WARC reload lock");
     }
   }
 
@@ -1989,6 +2347,15 @@ public abstract class WarcArtifactDataStore implements ArtifactDataStore, WARCCo
   }
 
   /**
+   * Test seam: called when {@link #getArtifactData(Artifact)} finds no pooled {@link WarcFile}
+   * for a temporary WARC, before it acquires that WARC's reload lock to decide whether it is
+   * expired or still pending -- the window in which the background reload can finish pooling
+   * the WARC. No-op in production.
+   */
+  protected void beforeTempWarcReloadRecheck(Path warcFilePath) {
+  }
+
+  /**
    * Retrieves the {@link ArtifactData} of an {@link Artifact} by resolving its storage URL.
    *
    * @param artifact An {@link Artifact} instance containing a reference to the artifact data to retrieve from storage.
@@ -2010,6 +2377,8 @@ public abstract class WarcArtifactDataStore implements ArtifactDataStore, WARCCo
     // Owe a markUseEnd? True once markUseStart has been called and until
     // responsibility transfers to the CloseCallbackInputStream wrapper.
     boolean owesUseEnd = false;
+    // Reading a temporary WARC that the background reload hasn't reached yet
+    boolean isPendingReloadRead = false;
     InputStream warcStream = null;
 
     try {
@@ -2031,21 +2400,60 @@ public abstract class WarcArtifactDataStore implements ArtifactDataStore, WARCCo
 
           WarcFile warcFile = tmpWarcPool.getWarcFile(warcFilePath);
 
-          // If the WarcFile is gone from the pool, it means that the temp WARC GC decided
-          // it could be deleted, in which case this artifact must be expired:
           if (warcFile == null) {
-            log.error(expiredErrorMsg);
-            throw new LockssNoSuchArtifactIdException(expiredErrorMsg);
-          }
+            // Not in the pool. Either the background reload started by start() hasn't
+            // reached this temporary WARC yet, or the temp WARC GC decided it could be
+            // deleted, in which case this artifact must be expired. Hold the WARC's reload
+            // lock so the reload cannot decide to remove the file between the check below
+            // and the markUseStart that pins it.
+            beforeTempWarcReloadRecheck(warcFilePath);
 
-          synchronized (warcFile) {
-            if (warcFile.isMarkedForGC()) {
-              log.error(expiredErrorMsg);
-              throw new LockssNoSuchArtifactIdException(expiredErrorMsg);
-            } else {
-              // Increment usage counter of temporary WARC -- cannot now mark for GC
-              TempWarcInUseTracker.INSTANCE.markUseStart(warcFilePath);
-              owesUseEnd = true;
+            try (SemaphoreLock reloadLock = tmpWarcReloadLocks.getLock(warcFilePath)) {
+              // Re-check the pool under the reload lock: the reload may have pooled this
+              // WARC (and cleared its pending flag) between the check above and acquiring
+              // this lock. Without this, a WARC that just became available would be
+              // misreported as expired instead of taking the ordinary pooled-file path.
+              warcFile = tmpWarcPool.getWarcFile(warcFilePath);
+
+              if (warcFile != null) {
+                synchronized (warcFile) {
+                  if (warcFile.isMarkedForGC()) {
+                    log.error(expiredErrorMsg);
+                    throw new LockssNoSuchArtifactIdException(expiredErrorMsg);
+                  } else {
+                    TempWarcInUseTracker.INSTANCE.markUseStart(warcFilePath);
+                    owesUseEnd = true;
+                  }
+                }
+              } else {
+                if (!isPendingReload(warcFilePath)) {
+                  log.error(expiredErrorMsg);
+                  throw new LockssNoSuchArtifactIdException(expiredErrorMsg);
+                }
+
+                // Reference the file directly rather than waiting for the reload to reach
+                // it. The in-use mark keeps both the reload and the GC from removing the
+                // file while it is being read.
+                log.debug2("Reading artifact from a temporary WARC still pending reload [uuid: {}, warc: {}]",
+                    artifactUuid, warcFilePath);
+
+                TempWarcInUseTracker.INSTANCE.markUseStart(warcFilePath);
+                owesUseEnd = true;
+                isPendingReloadRead = true;
+              }
+            } catch (InterruptedException e) {
+              throw new InterruptedIOException("Interrupted while waiting to acquire temporary WARC reload lock");
+            }
+          } else {
+            synchronized (warcFile) {
+              if (warcFile.isMarkedForGC()) {
+                log.error(expiredErrorMsg);
+                throw new LockssNoSuchArtifactIdException(expiredErrorMsg);
+              } else {
+                // Increment usage counter of temporary WARC -- cannot now mark for GC
+                TempWarcInUseTracker.INSTANCE.markUseStart(warcFilePath);
+                owesUseEnd = true;
+              }
             }
           }
         }
@@ -2054,7 +2462,18 @@ public abstract class WarcArtifactDataStore implements ArtifactDataStore, WARCCo
       log.debug2("uuid: {}, storageUrl: {}", artifactUuid, storageUrl);
 
       // Open an InputStream from the WARC file and get the WARC record representing this artifact data
-      warcStream = new BufferedInputStream(getInputStreamFromStorageUrl(storageUrl));
+      try {
+        warcStream = new BufferedInputStream(getInputStreamFromStorageUrl(storageUrl));
+      } catch (FileNotFoundException | NoSuchFileException e) {
+        if (isPendingReloadRead) {
+          // The reload removed this temporary WARC after we found it pending: every record
+          // in it was expired, deleted, or already copied to permanent storage.
+          String expiredErrorMsg = "Artifact expired and was GCed";
+          log.error(expiredErrorMsg);
+          throw new LockssNoSuchArtifactIdException(expiredErrorMsg);
+        }
+        throw e;
+      }
 
       // Wrap uncompressed stream in GZIPInputStream if the file is compressed
       if (isCompressedWarcFile(warcFilePath)) {
@@ -2112,6 +2531,26 @@ public abstract class WarcArtifactDataStore implements ArtifactDataStore, WARCCo
   }
 
   /**
+   * Writes the journal entry marking an artifact {@code PENDING_COPY} and queues the task
+   * that copies it from temporary to permanent storage. Shared tail of the {@code
+   * UNCOMMITTED} case of {@link #commitArtifactData(Artifact)}, once any temporary WARC
+   * pool stats it needed to update have been updated.
+   *
+   * @param artifact   The {@link Artifact} being committed.
+   * @param artifactId {@code artifact}'s {@link ArtifactIdentifier}.
+   * @return A {@link Future} reflecting the new committed state and storage URL.
+   */
+  private Future<Artifact> finishCommitToTemporaryWarc(Artifact artifact, ArtifactIdentifier artifactId)
+      throws IOException {
+    writeJournalEntryForArtifact(artifact,
+        new WarcArtifactStateEntry(artifact.getIdentifier(), WarcArtifactState.PENDING_COPY));
+
+    CopyArtifactTask task = new CopyArtifactTask(artifact);
+    queuedCopyTasks.put(artifactId, task);
+    return stripedExecutor.submit(task);
+  }
+
+  /**
    * Commits an artifact from temporary to permanent storage.
    *
    * @param artifact The {@link Artifact} to commit to permanent storage.
@@ -2144,10 +2583,42 @@ public abstract class WarcArtifactDataStore implements ArtifactDataStore, WARCCo
           WarcFile tmpWarcFile = tmpWarcPool.getWarcFile(tmpWarcPath);
 
           if (tmpWarcFile == null) {
-            log.error("Too late to commit artifact: Temporary WARC was deleted [uuid: {}, warc: {}]",
-                artifact.getUuid(), tmpWarcPath);
-            // TODO : Revisit whether to return null or throw
-            return null;
+            // The WARC might still be pending reload. Hold its reload lock across the
+            // re-check, the pending check, and the journal write below:
+            // finishTemporaryWarcReload() takes this same lock before deciding whether
+            // to remove or pool the WARC, so this closes the window where it could
+            // finish and clear pendingReloadWarcs between this thread's two checks,
+            // making a perfectly valid commit look like "too late" (WARC deleted).
+            try (SemaphoreLock reloadLock = tmpWarcReloadLocks.getLock(tmpWarcPath)) {
+              // Re-check: the reload may have finished and pooled a WarcFile while this
+              // thread was doing the index/state lookups above.
+              tmpWarcFile = tmpWarcPool.getWarcFile(tmpWarcPath);
+
+              if (tmpWarcFile == null) {
+                if (!isPendingReload(tmpWarcPath)) {
+                  log.error("Too late to commit artifact: Temporary WARC was deleted [uuid: {}, warc: {}]",
+                      artifact.getUuid(), tmpWarcPath);
+                  // TODO : Revisit whether to return null or throw
+                  return null;
+                }
+
+                // The background reload hasn't reached this temporary WARC, so there is
+                // no WarcFile whose stats to update yet. Record this artifact's new state
+                // so that when the reload does finish -- finishTemporaryWarcReload() takes
+                // this same lock -- it can correct its counts if its counting pass (run
+                // earlier, unlocked) is stale. See pendingReloadLateTransitions.
+                pendingReloadLateTransitions
+                    .computeIfAbsent(tmpWarcPath, k -> new ConcurrentHashMap<>())
+                    .put(artifactId.getUuid(), WarcArtifactState.PENDING_COPY);
+
+                log.debug("Committing an artifact in a temporary WARC still pending reload [uuid: {}, warc: {}]",
+                    artifact.getUuid(), tmpWarcPath);
+
+                return finishCommitToTemporaryWarc(artifact, artifactId);
+              }
+            } catch (InterruptedException e) {
+              throw new InterruptedIOException("Interrupted while waiting to acquire temporary WARC reload lock");
+            }
           }
 
           synchronized (tmpWarcFile) {
@@ -2164,14 +2635,7 @@ public abstract class WarcArtifactDataStore implements ArtifactDataStore, WARCCo
             tmpWarcStats.incArtifactsCommitted();
           }
 
-          // Mark artifact as committed in the journal
-          writeJournalEntryForArtifact(artifact,
-              new WarcArtifactStateEntry(artifact.getIdentifier(), WarcArtifactState.PENDING_COPY));
-
-          // Submit the task to copy the artifact data from temporary to permanent storage
-          CopyArtifactTask task = new CopyArtifactTask(artifact);
-          queuedCopyTasks.put(artifactId, task);
-          return stripedExecutor.submit(task);
+          return finishCommitToTemporaryWarc(artifact, artifactId);
 
         case PENDING_COPY:
           // Duplicate commit call on this artifact - find and return the Future of the existing CopyArtifactTask
@@ -2434,10 +2898,44 @@ public abstract class WarcArtifactDataStore implements ArtifactDataStore, WARCCo
         // ******************
 
         try {
-          // Set the artifact's new storage URL and update the index
+          // Set the artifact's new storage URL, update the index, and update the
+          // temporary WARC's pool stats (or record the update for the reload to pick
+          // up, if the WARC is still pending reload) all under the SAME artifact-lock
+          // hold. The reload's classification of this artifact also takes this lock:
+          // nesting the stats update inside the same critical section as the storage
+          // URL update, with no gap between them, is what guarantees classification
+          // never observes this artifact as COPIED without the stats update having
+          // already happened (as an increment, or as a recorded pending-reconciliation
+          // entry) -- and so never runs a second, duplicate increment once the WARC is
+          // later pooled. A separate, later lockArtifact() acquisition here would still
+          // leave that gap open.
           try (SemaphoreLock lock = lockArtifact(artifactId)) {
             artifact.setStorageUrl(makeWarcRecordStorageUrl(dst, warcLength, recordLength).toString());
             getArtifactIndex().updateStorageUrl(artifact.getUuid(), artifact.getStorageUrl());
+
+            try (SemaphoreLock reloadLock = tmpWarcReloadLocks.getLock(loc.getPath())) {
+              WarcFile tmpWarcFile = tmpWarcPool.getWarcFile(loc.getPath());
+
+              if (tmpWarcFile != null) {
+                // This WarcFile cannot have already been GCed because the number of
+                // copied has not been incremented yet.
+                synchronized (tmpWarcFile) {
+                  tmpWarcFile.getStats().incArtifactsCopied();
+                }
+              } else if (isPendingReload(loc.getPath())) {
+                // The background reload hasn't pooled this WARC yet. Record the copy so
+                // finishTemporaryWarcReload() can account for it before pooling, rather
+                // than pooling stats that predate this copy. See
+                // pendingReloadLateTransitions.
+                pendingReloadLateTransitions
+                    .computeIfAbsent(loc.getPath(), k -> new ConcurrentHashMap<>())
+                    .put(artifactUuid, WarcArtifactState.COPIED);
+              }
+              // Else: the WARC was already removed by the reload or the GC. Nothing
+              // left to update.
+            } catch (InterruptedException e) {
+              throw new InterruptedIOException("Interrupted while waiting to acquire temporary WARC reload lock");
+            }
           }
 
           log.debug2("Updated storage URL [uuid: {}, storageUrl: {}]",
@@ -2466,26 +2964,6 @@ public abstract class WarcArtifactDataStore implements ArtifactDataStore, WARCCo
             // Q: Is this correct for the reload process?
             return artifact;
           }
-        }
-      }
-
-      // ********************************
-      // Update temporary WARC file stats
-      // ********************************
-
-      // tmpWarcFile could be null if this CopyArtifactTask was queued by the reload process
-      WarcFile tmpWarcFile = tmpWarcPool.getWarcFile(loc.getPath());
-
-      if (tmpWarcFile != null) {
-        synchronized (tmpWarcFile) {
-          // This WarcFile cannot have already been GCed because the number of copied
-          // has not been incremented yet:
-          // If this doesn't happen due to an IOException during copy then it's okay because:
-          // 1. It will then never be GCed (counters will not allow that) and so artifact references
-          //    will still resolve.
-          // 2. Upon restart it should notice there is an artifact pending copy and requeue it.
-
-          tmpWarcFile.getStats().incArtifactsCopied();
         }
       }
 
