@@ -44,16 +44,9 @@ import org.lockss.util.rest.repo.model.AuSize;
 import org.lockss.util.rest.repo.model.VersionsEnum;
 import org.lockss.util.time.TimeBase;
 
-import java.lang.ref.Cleaner;
 import java.sql.*;
 import java.util.*;
-import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.ExecutionException;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
-import java.util.concurrent.Future;
-import java.util.concurrent.TimeUnit;
-import java.util.concurrent.TimeoutException;
+import java.util.concurrent.*;
 import java.util.concurrent.atomic.AtomicLong;
 
 import static org.lockss.config.db.SqlConstants.*;

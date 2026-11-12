@@ -31,8 +31,8 @@
 package org.lockss.rs.io.storage.warc;
 
 import org.apache.commons.codec.digest.DigestUtils;
-import org.apache.commons.io.*;
 import org.apache.commons.io.FileUtils;
+import org.apache.commons.io.IOUtils;
 import org.apache.solr.client.solrj.embedded.EmbeddedSolrServer;
 import org.apache.solr.core.CoreContainer;
 import org.archive.format.warc.WARCConstants;
@@ -48,13 +48,13 @@ import org.lockss.rs.io.index.solr.SolrArtifactIndex;
 import org.lockss.rs.io.index.solr.TestSolrArtifactIndex;
 import org.lockss.util.ListUtil;
 import org.lockss.util.PatternIntMap;
+import org.lockss.util.concurrent.stripedexecutor.StripedRunnable;
 import org.lockss.util.io.FileUtil;
 import org.lockss.util.rest.repo.LockssNoSuchArtifactIdException;
 import org.lockss.util.rest.repo.model.Artifact;
 import org.lockss.util.rest.repo.model.ArtifactData;
 import org.lockss.util.rest.repo.model.ArtifactIdentifier;
 import org.lockss.util.rest.repo.model.NamespacedAuid;
-import org.lockss.util.concurrent.stripedexecutor.StripedRunnable;
 import org.lockss.util.rest.repo.util.ArtifactSpec;
 import org.lockss.util.time.TimeBase;
 import org.mockito.ArgumentMatchers;
@@ -69,13 +69,8 @@ import java.nio.file.NoSuchFileException;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.*;
-import java.util.List;
-import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.*;
 import java.util.concurrent.atomic.AtomicInteger;
-import java.util.concurrent.Executors;
-import java.util.concurrent.Future;
-import java.util.concurrent.ScheduledExecutorService;
-import java.util.concurrent.TimeUnit;
 import java.util.function.Predicate;
 
 import static org.mockito.Mockito.*;
@@ -1065,11 +1060,14 @@ public class TestLocalWarcArtifactDataStore extends AbstractWarcArtifactDataStor
     Path tmpWarcPath = WarcArtifactDataStore.getPathFromStorageUrl(spec.getStorageUrl());
     assertTrue(isFile(tmpWarcPath));
 
-    // Record a journal entry for this artifact so the journal-based reload's fast path --
-    // the one under test -- applies instead of the full WARC-body scan fallback.
-    store.writeJournalEntryForArtifact(indexed,
-        new WarcArtifactStateEntry(spec.getArtifactUuid(), WarcArtifactState.UNCOMMITTED)
-            .setEntryDate(TimeBase.nowMs()));
+    // addArtifactData() journals the artifact as UNCOMMITTED; that entry is what makes the
+    // journal-based reload's fast path -- the one under test -- apply instead of the
+    // WARC-body scan fallback, where this race seam isn't exercised.
+    Map<String, WarcArtifactStateEntry> journal = store.readJournalFromWarc(
+        WarcArtifactDataStore.getJournalPath(tmpWarcPath), WarcArtifactStateEntry.class, null);
+    WarcArtifactStateEntry journalEntry = journal.get(spec.getArtifactUuid());
+    assertNotNull(journalEntry, "addArtifactData() didn't journal the artifact");
+    assertEquals(WarcArtifactState.UNCOMMITTED, journalEntry.getArtifactState());
 
     ArtifactRaceOnReloadStore raceStore =
         new ArtifactRaceOnReloadStore(store.getBasePaths(), index, spec.getArtifactUuid());
@@ -1130,6 +1128,7 @@ public class TestLocalWarcArtifactDataStore extends AbstractWarcArtifactDataStor
 
       try (ArtifactData ad = raceStore.getArtifactData(indexed)) {
         assertNotNull(ad);
+        assertTrue(TempWarcInUseTracker.INSTANCE.isInUse(tmpWarcPath));
         spec.assertArtifactData(ad);
       }
 
@@ -1177,7 +1176,7 @@ public class TestLocalWarcArtifactDataStore extends AbstractWarcArtifactDataStor
       // reloadTemporaryWarcs() and is sitting on the gate, which is still closed.
       assertTrue(reloadedStore.reloadStarted.await(30, TimeUnit.SECONDS),
           "Background reload never started");
-      assertFalse(reloadedStore.awaitReloadComplete(100, TimeUnit.MILLISECONDS),
+      assertFalse(reloadedStore.awaitReloadComplete(TIMEOUT_SHOULD, TimeUnit.MILLISECONDS),
           "start() waited for the temporary WARC reload to finish");
 
       // The data store is nonetheless started and serving
@@ -1214,6 +1213,10 @@ public class TestLocalWarcArtifactDataStore extends AbstractWarcArtifactDataStor
 
     LatchedReloadStore reloadedStore = makeLatchedReloadStore(index, store);
 
+    // Spy on the pool before start(), so the reload and the GC task share the one instance
+    WarcFilePool poolSpy = spy(reloadedStore.tmpWarcPool);
+    reloadedStore.tmpWarcPool = poolSpy;
+
     try {
       reloadedStore.init();
       reloadedStore.start();
@@ -1229,6 +1232,7 @@ public class TestLocalWarcArtifactDataStore extends AbstractWarcArtifactDataStor
       // Read it anyway: this is the case that used to fail with "expired and was GCed"
       try (ArtifactData ad = reloadedStore.getArtifactData(indexed)) {
         assertNotNull(ad);
+        assertTrue(TempWarcInUseTracker.INSTANCE.isInUse(tmpWarcPath));
         spec.assertArtifactData(ad);
       }
 
@@ -1247,11 +1251,27 @@ public class TestLocalWarcArtifactDataStore extends AbstractWarcArtifactDataStor
       assertEquals(1, pooled.getStats().getArtifactsTotal());
       assertEquals(1, pooled.getStats().getArtifactsUncommitted());
 
+      // Record what the read's pool lookups for this WARC return
+      List<WarcFile> poolLookups = new ArrayList<>();
+      doAnswer(inv -> {
+        WarcFile result = (WarcFile) inv.callRealMethod();
+        poolLookups.add(result);
+        return result;
+      }).when(poolSpy).getWarcFile(tmpWarcPath);
+
       // ... and that the artifact is still readable, now through the pool
       try (ArtifactData ad = reloadedStore.getArtifactData(index.getArtifact(spec.getArtifactUuid()))) {
         assertNotNull(ad);
+        assertTrue(TempWarcInUseTracker.INSTANCE.isInUse(tmpWarcPath));
         spec.assertArtifactData(ad);
       }
+
+      // Exactly one lookup, which hit the pooled WARC: a miss would have been followed by
+      // a recheck under the reload lock, and a read served outside the pool needs a miss
+      assertEquals(1, poolLookups.size(), "Expected a single pool lookup, got: " + poolLookups);
+      assertSame(pooled, poolLookups.get(0), "Read was not served from the pooled WARC");
+
+      assertFalse(TempWarcInUseTracker.INSTANCE.isInUse(tmpWarcPath));
     } finally {
       reloadedStore.reloadGate.countDown();
       stopQuietly(reloadedStore);
@@ -1408,7 +1428,17 @@ public class TestLocalWarcArtifactDataStore extends AbstractWarcArtifactDataStor
       reloadedStore.reloadGate.countDown();
       assertTrue(reloadedStore.awaitReloadComplete(60, TimeUnit.SECONDS));
 
-      // The reload must not have copied the artifact into permanent storage a second time
+      // The reload must have classified the artifact as COPIED, never as PENDING_COPY
+      assertEquals(0, reloadedStore.requeueDecisions.get(),
+          "Reload considered requeuing the copy of an already-copied artifact");
+
+      // The reload must not have copied the artifact into permanent storage a second time:
+      // a completed duplicate copy repoints the index (to a new offset, or to another WARC
+      // after a rollover), and one that fails before the index update still leaves its
+      // bytes appended to the permanent WARC
+      assertEquals(committed.getStorageUrl(),
+          index.getArtifact(spec.getArtifactUuid()).getStorageUrl(),
+          "Artifact's storage URL changed after the reload");
       assertEquals(permWarcLength, permWarcPath.toFile().length(),
           "Reload copied an already-copied artifact again");
 
@@ -1494,6 +1524,7 @@ public class TestLocalWarcArtifactDataStore extends AbstractWarcArtifactDataStor
 
       // The artifact is now PENDING_COPY with its copy queued but not started. Let the
       // reload reach its temporary WARC in exactly that state.
+      assertEquals(WarcArtifactState.PENDING_COPY, store.getWarcArtifactState(indexed, false));
       reloadedStore.reloadGate.countDown();
       assertTrue(reloadedStore.awaitReloadComplete(60, TimeUnit.SECONDS));
 
@@ -1513,6 +1544,7 @@ public class TestLocalWarcArtifactDataStore extends AbstractWarcArtifactDataStor
 
       Path permWarcPath = WarcArtifactDataStore.getPathFromStorageUrl(URI.create(committed.getStorageUrl()));
       assertFalse(reloadedStore.isTmpStorage(permWarcPath));
+      assertEquals(WarcArtifactState.COPIED, store.getWarcArtifactState(committed, false));
 
       assertEquals(1,
           countWarcRecordsOfType(reloadedStore, permWarcPath, WARCConstants.WARCRecordType.response),
