@@ -32,13 +32,12 @@ POSSIBILITY OF SUCH DAMAGE.
 package org.lockss.rs.io.index.db;
 
 import org.lockss.app.ConfigurableManager;
+import org.lockss.config.ConfigManager;
 import org.lockss.config.Configuration;
 import org.lockss.db.DbException;
 import org.lockss.db.DbManager;
 import org.lockss.db.DbManagerSql;
 import org.lockss.log.L4JLogger;
-
-import org.lockss.config.ConfigManager;
 
 import java.sql.Connection;
 import java.sql.SQLException;

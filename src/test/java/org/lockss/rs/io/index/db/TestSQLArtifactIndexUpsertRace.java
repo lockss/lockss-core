@@ -40,19 +40,9 @@ import org.lockss.test.ConfigurationUtil;
 import org.lockss.test.LockssTestCase4;
 import org.lockss.test.MockLockssDaemon;
 
-import java.sql.Connection;
-import java.sql.DriverManager;
-import java.sql.PreparedStatement;
-import java.sql.ResultSet;
-import java.sql.SQLException;
-import java.sql.Statement;
+import java.sql.*;
 import java.util.UUID;
-import java.util.concurrent.Callable;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
-import java.util.concurrent.Future;
-import java.util.concurrent.TimeUnit;
-import java.util.concurrent.TimeoutException;
+import java.util.concurrent.*;
 
 import static org.lockss.config.db.SqlConstants.URL_DIGEST_EXPRESSION;
 import static org.lockss.config.db.SqlConstants.URL_DIGEST_PARAM_EXPRESSION;
@@ -466,11 +456,11 @@ public class TestSQLArtifactIndexUpsertRace extends LockssTestCase4 {
       assertNotNull("the first caller must create the URL", winnerSeq);
 
       // Not committed yet, so the second caller has to wait on the first.
-      Future<Long> loserSeq =
+      Future<Long> loserSeqFuture =
           executor.submit(() -> idxdb.findOrCreateUrlSeq(loser, URL));
 
       try {
-        Long premature = loserSeq.get(2, TimeUnit.SECONDS);
+        Long premature = loserSeqFuture.get(TIMEOUT_SHOULD, TimeUnit.MILLISECONDS);
         fail("the second caller returned " + premature + " while the first"
             + " caller's insert was still uncommitted");
       } catch (TimeoutException expected) {
@@ -480,7 +470,7 @@ public class TestSQLArtifactIndexUpsertRace extends LockssTestCase4 {
       winner.commit();
 
       assertEquals("both callers must agree on one url_seq",
-          winnerSeq, loserSeq.get(30, TimeUnit.SECONDS));
+          winnerSeq, loserSeqFuture.get(TIMEOUT_SHOULDNT, TimeUnit.MILLISECONDS));
 
       loser.commit();
     } finally {
@@ -514,11 +504,11 @@ public class TestSQLArtifactIndexUpsertRace extends LockssTestCase4 {
       assertNotNull(winnerNs);
       assertNotNull(winnerAuid);
 
-      Future<Long> loserNs =
+      Future<Long> loserNsFuture =
           executor.submit(() -> idxdb.findOrCreateNamespaceSeq(loser, NS));
 
       try {
-        loserNs.get(2, TimeUnit.SECONDS);
+        loserNsFuture.get(TIMEOUT_SHOULD, TimeUnit.MILLISECONDS);
         fail("the second caller returned while the first caller's insert was"
             + " still uncommitted");
       } catch (TimeoutException expected) {
@@ -528,7 +518,7 @@ public class TestSQLArtifactIndexUpsertRace extends LockssTestCase4 {
       winner.commit();
 
       assertEquals("both callers must agree on one namespace_seq",
-          winnerNs, loserNs.get(30, TimeUnit.SECONDS));
+          winnerNs, loserNsFuture.get(TIMEOUT_SHOULDNT, TimeUnit.MILLISECONDS));
       assertEquals("both callers must agree on one auid_seq",
           winnerAuid, idxdb.findOrCreateAuidSeq(loser, auid));
 

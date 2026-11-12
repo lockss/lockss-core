@@ -41,18 +41,12 @@ import org.lockss.test.LockssTestCase4;
 import org.lockss.test.MockLockssDaemon;
 
 import java.io.File;
-import java.sql.Connection;
-import java.sql.DriverManager;
-import java.sql.ResultSet;
-import java.sql.SQLException;
-import java.sql.Statement;
+import java.sql.*;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
 
-import static org.lockss.config.db.SqlConstants.LONG_URL_TABLE;
-import static org.lockss.config.db.SqlConstants.MAX_AUID_COLUMN;
-import static org.lockss.config.db.SqlConstants.URL_PREFIX_INDEX_LENGTH;
+import static org.lockss.config.db.SqlConstants.*;
 
 /**
  * Tests that schema version 5 declares the C (byte-order) collation on the text

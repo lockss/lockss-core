@@ -31,25 +31,21 @@ POSSIBILITY OF SUCH DAMAGE.
 */
 package org.lockss.rs.io.index.db;
 
-import org.lockss.db.*;
+import org.lockss.config.ConfigManager;
+import org.lockss.config.Configuration;
+import org.lockss.db.DbManager;
+import org.lockss.db.DbManagerSql;
 import org.lockss.log.L4JLogger;
 
 import javax.sql.DataSource;
-import java.io.BufferedWriter;
-import java.io.File;
-import java.io.FileOutputStream;
-import java.io.IOException;
-import java.io.OutputStreamWriter;
+import java.io.*;
 import java.nio.charset.StandardCharsets;
 import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
-import java.util.List;
-
-import org.lockss.config.ConfigManager;
-import org.lockss.config.Configuration;
 import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Map;
 
 import static org.lockss.config.db.SqlConstants.*;

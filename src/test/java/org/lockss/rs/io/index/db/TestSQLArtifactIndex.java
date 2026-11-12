@@ -35,30 +35,18 @@ import io.zonky.test.db.postgres.embedded.EmbeddedPostgres;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
-import org.lockss.config.Configuration;
 import org.lockss.log.L4JLogger;
 import org.lockss.rs.io.index.AbstractArtifactIndexTest;
 import org.lockss.test.ConfigurationUtil;
 import org.lockss.test.MockLockssDaemon;
-import org.lockss.util.StringUtil;
 import org.lockss.util.rest.repo.model.Artifact;
 import org.lockss.util.rest.repo.model.AuSize;
 import org.lockss.util.rest.repo.util.ArtifactSpec;
-import org.postgresql.ds.PGSimpleDataSource;
 
-import javax.sql.DataSource;
 import java.net.URI;
 import java.util.ArrayList;
 import java.util.List;
-import java.io.File;
-import java.sql.Connection;
-import java.sql.DriverManager;
-import java.sql.SQLException;
-import java.sql.Statement;
 import java.util.UUID;
-
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertNull;
 
 /**
  * Tests for {@link SQLArtifactIndex}.
