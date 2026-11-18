@@ -103,7 +103,7 @@ public class TestSQLArtifactIndexAuidCount extends LockssTestCase4 {
 
     idxDbManager = new SQLArtifactIndexDbManager();
     idxDbManager.initService(theDaemon);
-    idxDbManager.setTargetDatabaseVersion(4);
+    idxDbManager.setTargetDatabaseVersion(7);
     idxDbManager.startService();
     theDaemon.setSQLArtifactIndexDbManager(idxDbManager);
   }
