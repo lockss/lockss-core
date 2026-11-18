@@ -747,6 +747,36 @@ public class TestBlockHasher extends LockssTestCase {
     // ensure no valid hash
   }
   
+  // Ensure local hash can be disabled
+  public void testOneContentLocalHashMissingDisabled()
+      throws Exception {
+    enableLocalHash("SHA-1");
+    RecordingEventHandler handRec = new RecordingEventHandler();
+    MockArchivalUnit mau = setupContentTree();
+    MockCachedUrlSet cus = (MockCachedUrlSet)mau.getAuCachedUrlSet();
+    CIProperties props = new CIProperties();
+    addContent(mau, urls[4], "foo", props);
+    MessageDigest[] digs = { dig };
+    byte[][] inits = {null};
+    BlockHasher hasher = new MyBlockHasher(cus, digs, inits, handRec);
+    hasher.setFiltered(false);
+
+    hasher.enableLocalHash(false);
+
+    assertEquals(3, hashToEnd(hasher, 100));
+    assertTrue(hasher.finished());
+    List<Event> events = handRec.getEvents();
+    assertEquals(1, events.size());
+    assertEvent(urls[4], 3, "foo", events.get(0), false);
+    LocalHashResult lhr = hasher.getLocalHashResult();
+    assertNull(lhr);
+
+    // ensure that no checksum property was stored on the CU
+    CachedUrl cu = mau.makeCachedUrl(urls[4]);
+    CIProperties props2 = cu.getProperties();
+    assertNull(props2.get(CachedUrl.PROPERTY_CHECKSUM));
+  }
+
   // Filter reset relies on BaseCachedUrl wrapping HashedInputStream in a
   // BufferedInputStream; this doesn't test that because it uses
   // MockCachedUrl
@@ -1402,6 +1432,32 @@ public class TestBlockHasher extends LockssTestCase {
     testSeveralContentSeveralVersionsWithThrowing(3);
     testSeveralContentSeveralVersionsWithThrowing(100);
     testSeveralContentSeveralVersionsWithThrowing(10000);
+  }
+
+  // A version with a stored checksum but no content should be marked
+  // suspect, not abort the hash.
+  public void testLocalHashChecksumButNoContent() throws Exception {
+    enableLocalHash("SHA-1");
+    RecordingEventHandler handRec = new RecordingEventHandler();
+    MockArchivalUnit mau = setupContentTree();
+    MockCachedUrlSet cus = (MockCachedUrlSet)mau.getAuCachedUrlSet();
+    addVersionAndChecksum(mau, urls[4], "foo",
+                          "SHA-1:0beec7b5ea3f0fdbc95d0dd47f3c5bc275da8a33");
+    CachedUrl noContent =
+      addVersionAndChecksum(mau, urls[4], null,
+                            "SHA-1:0beec7b5ea3f0fdbc95d0dd47f3c5bc275da8a33");
+    assertFalse(noContent.hasContent());
+    MessageDigest[] digs = { dig };
+    byte[][] inits = {null};
+    BlockHasher hasher = new MyBlockHasher(cus, digs, inits, handRec);
+    hasher.setFiltered(false);
+    hashToEnd(hasher, 100);
+    assertTrue(hasher.finished());
+    LocalHashResult lhr = hasher.getLocalHashResult();
+    assertEquals(1, lhr.getMatchingVersions());
+    assertEquals(1, lhr.getNewlySuspectVersions());
+    AuSuspectUrlVersions asuv = AuUtil.getSuspectUrlVersions(mau);
+    assertTrue(asuv.isSuspect(urls[4], noContent.getVersion()));
   }
 
   public void testInitBytes(int stepSize) throws Exception {

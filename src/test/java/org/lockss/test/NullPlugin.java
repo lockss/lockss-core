@@ -735,7 +735,7 @@ public class NullPlugin {
     }
 
     public boolean isCrawlable() {
-      return true;
+      return false;
     }
 
     public ArchiveFileTypes getArchiveFileTypes() {

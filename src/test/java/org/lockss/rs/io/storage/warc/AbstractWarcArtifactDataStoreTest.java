@@ -59,6 +59,7 @@ import org.lockss.rs.VariantState;
 import org.lockss.rs.io.index.ArtifactIndex;
 import org.lockss.rs.io.index.VolatileArtifactIndex;
 import org.lockss.rs.io.storage.ArtifactDataStore;
+import org.lockss.rs.io.storage.ReindexResult;
 import org.lockss.rs.io.storage.warc.WarcArtifactDataStore.StorageUrlPathPolicy;
 import org.lockss.util.ListUtil;
 import org.lockss.util.MapUtil;
@@ -3193,7 +3194,12 @@ public abstract class AbstractWarcArtifactDataStoreTest<WADS extends WarcArtifac
     doReturn(URI.create("test")).when(ds).makeWarcRecordStorageUrl(
         ArgumentMatchers.any(Path.class), ArgumentMatchers.anyLong(), ArgumentMatchers.anyLong());
     doCallRealMethod().when(ds).isCompressedWarcFile(warcFile);
+    // The 2-arg form delegates to the 3-arg one, which carries the enclosing
+    // pass's ReindexResult; both have to be real on the mock.
     doCallRealMethod().when(ds).indexArtifactsFromWarc(index, warcFile);
+    doCallRealMethod().when(ds).indexArtifactsFromWarc(
+        ArgumentMatchers.eq(index), ArgumentMatchers.eq(warcFile),
+        ArgumentMatchers.any(ReindexResult.class));
     doCallRealMethod().when(ds).getArchiveReader(ArgumentMatchers.any(Path.class),
         ArgumentMatchers.any(InputStream.class));
 

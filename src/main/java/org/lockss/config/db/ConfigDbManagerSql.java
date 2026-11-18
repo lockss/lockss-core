@@ -33,6 +33,8 @@ package org.lockss.config.db;
 
 import static org.lockss.config.db.SqlConstants.*;
 import java.sql.Connection;
+import java.sql.PreparedStatement;
+import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.util.*;
 import javax.sql.DataSource;
@@ -71,8 +73,8 @@ public class ConfigDbManagerSql extends DbManagerSql {
       "create table "
       + ARCHIVAL_UNIT_CONFIG_TABLE + " ("
       + ARCHIVAL_UNIT_SEQ_COLUMN + " bigint not null references "
-      + ARCHIVAL_UNIT_TABLE + " (" + ARCHIVAL_UNIT_SEQ_COLUMN
-      + ") on delete cascade,"
+          + ARCHIVAL_UNIT_TABLE + " (" + ARCHIVAL_UNIT_SEQ_COLUMN
+          + ") on delete cascade,"
       + CONFIG_KEY_COLUMN + " varchar(" + MAX_CONFIG_KEY_COLUMN + ") not null,"
       + CONFIG_VALUE_COLUMN + " varchar(" + MAX_CONFIG_VALUE_COLUMN
       + ") not null"
@@ -202,6 +204,74 @@ public class ConfigDbManagerSql extends DbManagerSql {
       "create unique index idx1_" + ARCHIVAL_UNIT_NO_AU_PEER_SET_TABLE + " on "
 	  + ARCHIVAL_UNIT_NO_AU_PEER_SET_TABLE + "(" + ARCHIVAL_UNIT_SEQ_COLUMN
 	  + ")"
+  };
+
+  // SQL statements that create the necessary version 6 indices.
+  //
+  // The unique index on (plugin_seq, archival_unit_key) is the conflict
+  // target of ConfigManagerSql's INSERT ... ON CONFLICT upsert, which is what
+  // makes concurrent find-or-create of the same AU race-free.
+  private static final String[] VERSION_6_INDEX_CREATE_QUERIES = new String[] {
+      "create unique index idx3_" + ARCHIVAL_UNIT_TABLE + " on "
+      + ARCHIVAL_UNIT_TABLE + "(" + PLUGIN_SEQ_COLUMN + ","
+      + ARCHIVAL_UNIT_KEY_COLUMN + ")"
+  };
+
+  // Query to find the (plugin, key) pairs that have more than one
+  // archival_unit row.
+  private static final String FIND_DUPLICATE_ARCHIVAL_UNITS_QUERY = "select "
+      + "p." + PLUGIN_ID_COLUMN
+      + ", a." + PLUGIN_SEQ_COLUMN
+      + ", a." + ARCHIVAL_UNIT_KEY_COLUMN
+      + ", count(*)"
+      + " from " + ARCHIVAL_UNIT_TABLE + " a"
+      + ", " + PLUGIN_TABLE + " p"
+      + " where a." + PLUGIN_SEQ_COLUMN + " = p." + PLUGIN_SEQ_COLUMN
+      + " group by p." + PLUGIN_ID_COLUMN
+      + ", a." + PLUGIN_SEQ_COLUMN
+      + ", a." + ARCHIVAL_UNIT_KEY_COLUMN
+      + " having count(*) > 1";
+
+  // Query to list the archival_unit rows of one (plugin, key) pair, newest
+  // (highest sequence number) first.
+  private static final String FIND_ARCHIVAL_UNIT_SEQS_QUERY = "select "
+      + ARCHIVAL_UNIT_SEQ_COLUMN
+      + " from " + ARCHIVAL_UNIT_TABLE
+      + " where " + PLUGIN_SEQ_COLUMN + " = ?"
+      + " and " + ARCHIVAL_UNIT_KEY_COLUMN + " = ?"
+      + " order by " + ARCHIVAL_UNIT_SEQ_COLUMN + " desc";
+
+  // Query to delete the archival_unit rows of a (plugin, key) pair other than
+  // the survivor. Child rows go with them via "on delete cascade".
+  private static final String DELETE_OLDER_ARCHIVAL_UNITS_QUERY = "delete from "
+      + ARCHIVAL_UNIT_TABLE
+      + " where " + PLUGIN_SEQ_COLUMN + " = ?"
+      + " and " + ARCHIVAL_UNIT_KEY_COLUMN + " = ?"
+      + " and " + ARCHIVAL_UNIT_SEQ_COLUMN + " <> ?";
+
+  // Query to give the surviving archival_unit row the earliest creation_time
+  // and the latest last_update_time of its (plugin, key) group. Run before the
+  // older rows are deleted.
+  private static final String MERGE_ARCHIVAL_UNIT_TIMES_QUERY = "update "
+      + ARCHIVAL_UNIT_TABLE
+      + " set " + CREATION_TIME_COLUMN + " = (select min("
+      + CREATION_TIME_COLUMN + ") from " + ARCHIVAL_UNIT_TABLE
+      + " where " + PLUGIN_SEQ_COLUMN + " = ?"
+      + " and " + ARCHIVAL_UNIT_KEY_COLUMN + " = ?)"
+      + ", " + LAST_UPDATE_TIME_COLUMN + " = (select max("
+      + LAST_UPDATE_TIME_COLUMN + ") from " + ARCHIVAL_UNIT_TABLE
+      + " where " + PLUGIN_SEQ_COLUMN + " = ?"
+      + " and " + ARCHIVAL_UNIT_KEY_COLUMN + " = ?)"
+      + " where " + ARCHIVAL_UNIT_SEQ_COLUMN + " = ?";
+
+  // The tables keyed by archival_unit_seq whose rows must be carried over to
+  // the surviving archival_unit row when duplicates are merged.
+  private static final String[] ARCHIVAL_UNIT_CHILD_TABLES = new String[] {
+      ARCHIVAL_UNIT_STATE_TABLE,
+      ARCHIVAL_UNIT_AGREEMENTS_TABLE,
+      ARCHIVAL_UNIT_SUSPECT_URL_VERSIONS_TABLE,
+      ARCHIVAL_UNIT_NO_AU_PEER_SET_TABLE,
+      ARCHIVAL_UNIT_CONFIG_TABLE
   };
 
   /**
@@ -368,5 +438,198 @@ public class ConfigDbManagerSql extends DbManagerSql {
     executeDdlQueries(conn, queries);
 
     log.debug2("Done.");
+  }
+
+  /**
+   * Updates the database from version 5 to version 6.
+   * <p>
+   * Before version 6 nothing prevented two concurrent find-or-create calls
+   * from each inserting an archival_unit row for the same (plugin, key), so
+   * any such duplicates are merged first and then the unique index that
+   * makes the upsert possible is created.
+   *
+   * @param conn
+   *          A Connection with the database connection to be used.
+   * @throws SQLException
+   *           if any problem occurred updating the database.
+   */
+  void updateDatabaseFrom5To6(Connection conn) throws SQLException {
+    log.debug2("Invoked");
+
+    if (conn == null) {
+      throw new IllegalArgumentException("Null connection");
+    }
+
+    mergeDuplicateArchivalUnits(conn);
+
+    // Create the necessary indices.
+    executeDdlQueries(conn, VERSION_6_INDEX_CREATE_QUERIES);
+
+    log.debug2("Done.");
+  }
+
+  /**
+   * Merges archival_unit rows that share the same (plugin_seq,
+   * archival_unit_key).
+   * <p>
+   * Policy: the row with the highest archival_unit_seq survives. For each
+   * child table (archival_unit_state, archival_unit_agreements,
+   * archival_unit_suspect_url_versions, archival_unit_no_au_peer_set,
+   * archival_unit_config) the survivor's own rows are kept if it has any;
+   * otherwise the rows of the highest-numbered older duplicate that has any
+   * are re-pointed to the survivor. No child table carries a timestamp of its
+   * own, so there is nothing finer to choose by. Configuration rows are moved
+   * as a whole set and never merged key by key. The survivor takes the
+   * earliest creation_time and the latest last_update_time of the group. The
+   * older rows are then deleted, cascading to whatever child rows were not
+   * carried over. One
+   * warning is logged per merged AU.
+   *
+   * @param conn
+   *          A Connection with the database connection to be used.
+   * @throws SQLException
+   *           if any problem occurred accessing the database.
+   */
+  void mergeDuplicateArchivalUnits(Connection conn) throws SQLException {
+    // Collect the duplicate groups first so no cursor is open while rows are
+    // being moved around.
+    List<Object[]> groups = new ArrayList<>();
+
+    PreparedStatement findDups = null;
+    ResultSet rs = null;
+
+    try {
+      findDups = prepareStatement(conn, FIND_DUPLICATE_ARCHIVAL_UNITS_QUERY);
+      rs = executeQuery(findDups);
+
+      while (rs.next()) {
+        groups.add(new Object[] {rs.getString(1), rs.getLong(2),   // plugin_id, plugin_seq
+                                 rs.getString(3), rs.getLong(4)}); // au_key, count_of_duplicates
+      }
+    } finally {
+      DbManager.safeCloseResultSet(rs);
+      DbManager.safeCloseStatement(findDups);
+    }
+
+    for (Object[] group : groups) {
+      String pluginId = (String)group[0];
+      long pluginSeq = (Long)group[1];
+      String auKey = (String)group[2];
+      long count = (Long)group[3];
+
+      mergeDuplicateArchivalUnit(conn, pluginSeq, auKey);
+
+      log.warn("Merged {} duplicate archival_unit rows for plugin {} key {}",
+               count, pluginId, auKey);
+    }
+  }
+
+  /**
+   * Merges the archival_unit rows of one (plugin_seq, archival_unit_key)
+   * pair into the one with the highest archival_unit_seq.
+   */
+  private void mergeDuplicateArchivalUnit(Connection conn, long pluginSeq,
+      String auKey) throws SQLException {
+    // Newest first.
+    List<Long> seqs = new ArrayList<>();
+
+    PreparedStatement findSeqs = null;
+    ResultSet rs = null;
+
+    try {
+      findSeqs = prepareStatement(conn, FIND_ARCHIVAL_UNIT_SEQS_QUERY);
+      findSeqs.setLong(1, pluginSeq);
+      findSeqs.setString(2, auKey);
+      rs = executeQuery(findSeqs);
+
+      while (rs.next()) {
+        seqs.add(rs.getLong(1));
+      }
+    } finally {
+      DbManager.safeCloseResultSet(rs);
+      DbManager.safeCloseStatement(findSeqs);
+    }
+
+    if (seqs.size() < 2) {
+      return;
+    }
+
+    long survivor = seqs.get(0);
+    List<Long> older = seqs.subList(1, seqs.size());
+
+    for (String table : ARCHIVAL_UNIT_CHILD_TABLES) {
+      if (countChildRows(conn, table, survivor) > 0) {
+        continue;
+      }
+
+      for (Long seq : older) {
+        if (countChildRows(conn, table, seq) > 0) {
+          repointChildRows(conn, table, seq, survivor);
+          break;
+        }
+      }
+    }
+
+    // The survivor takes the earliest creation_time and the latest
+    // last_update_time of the group.
+    PreparedStatement mergeTimes = null;
+
+    try {
+      mergeTimes = prepareStatement(conn, MERGE_ARCHIVAL_UNIT_TIMES_QUERY);
+      mergeTimes.setLong(1, pluginSeq);
+      mergeTimes.setString(2, auKey);
+      mergeTimes.setLong(3, pluginSeq);
+      mergeTimes.setString(4, auKey);
+      mergeTimes.setLong(5, survivor);
+      executeUpdate(mergeTimes);
+    } finally {
+      DbManager.safeCloseStatement(mergeTimes);
+    }
+
+    PreparedStatement delete = null;
+
+    try {
+      delete = prepareStatement(conn, DELETE_OLDER_ARCHIVAL_UNITS_QUERY);
+      delete.setLong(1, pluginSeq);
+      delete.setString(2, auKey);
+      delete.setLong(3, survivor);
+      executeUpdate(delete);
+    } finally {
+      DbManager.safeCloseStatement(delete);
+    }
+  }
+
+  private long countChildRows(Connection conn, String table, long auSeq)
+      throws SQLException {
+    PreparedStatement ps = null;
+    ResultSet rs = null;
+
+    try {
+      ps = prepareStatement(conn, "select count(*) from " + table
+                            + " where " + ARCHIVAL_UNIT_SEQ_COLUMN + " = ?");
+      ps.setLong(1, auSeq);
+      rs = executeQuery(ps);
+      rs.next();
+      return rs.getLong(1);
+    } finally {
+      DbManager.safeCloseResultSet(rs);
+      DbManager.safeCloseStatement(ps);
+    }
+  }
+
+  private void repointChildRows(Connection conn, String table, long fromSeq,
+      long toSeq) throws SQLException {
+    PreparedStatement ps = null;
+
+    try {
+      ps = prepareStatement(conn, "update " + table
+                            + " set " + ARCHIVAL_UNIT_SEQ_COLUMN + " = ?"
+                            + " where " + ARCHIVAL_UNIT_SEQ_COLUMN + " = ?");
+      ps.setLong(1, toSeq);
+      ps.setLong(2, fromSeq);
+      executeUpdate(ps);
+    } finally {
+      DbManager.safeCloseStatement(ps);
+    }
   }
 }
