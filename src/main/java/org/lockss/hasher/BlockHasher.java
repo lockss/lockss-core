@@ -111,7 +111,7 @@ public class BlockHasher extends GenericHasher {
   List<Pattern> excludeUrlPats;
   private HashMap<String,MessageDigest> localHashDigestMap = null;
   private HashedInputStream.Hasher currentVersionLocalHasher = null;
-  private String localHashAlgorithm = null;
+  private String localHashAlgorithm = DEFAULT_LOCAL_HASH_ALGORITHM;
   private byte[] currentVersionStoredHash = null;
   private boolean enableLocalHash = DEFAULT_ENABLE_LOCAL_HASH;
   private boolean addMissingLocalHash = DEFAULT_ADD_MISSING_LOCAL_HASH;
@@ -186,18 +186,27 @@ public class BlockHasher extends GenericHasher {
     ignoreFilesOutsideCrawlSpec =
       config.getBoolean(PARAM_IGNORE_FILES_OUTSIDE_CRAWL_SPEC,
 			DEFAULT_IGNORE_FILES_OUTSIDE_CRAWL_SPEC);
-    enableLocalHash = config.getBoolean(PARAM_ENABLE_LOCAL_HASH,
-					DEFAULT_ENABLE_LOCAL_HASH);
-    if (enableLocalHash) {
+    localHashAlgorithm =
+      config.get(PARAM_LOCAL_HASH_ALGORITHM, DEFAULT_LOCAL_HASH_ALGORITHM);
+    addMissingLocalHash = config.getBoolean(PARAM_ADD_MISSING_LOCAL_HASH,
+                                            DEFAULT_ADD_MISSING_LOCAL_HASH);
+    enableLocalHash(config.getBoolean(PARAM_ENABLE_LOCAL_HASH,
+                                      DEFAULT_ENABLE_LOCAL_HASH));
+  }
+
+  /** Enable or disable local hash generation & checking for this
+   * BlockHasher.  Overrides the {@value
+   * BlockHasher#PARAM_ENABLE_LOCAL_HASH} config param */
+  public void enableLocalHash(boolean val) {
+    if (val) {
 //       localHashHandler = new DefaultLocalHashHandler();
       lhr = new LocalHashResult();
       localHashDigestMap = new HashMap<String,MessageDigest>();
-      localHashAlgorithm =
-	config.get(PARAM_LOCAL_HASH_ALGORITHM, DEFAULT_LOCAL_HASH_ALGORITHM);
-      addMissingLocalHash = config.getBoolean(PARAM_ADD_MISSING_LOCAL_HASH,
-					      DEFAULT_ADD_MISSING_LOCAL_HASH);
+    } else {
+      lhr = null;
+      localHashDigestMap = null;
     }
-    
+    enableLocalHash = val;
   }
 
   /** Tell the hasher whether to include the URL in the hash */
