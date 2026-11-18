@@ -885,8 +885,10 @@ public class SolrArtifactIndex extends AbstractArtifactIndex {
    * @param artifacts An {@link Iterable<Artifact>} containing the {@link Artifact}s to index.
    */
   @Override
-  public void reindexArtifacts(Iterable<Artifact> artifacts) {
+  public int reindexArtifacts(Iterable<Artifact> artifacts) {
     indexArtifacts(artifacts);
+    // This index either indexes the whole batch or throws; nothing is skipped.
+    return 0;
   }
 
   private void logSolrUpdate(SolrCommitJournal.SolrOperation op, String artifactUuid, String data) {

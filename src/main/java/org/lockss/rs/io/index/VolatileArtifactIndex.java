@@ -123,6 +123,7 @@ public class VolatileArtifactIndex extends AbstractArtifactIndex {
 
     @Override
     public void clearIndex() {
+      checkWritable();
       indexedByUuid.clear();
       indexedByUrlMap.clear();
     }
@@ -161,6 +162,10 @@ public class VolatileArtifactIndex extends AbstractArtifactIndex {
     @Override
     public void indexArtifact(Artifact artifact) {
       log.debug2("Adding artifact to index: {}", artifact);
+
+        // Guards indexArtifacts(), reindexArtifact() and reindexArtifacts()
+        // too: they all delegate here.
+        checkWritable();
 
         if (artifact == null) {
           throw new IllegalArgumentException("Null artifact");
@@ -205,8 +210,10 @@ public class VolatileArtifactIndex extends AbstractArtifactIndex {
    * @param artifacts An {@link Iterable<Artifact>} containing the {@link Artifact}s to index.
    */
   @Override
-  public void reindexArtifacts(Iterable<Artifact> artifacts) {
+  public int reindexArtifacts(Iterable<Artifact> artifacts) {
     indexArtifacts(artifacts);
+    // This index either indexes the whole batch or throws; nothing is skipped.
+    return 0;
   }
 
     /**
@@ -252,6 +259,9 @@ public class VolatileArtifactIndex extends AbstractArtifactIndex {
      */
     @Override
     public Artifact commitArtifact(String artifactUuid) {
+      // Guards commitArtifact(UUID) too: it delegates here.
+      checkWritable();
+
       if (StringUtils.isEmpty(artifactUuid)) {
         throw new IllegalArgumentException("Null or empty artifact UUID");
       }
@@ -291,6 +301,9 @@ public class VolatileArtifactIndex extends AbstractArtifactIndex {
      */
     @Override
     public boolean deleteArtifact(String artifactUuid) {
+      // Guards deleteArtifact(UUID) too: it delegates here.
+      checkWritable();
+
       if (StringUtils.isEmpty(artifactUuid)) {
         throw new IllegalArgumentException("Null or empty UUID");
       }
@@ -335,6 +348,11 @@ public class VolatileArtifactIndex extends AbstractArtifactIndex {
     
     @Override
     public Artifact updateStorageUrl(String artifactUuid, String storageUrl) throws IOException {
+      // Not checkWritable(): this completes work the index already accepted --
+      // a copy task queued before the AU was quiesced -- so it must still be
+      // allowed while the AU is draining, and is refused only once frozen.
+      checkWritableForCompletion();
+
       if (StringUtils.isEmpty(artifactUuid)) {
         throw new IllegalArgumentException("Invalid artifact UUID");
       }

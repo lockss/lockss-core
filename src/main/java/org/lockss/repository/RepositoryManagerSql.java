@@ -60,6 +60,14 @@ public class RepositoryManagerSql {
       + "," + AUID_COLUMN
       + ") values (default,?)";
 
+  // Race-free AUID insert for PostgreSQL, driving off the unique index on
+  // auids(auid) (schema version 2). DO UPDATE so that the loser of a
+  // concurrent create still gets the row back through RETURNING.
+  private static final String UPSERT_AUID_QUERY = INSERT_AUID_QUERY
+      + " on conflict (" + AUID_COLUMN + ") do update set "
+      + AUID_COLUMN + " = excluded." + AUID_COLUMN
+      + " returning " + AUID_SEQ_COLUMN;
+
   // Query for the AU sizes of an AU associated with an AUID
   private static final String GET_AU_SIZE_QUERY = "select "
       + "s." + AU_LATEST_VERSIONS_SIZE_COLUMN
@@ -174,18 +182,28 @@ public class RepositoryManagerSql {
     PreparedStatement insertAuid = null;
     ResultSet resultSet = null;
     String errorMessage = "Cannot add AUID";
+    boolean upsert = repoDbManager.isTypePostgresql();
+    String sql = upsert ? UPSERT_AUID_QUERY : INSERT_AUID_QUERY;
 
     try {
-      // Prepare the query
-      insertAuid = repoDbManager.prepareStatement(conn,
-          INSERT_AUID_QUERY, Statement.RETURN_GENERATED_KEYS);
+      if (upsert) {
+        // Upsert: a concurrent creator of the same AUID cannot make this
+        // fail, and RETURNING makes it a result-producing statement.
+        insertAuid = repoDbManager.prepareStatement(conn, UPSERT_AUID_QUERY);
+        insertAuid.setString(1, auid);
+        resultSet = repoDbManager.executeQuery(insertAuid);
+      } else {
+        // Prepare the query
+        insertAuid = repoDbManager.prepareStatement(conn,
+            INSERT_AUID_QUERY, Statement.RETURN_GENERATED_KEYS);
 
-      // Populate the query
-      insertAuid.setString(1, auid);
+        // Populate the query
+        insertAuid.setString(1, auid);
 
-      // Add the AUID
-      repoDbManager.executeUpdate(insertAuid);
-      resultSet = insertAuid.getGeneratedKeys();
+        // Add the AUID
+        repoDbManager.executeUpdate(insertAuid);
+        resultSet = insertAuid.getGeneratedKeys();
+      }
 
       // Check whether a result was not obtained.
       if (!resultSet.next()) {
@@ -201,12 +219,12 @@ public class RepositoryManagerSql {
       log.trace("Added auidSeq = {}", auidSeq);
     } catch (SQLException sqle) {
       log.error(errorMessage, sqle);
-      log.error("SQL = '{}'.", INSERT_AUID_QUERY);
+      log.error("SQL = '{}'.", sql);
       log.error("auid = {}", auid);
       throw new DbException(errorMessage, sqle);
     } catch (DbException dbe) {
       log.error(errorMessage, dbe);
-      log.error("SQL = '{}'.", INSERT_AUID_QUERY);
+      log.error("SQL = '{}'.", sql);
       log.error("auid = {}", auid);
       throw dbe;
     } finally {

@@ -1352,6 +1352,11 @@ public class AuUtil {
     return fetchTime;
   }
 
+  /** Return true if it makes sense to offer replay options for the AU */
+  public static boolean isReplayableAu(ArchivalUnit au) {
+    return !au.getStartUrls().isEmpty();
+  }
+
   /**
    * Parses a text date in a thread-safe way.
    * 
