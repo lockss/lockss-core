@@ -53,7 +53,8 @@ public class LockssErrorHandler extends AbstractHttpHandler {
   private String name;
 
   /** Create an error handler that identifies itself as <b>LOCKSS
-   * <i>name</i>, powered by Jetty</b> */
+   * <i>name</i></b>. The page deliberately names neither the server product
+   * nor its version. */
   public LockssErrorHandler(String name) {
     this.name = name;
   }

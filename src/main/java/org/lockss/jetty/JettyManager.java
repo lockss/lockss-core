@@ -49,6 +49,21 @@ import org.lockss.util.time.TimeUtil;
  */
 public abstract class JettyManager
   extends BaseLockssManager implements ConfigurableManager {
+
+  static {
+    // Suppress the Jetty version from the Server response header and from
+    // Jetty's own error pages.
+    //
+    // Set here, on the common base of every Jetty user, rather than in one
+    // subclass: org.mortbay.http.Version reads this property once, in its own
+    // static initializer, and caches the answer for the life of the JVM. Any
+    // Jetty class loaded before the property is set therefore latches the
+    // version back on permanently. Proxy managers extend this class directly
+    // and do not go through BaseServletManager, so setting it there alone left
+    // them able to lose the race.
+    System.setProperty("org.mortbay.http.Version.paranoid", "true");
+  }
+
   static final String PREFIX = Configuration.PREFIX + "jetty.";
   static final String DEBUG_PREFIX = Configuration.PREFIX + "jetty.debug";
 
